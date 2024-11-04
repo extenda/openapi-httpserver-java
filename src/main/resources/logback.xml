@@ -1,0 +1,13 @@
+<configuration>
+  <property name="pattern" value="%green(%d{HH:mm:ss.SSS}) %highlight(%-5level) %cyan([%t]) %yellow(%logger{1}) - %msg%n"/>
+
+  <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>${pattern}</pattern>
+    </encoder>
+  </appender>
+
+  <root level="info">
+    <appender-ref ref="stdout"/>
+  </root>
+</configuration>

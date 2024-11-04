@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-#    deploy:
-#      resources:
-#        limits:
-#          cpus: "2.0"
-#          memory: "1g"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1g"
