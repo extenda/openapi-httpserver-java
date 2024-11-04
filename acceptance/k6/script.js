@@ -13,7 +13,9 @@ export const options = {
 const body = JSON.stringify({
   id: 'some-id',
   age: 42,
-  random: 'd5af5004-8b5a-4db6-838e-38be773eac34'
+  random: 'd5af5004-8b5a-4db6-838e-38be773eac34',
+  status: 'ERROR',
+  feelingGood: true,
 });
 
 export default function () {

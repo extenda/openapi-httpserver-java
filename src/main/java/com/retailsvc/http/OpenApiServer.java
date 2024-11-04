@@ -1,7 +1,7 @@
 package com.retailsvc.http;
 
+import static com.retailsvc.http.Handlers.notFoundHandler;
 import static java.lang.Thread.ofVirtual;
-import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElseGet;
 import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
@@ -11,10 +11,8 @@ import com.retailsvc.http.openapi.RequestDispatchingHandler;
 import com.retailsvc.http.openapi.model.OpenApi;
 import com.retailsvc.http.openapi.model.RequestBodyMapper;
 import com.sun.net.httpserver.Filter;
-import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpHandlers;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -33,8 +31,6 @@ public class OpenApiServer implements AutoCloseable {
 
   private static final Logger LOG = LoggerFactory.getLogger(OpenApiServer.class);
   private static final int PORT = 8080;
-  private static final HttpHandler NOT_FOUND_HANDLER =
-      HttpHandlers.of(HTTP_NOT_FOUND, Headers.of(), "");
 
   private final HttpServer httpServer;
 
@@ -104,7 +100,7 @@ public class OpenApiServer implements AutoCloseable {
 
     context.setHandler(new RequestDispatchingHandler(specification, requestHandlers));
 
-    server.createContext("/", NOT_FOUND_HANDLER);
+    server.createContext("/", notFoundHandler());
 
     server.start();
     LOG.info("Server started (port {}) in {}ms", PORT, System.currentTimeMillis() - t0);

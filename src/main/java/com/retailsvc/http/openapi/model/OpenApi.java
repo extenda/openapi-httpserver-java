@@ -151,10 +151,6 @@ public record OpenApi(
       return "boolean".equalsIgnoreCase(type);
     }
 
-    public boolean isEnum() {
-      return "enum".equalsIgnoreCase(type);
-    }
-
     public boolean isInteger() {
       return "integer".equalsIgnoreCase(type);
     }

@@ -1,8 +1,10 @@
 package com.retailsvc.http.openapi.validation;
 
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -25,6 +27,7 @@ public class ValidatorImpl implements Validator {
     return switch (schema.type()) {
       case "string" -> validate((String) json, schema);
       case "integer", "number" -> numberValidator.validate(json, schema);
+      case "boolean" -> validateBoolean((Boolean) json, schema);
       case "object" -> validate((Map<String, Object>) json, schema);
       default -> false;
     };
@@ -58,6 +61,18 @@ public class ValidatorImpl implements Validator {
         }
       }
     }
+
+    if (properties.containsKey("enum")) {
+      List<String> enums = (List<String>) properties.get("enum");
+      for (String value : enums) {
+        if (value.equals(json)) {
+          LOG.debug("Validated as enum? true");
+          return true;
+        }
+      }
+      return false;
+    }
+
     return false;
   }
 
@@ -81,6 +96,20 @@ public class ValidatorImpl implements Validator {
     }
 
     return true;
+  }
+
+  private boolean validateBoolean(Boolean bool, Schema schema) {
+    if (!schema.isBoolean()) {
+      return false;
+    }
+    LOG.debug("Validate as boolean: {}", bool);
+    try {
+      Objects.requireNonNull(bool);
+      LOG.debug("Validated as boolean? true");
+      return true;
+    } catch (Exception e) {
+      return false;
+    }
   }
 
   private Pattern compile(String pattern) {
