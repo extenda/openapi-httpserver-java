@@ -60,7 +60,6 @@ public class RequestDispatchingHandler implements HttpHandler {
     String method = exchange.getRequestMethod();
     URI requestURI = exchange.getRequestURI();
     String path = requestURI.getPath();
-    LOG.debug("{}: {}", method, requestURI);
 
     String operation = getOperationId(method, path);
     LOG.debug("Found operation id: {}", operation);

@@ -57,6 +57,7 @@ public class ValidatorImpl implements Validator {
           LOG.debug("Validated as UUID? true");
           return true;
         } catch (IllegalArgumentException e) {
+          LOG.trace("Failed to validate UUID.", e);
           return false;
         }
       }
@@ -108,6 +109,7 @@ public class ValidatorImpl implements Validator {
       LOG.debug("Validated as boolean? true");
       return true;
     } catch (Exception e) {
+      LOG.trace("Failed to validate boolean.", e);
       return false;
     }
   }
