@@ -1,13 +1,9 @@
 FROM eclipse-temurin:21-jre-alpine
 
-ENV BASEDIR=target
-ENV JAR_FILE=openapi-httpserver-java-*.jar
-ENV JAR_NAME=openapi-httpserver-java.jar
-ENV CLASSPATH=./$JAR_NAME:./lib/*
-
 WORKDIR /app
 
-COPY ${BASEDIR}/lib/ lib/
-COPY ${BASEDIR}/$JAR_FILE ./$JAR_NAME
+COPY target/lib/ lib/
+COPY target/classes classes/
+COPY target/test-classes test-classes/
 
-ENTRYPOINT ["java", "-jar", "openapi-httpserver-java.jar"]
+ENTRYPOINT ["java", "-cp", "lib/*:classes:test-classes", "com.retailsvc.http.start.ServerLauncher"]
