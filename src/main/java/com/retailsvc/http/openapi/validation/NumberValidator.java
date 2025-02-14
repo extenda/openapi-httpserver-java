@@ -1,5 +1,6 @@
 package com.retailsvc.http.openapi.validation;
 
+import com.retailsvc.http.openapi.exceptions.BadRequestException;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,28 +11,38 @@ public class NumberValidator implements Validator {
 
   @Override
   public boolean validate(Object input, Schema schema) {
-    if (!schema.isInteger() && !schema.isNumber()) {
+    try {
+      if (!schema.isInteger() && !schema.isNumber()) {
+        return false;
+      }
+      if (!(input instanceof Number number)) {
+        return false;
+      }
+
+      LOG.debug("Validating number input: {}", number);
+
+      if (schema.isInteger()) {
+        boolean valid = number.longValue() % number.doubleValue() == 0;
+        LOG.debug("Validated as integer? {}", valid);
+        return valid;
+      }
+
+      return switch (number) {
+        case Long l -> validateLong(l);
+        case Double d -> validateDouble(d);
+        case Float f -> validateFloat(f);
+        default -> {
+          LOG.error("Could not validate number {}", number);
+          yield false;
+        }
+      };
+    } catch (ClassCastException e) {
+      LOG.error("Wrong class type found for input {}", input, e);
+      throw new BadRequestException();
+    } catch (Exception e) {
+      LOG.error("Could not validate number {}", input, e);
       return false;
     }
-    Number number = (Number) input;
-
-    LOG.debug("Validating number input: {}", number);
-
-    if (schema.isInteger()) {
-      boolean valid = number.longValue() % number.doubleValue() == 0;
-      LOG.debug("Validated as integer? {}", valid);
-      return valid;
-    }
-
-    return switch (number) {
-      case Long l -> validateLong(l);
-      case Double d -> validateDouble(d);
-      case Float f -> validateFloat(f);
-      default -> {
-        LOG.error("Could not validate number {}", number);
-        yield false;
-      }
-    };
   }
 
   private static boolean validateLong(Long l) {
