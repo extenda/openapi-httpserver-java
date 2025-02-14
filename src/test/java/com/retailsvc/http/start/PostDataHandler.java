@@ -1,5 +1,6 @@
 package com.retailsvc.http.start;
 
+import com.retailsvc.http.openapi.model.GetRequestBody;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
@@ -7,7 +8,7 @@ import java.lang.invoke.MethodHandles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class PostDataHandler implements HttpHandler {
+public class PostDataHandler implements HttpHandler, GetRequestBody {
 
   private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -15,10 +16,10 @@ public class PostDataHandler implements HttpHandler {
   public void handle(HttpExchange exchange) throws IOException {
     LOG.debug("POST /data");
 
-    byte[] bytes = (byte[]) exchange.getAttribute("body");
+    byte[] bytes = getRequestBody(exchange);
 
     if (bytes.length == 0) {
-      LOG.debug("No bytes read from the request body");
+      LOG.debug("No bytes available to read from the request body");
     } else {
       LOG.debug("Read {} bytes from the request body", bytes.length);
     }
@@ -30,6 +31,7 @@ public class PostDataHandler implements HttpHandler {
         var os = exchange.getResponseBody()) {
       exchange.getResponseHeaders().add("Content-Type", "application/json");
       exchange.sendResponseHeaders(200, requestBody.length());
+
       os.write(requestBody.getBytes());
     }
   }

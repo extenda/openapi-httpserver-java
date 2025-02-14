@@ -19,6 +19,6 @@ class NoServersDeclaredExceptionTest {
 
   @Test
   void testNoServersDeclaredExceptionType() {
-    assertThat(new NoServersDeclaredException()).isInstanceOf(NotFoundClassException.class);
+    assertThat(new NoServersDeclaredException()).isInstanceOf(NotFoundTypeException.class);
   }
 }

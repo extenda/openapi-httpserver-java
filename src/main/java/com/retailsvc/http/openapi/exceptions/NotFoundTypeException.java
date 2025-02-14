@@ -1,3 +1,3 @@
 package com.retailsvc.http.openapi.exceptions;
 
-public interface BadRequestClassException {}
+public interface NotFoundTypeException {}

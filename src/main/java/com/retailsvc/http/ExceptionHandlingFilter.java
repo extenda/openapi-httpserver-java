@@ -2,8 +2,8 @@ package com.retailsvc.http;
 
 import static com.retailsvc.http.Handlers.notFoundHandler;
 
-import com.retailsvc.http.openapi.exceptions.BadRequestClassException;
-import com.retailsvc.http.openapi.exceptions.NotFoundClassException;
+import com.retailsvc.http.openapi.exceptions.BadRequestTypeException;
+import com.retailsvc.http.openapi.exceptions.NotFoundTypeException;
 import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
@@ -42,8 +42,8 @@ class ExceptionHandlingFilter extends Filter {
 
   private void handleException(HttpExchange exchange, Exception e) throws IOException {
     switch (e) {
-      case NotFoundClassException nf -> notFoundHandler().handle(exchange);
-      case BadRequestClassException br -> exceptionHandler.handleException(exchange, e);
+      case NotFoundTypeException nf -> notFoundHandler().handle(exchange);
+      case BadRequestTypeException br -> exceptionHandler.handleException(exchange, e);
       default -> exceptionHandler.handleException(exchange, e);
     }
   }

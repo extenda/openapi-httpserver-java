@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
+import { group, check, sleep } from 'k6';
 
 export const options = {
   stages: [
@@ -19,17 +19,31 @@ const body = JSON.stringify({
 });
 
 export default function () {
-  const url = 'http://localhost:8080/api/v1/data';
+  group('get request', () => {
+    const url = 'http://localhost:8080/api/v1/data';
+    const res = http.get(url);
 
-  const res = http.post(url, body, {
-    headers: {
-      'Content-Type':'application/json',
-    }
+    check(res, {
+      'is status 200': (r) => r.status === 200,
+      'is response in JSON format': (r) => r.headers['Content-Type'] === 'application/json',
+      'id exists in response': (r) => JSON.parse(r.body).hasOwnProperty('id'),
+    });
   });
 
-  check(res, {
-    'is status 200': (r) => r.status === 200,
-    'is response in JSON format': (r) => r.headers['Content-Type'] === 'application/json',
-    'id exists in response': (r) => JSON.parse(r.body).hasOwnProperty('id'),
+  group('post request', () => {
+    const url = 'http://localhost:8080/api/v1/data';
+    const res = http.post(url, body, {
+      headers: {
+        'Content-Type':'application/json',
+      }
+    });
+
+    check(res, {
+      'is status 200': (r) => r.status === 200,
+      'is response in JSON format': (r) => r.headers['Content-Type'] === 'application/json',
+      'id exists in response': (r) => JSON.parse(r.body).hasOwnProperty('id'),
+    });
   });
+
+
 }

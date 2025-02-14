@@ -94,9 +94,9 @@ public class OpenApiServer implements AutoCloseable {
     HttpContext context = server.createContext(specification.basePath());
 
     List<Filter> filters = context.getFilters();
+    filters.add(new ExceptionHandlingFilter(errorHandler));
     filters.add(new BodyHandler());
     filters.add(new OpenApiValidationFilter(specification, requestBodyMapper));
-    filters.add(new ExceptionHandlingFilter(errorHandler));
 
     context.setHandler(new RequestDispatchingHandler(specification, requestHandlers));
 

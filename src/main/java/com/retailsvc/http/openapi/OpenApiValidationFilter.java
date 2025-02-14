@@ -59,7 +59,6 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
 
   @Override
   public void doFilter(HttpExchange exchange, Chain chain) throws IOException {
-
     String method = exchange.getRequestMethod();
     String requestURI = exchange.getRequestURI().getPath();
     String path = specification.stripBasePath(requestURI);
@@ -70,26 +69,26 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
             .orElseThrow(() -> new OperationIdNotFoundException(method, path));
 
     byte[] readBodyBytes = getRequestBody(exchange);
+    if (readBodyBytes != null && readBodyBytes.length > 0) {
+      var mappedBody = mapper.mapFrom(readBodyBytes);
+      var validator = new ValidatorImpl();
 
-    Map<String, Object> map = mapper.mapFrom(readBodyBytes);
+      String contentType = exchange.getRequestHeaders().getFirst("content-type");
+      MediaType mediaType = operation.requestBody().content().get(contentType);
+      Schema schema = mediaType.schema();
 
-    ValidatorImpl validator = new ValidatorImpl();
+      boolean isValid = validator.validate(mappedBody, schema);
 
-    String contentType = exchange.getRequestHeaders().getFirst("content-type");
-    MediaType mediaType = operation.requestBody().content().get(contentType);
-    Schema schema = mediaType.schema();
+      LOG.debug("Overall validation is {}", isValid ? "VALID" : "INVALID");
 
-    boolean isValid = validator.validate(map, schema);
-
-    LOG.debug("Overall validation is {}", isValid ? "VALID" : "INVALID");
-
-    if (isValid) {
-      chain.doFilter(exchange);
-    } else {
-      try (exchange) {
-        exchange.sendResponseHeaders(HTTP_BAD_REQUEST, 0);
+      if (!isValid) {
+        try (exchange) {
+          exchange.sendResponseHeaders(HTTP_BAD_REQUEST, 0);
+          return;
+        }
       }
     }
+    chain.doFilter(exchange);
   }
 
   @Override

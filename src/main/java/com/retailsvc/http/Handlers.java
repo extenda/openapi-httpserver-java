@@ -23,9 +23,10 @@ public class Handlers {
     };
   }
 
-  public static HttpHandler internalServerErrorHandler() {
-    return exchange -> {
+  public static ExceptionHandler internalServerErrorHandler() {
+    return (exchange, throwable) -> {
       try (exchange) {
+        LOG.error("Error in handling request", throwable);
         endRequest(exchange, HTTP_INTERNAL_ERROR);
       }
     };
@@ -33,7 +34,9 @@ public class Handlers {
 
   public static ExceptionHandler defaultExceptionHandler() {
     LOG.warn("No exception handler set, using default.");
-    return (exchange, e) -> internalServerErrorHandler().handle(exchange);
+    return (exchange, e) -> {
+      internalServerErrorHandler().handleException(exchange, e);
+    };
   }
 
   private static void endRequest(HttpExchange exchange, int status) throws IOException {

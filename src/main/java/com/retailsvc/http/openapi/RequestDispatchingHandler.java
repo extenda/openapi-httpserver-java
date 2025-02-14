@@ -1,8 +1,8 @@
 package com.retailsvc.http.openapi;
 
-import static com.retailsvc.http.Handlers.internalServerErrorHandler;
 import static java.util.Objects.requireNonNull;
 
+import com.retailsvc.http.openapi.exceptions.MissingOperationHandlerException;
 import com.retailsvc.http.openapi.exceptions.OperationIdNotFoundException;
 import com.retailsvc.http.openapi.model.OpenApi;
 import com.retailsvc.http.openapi.model.OpenApi.Operation;
@@ -11,6 +11,7 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,6 +80,7 @@ public class RequestDispatchingHandler implements HttpHandler {
   }
 
   private HttpHandler getHandler(String operationId) {
-    return requestHandlers.getOrDefault(operationId, internalServerErrorHandler());
+    return Optional.ofNullable(requestHandlers.get(operationId))
+        .orElseThrow(() -> new MissingOperationHandlerException(operationId));
   }
 }

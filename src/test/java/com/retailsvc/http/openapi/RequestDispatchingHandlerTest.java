@@ -7,7 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.retailsvc.http.openapi.exceptions.NotFoundClassException;
+import com.retailsvc.http.openapi.exceptions.NotFoundTypeException;
 import com.retailsvc.http.openapi.model.OpenApi;
 import com.retailsvc.http.openapi.model.OpenApi.Operation;
 import com.sun.net.httpserver.HttpExchange;
@@ -53,7 +53,7 @@ class RequestDispatchingHandlerTest {
 
     assertThatException()
         .isThrownBy(() -> handler.handle(exchange))
-        .isInstanceOf(NotFoundClassException.class)
+        .isInstanceOf(NotFoundTypeException.class)
         .withMessageContaining("GET", "/api/test");
   }
 

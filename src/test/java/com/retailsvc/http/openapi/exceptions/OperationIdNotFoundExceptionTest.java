@@ -33,6 +33,6 @@ class OperationIdNotFoundExceptionTest {
   void testImplementNotFoundClassException() {
     OperationIdNotFoundException exception = new OperationIdNotFoundException("PATCH", "/test");
 
-    assertThat(exception).isInstanceOf(NotFoundClassException.class);
+    assertThat(exception).isInstanceOf(NotFoundTypeException.class);
   }
 }
