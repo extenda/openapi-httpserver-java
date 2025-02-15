@@ -158,6 +158,8 @@ public record OpenApi(
       required = Objects.requireNonNullElse(required, List.of());
       items = Objects.requireNonNullElse(items, Map.of());
       properties = Objects.requireNonNullElse(properties, Map.of());
+      maximum = Objects.requireNonNullElse(maximum, Double.MAX_VALUE);
+      minimum = Objects.requireNonNullElse(minimum, Double.MIN_VALUE);
     }
 
     public boolean isString() {

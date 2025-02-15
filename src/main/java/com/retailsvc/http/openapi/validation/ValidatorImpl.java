@@ -135,11 +135,11 @@ public class ValidatorImpl implements Validator {
       var maximum =
           Optional.ofNullable(subSchema.get("maximum"))
               .map(Number.class::cast)
-              .orElse(Long.MAX_VALUE);
+              .orElse(Double.MAX_VALUE);
       var minimum =
           Optional.ofNullable(subSchema.get("minimum"))
               .map(Number.class::cast)
-              .orElse(Long.MIN_VALUE);
+              .orElse(Double.MIN_VALUE);
       var propertySchema =
           new Schema(type, format, subSchema, items, subRequired, maximum, minimum);
       Object property = entry.getValue();
@@ -167,12 +167,12 @@ public class ValidatorImpl implements Validator {
         Optional.ofNullable(props)
             .map(p -> p.get("maximum"))
             .map(Number.class::cast)
-            .orElse(Long.MAX_VALUE);
+            .orElse(Double.MAX_VALUE);
     var minimum =
         Optional.ofNullable(props)
             .map(p -> p.get("minimum"))
             .map(Number.class::cast)
-            .orElse(Long.MIN_VALUE);
+            .orElse(Double.MIN_VALUE);
 
     for (Object entry : json) {
       if (!validate(entry, new Schema(type, format, props, items, required, maximum, minimum))) {

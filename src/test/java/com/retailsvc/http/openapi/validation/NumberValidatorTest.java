@@ -27,7 +27,9 @@ class NumberValidatorTest {
   void shouldValidateIntegerSchemaTrueForIntegerInput() {
     Schema schema = mock(Schema.class);
     when(schema.isInteger()).thenReturn(true);
-    when(schema.isNumber()).thenReturn(false);
+    when(schema.isNumber()).thenReturn(true);
+    when(schema.maximum()).thenReturn(Double.MAX_VALUE);
+    when(schema.minimum()).thenReturn(Double.MIN_VALUE);
 
     boolean isValid = numberValidator.validate(123, schema);
 
@@ -48,8 +50,10 @@ class NumberValidatorTest {
   @Test
   void shouldValidateNumberSchemaTrueForValidNumberInput() {
     Schema schema = Mockito.mock(Schema.class);
-    Mockito.when(schema.isInteger()).thenReturn(false);
-    Mockito.when(schema.isNumber()).thenReturn(true);
+    when(schema.isInteger()).thenReturn(false);
+    when(schema.isNumber()).thenReturn(true);
+    when(schema.maximum()).thenReturn(Double.MAX_VALUE);
+    when(schema.minimum()).thenReturn(Double.MIN_VALUE);
 
     boolean isValidLong = numberValidator.validate(123L, schema);
     boolean isValidDouble = numberValidator.validate(123.45, schema);

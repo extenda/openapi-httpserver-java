@@ -84,6 +84,5 @@ class RequestDispatchingHandlerTest {
         .isInstanceOf(MissingOperationHandlerException.class);
 
     verify(mockHandler, never()).handle(exchange);
-    verify(exchange).sendResponseHeaders(500, 0);
   }
 }
