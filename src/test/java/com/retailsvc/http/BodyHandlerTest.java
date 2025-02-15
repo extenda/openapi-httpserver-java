@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.retailsvc.http.BodyHandler.RequestBodyWrapper;
 import com.sun.net.httpserver.Filter.Chain;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayInputStream;
@@ -39,7 +40,7 @@ class BodyHandlerTest {
     bodyHandler.doFilter(exchange, chain);
 
     verify(exchange, never()).setAttribute(eq("body"), any());
-    verify(chain).doFilter(exchange);
+    verify(chain).doFilter(any(RequestBodyWrapper.class));
   }
 
   @Test
@@ -51,8 +52,8 @@ class BodyHandlerTest {
 
     bodyHandler.doFilter(exchange, chain);
 
-    verify(exchange).setAttribute("body", body);
-    verify(chain).doFilter(exchange);
+    verify(exchange, never()).setAttribute("body", body);
+    verify(chain).doFilter(any(RequestBodyWrapper.class));
   }
 
   @Test

@@ -10,6 +10,7 @@ import com.retailsvc.http.openapi.model.RequestBodyMapper;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import org.slf4j.Logger;
@@ -31,6 +32,7 @@ public class ServerLauncher {
     Map<String, HttpHandler> handlers = new HashMap<>();
     handlers.put("get-data", new GetDataHandler());
     handlers.put("post-data", new PostDataHandler());
+    handlers.put("post-list-objects", new PostListObjectsHandler());
 
     final Gson gson = new Gson();
     // TODO: better solution?! This way we support jackson and gson
@@ -38,8 +40,10 @@ public class ServerLauncher {
         new RequestBodyMapper() {
           @Override
           public <T> T mapFrom(byte[] body) {
-            Class<Map> c = Map.class;
-            return (T) gson.fromJson(new String(body), c);
+            if (new String(body).startsWith("[")) {
+              return (T) gson.fromJson(new String(body), List.class);
+            }
+            return (T) gson.fromJson(new String(body), Map.class);
           }
         };
 

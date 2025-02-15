@@ -7,6 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.retailsvc.http.openapi.exceptions.MissingOperationHandlerException;
 import com.retailsvc.http.openapi.exceptions.NotFoundTypeException;
 import com.retailsvc.http.openapi.model.OpenApi;
 import com.retailsvc.http.openapi.model.OpenApi.Operation;
@@ -78,7 +79,9 @@ class RequestDispatchingHandlerTest {
     when(specification.getOperation("GET", "/api/test"))
         .thenReturn(Optional.of(new Operation("aa", null, Map.of())));
 
-    handler.handle(exchange);
+    assertThatException()
+        .isThrownBy(() -> handler.handle(exchange))
+        .isInstanceOf(MissingOperationHandlerException.class);
 
     verify(mockHandler, never()).handle(exchange);
     verify(exchange).sendResponseHeaders(500, 0);

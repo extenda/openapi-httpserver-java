@@ -12,7 +12,7 @@ public class NumberValidator implements Validator {
   @Override
   public boolean validate(Object input, Schema schema) {
     try {
-      if (!schema.isInteger() && !schema.isNumber()) {
+      if (!schema.isNumber()) {
         return false;
       }
       if (!(input instanceof Number number)) {
@@ -21,20 +21,30 @@ public class NumberValidator implements Validator {
 
       LOG.debug("Validating number input: {}", number);
 
+      if (number.longValue() > schema.maximum().longValue()) {
+        LOG.debug("Value {} is larger than maximum {}", number, schema.maximum());
+        return false;
+      }
+      if (number.longValue() < schema.minimum().longValue()) {
+        LOG.debug("Value {} is smaller than minimum {}", number, schema.maximum());
+        return false;
+      }
+
       if (schema.isInteger()) {
         boolean valid = number.longValue() % number.doubleValue() == 0;
         LOG.debug("Validated as integer? {}", valid);
         return valid;
       }
 
+      if (schema.isLong()) {
+        number = number.longValue();
+      }
+
       return switch (number) {
         case Long l -> validateLong(l);
         case Double d -> validateDouble(d);
         case Float f -> validateFloat(f);
-        default -> {
-          LOG.error("Could not validate number {}", number);
-          yield false;
-        }
+        default -> false;
       };
     } catch (ClassCastException e) {
       LOG.error("Wrong class type found for input {}", input, e);

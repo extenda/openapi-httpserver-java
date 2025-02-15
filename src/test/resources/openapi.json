@@ -39,6 +39,10 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "aList",
+                  "feelingGood"
+                ],
                 "properties": {
                   "id": {
                     "type": "string",
@@ -60,6 +64,65 @@
                   },
                   "feelingGood": {
                     "type": "boolean"
+                  },
+                  "aList": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "aListOfObjects": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  },
+                  "anObject": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "age"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "age": {
+                        "type": "integer",
+                        "format": "int32"
+                      },
+                      "longNumber": {
+                        "type": "integer",
+                        "format": "int64",
+                        "maximum": 1000,
+                        "minimum": 100
+                      },
+                      "nested": {
+                        "type": "object",
+                        "required": [
+                          "nestedValue"
+                        ],
+                        "properties": {
+                          "nestedValue": {
+                            "type": "integer",
+                            "format": "int32"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "aDate": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "aDateTime": {
+                    "type": "string",
+                    "format": "date-time"
                   }
                 }
               }
@@ -82,6 +145,33 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/list/objects": {
+      "post": {
+        "operationId": "post-list-objects",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }

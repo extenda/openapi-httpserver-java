@@ -1,5 +1,6 @@
 package com.retailsvc.http.openapi.model;
 
+import com.retailsvc.http.openapi.exceptions.LoadSpecificationException;
 import com.retailsvc.http.openapi.exceptions.NoServersDeclaredException;
 import com.retailsvc.http.openapi.exceptions.UnsupportedVersionException;
 import java.net.URI;
@@ -141,7 +142,23 @@ public record OpenApi(
    */
   public record MediaType(Schema schema) {}
 
-  public record Schema(String type, Map<String, Object> properties) {
+  public record Schema(
+      String type,
+      String format,
+      Map<String, Object> properties,
+      Map<String, Object> items,
+      List<String> required,
+      Number maximum,
+      Number minimum) {
+
+    public Schema {
+      if (type == null || type.isBlank()) {
+        throw new LoadSpecificationException("Type is missing");
+      }
+      required = Objects.requireNonNullElse(required, List.of());
+      items = Objects.requireNonNullElse(items, Map.of());
+      properties = Objects.requireNonNullElse(properties, Map.of());
+    }
 
     public boolean isString() {
       return "string".equalsIgnoreCase(type);
@@ -152,15 +169,25 @@ public record OpenApi(
     }
 
     public boolean isInteger() {
-      return "integer".equalsIgnoreCase(type);
+      return "integer".equalsIgnoreCase(type)
+          && Optional.ofNullable(format).map("int32"::equalsIgnoreCase).orElse(true);
+    }
+
+    public boolean isLong() {
+      return "integer".equalsIgnoreCase(type)
+          && Optional.ofNullable(format).map("int64"::equalsIgnoreCase).orElse(false);
     }
 
     public boolean isNumber() {
-      return "number".equalsIgnoreCase(type);
+      return "number".equalsIgnoreCase(type) || "integer".equalsIgnoreCase(type);
     }
 
     public boolean isObject() {
       return "object".equalsIgnoreCase(type);
+    }
+
+    public boolean isArray() {
+      return "array".equalsIgnoreCase(type);
     }
   }
 }

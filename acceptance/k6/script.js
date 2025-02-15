@@ -16,7 +16,23 @@ const body = JSON.stringify({
   random: 'd5af5004-8b5a-4db6-838e-38be773eac34',
   status: 'ERROR',
   feelingGood: true,
+  aList: [ 'string', 'string' ],
+  anObject: {
+    id: 'some-id',
+    age: 42,
+    longNumber: 900,
+    nested: {
+      nestedValue: 43
+    }
+  },
+  aDate: '2025-03-02',
+  aDateTime: '2025-03-02T12:34:56Z'
 });
+
+const listOfObjects = JSON.stringify([
+  { value: 42 },
+  { value: 43 }
+]);
 
 export default function () {
   group('get request', () => {
@@ -45,5 +61,16 @@ export default function () {
     });
   });
 
+  group('post list-of-objects request', () => {
+    const url = 'http://localhost:8080/api/v1/list/objects';
+    const res = http.post(url, listOfObjects, {
+      headers: {
+        'Content-Type':'application/json',
+      }
+    });
 
+    check(res, {
+      'is status 200': (r) => r.status === 200,
+    });
+  });
 }
