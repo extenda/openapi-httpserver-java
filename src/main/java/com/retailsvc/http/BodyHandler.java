@@ -8,10 +8,13 @@ import com.sun.net.httpserver.HttpPrincipal;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.invoke.MethodHandles;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Decorate the `{@link HttpExchange} with the 'body' attribute, holding the request body as a
@@ -21,15 +24,16 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class BodyHandler extends Filter {
 
+  private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
+  /** The key to the attributes map where the request body is stored */
   public static final String BODY_ATTRIBUTE = "body";
 
   @Override
   public void doFilter(HttpExchange exchange, Chain chain) throws IOException {
     try (var is = exchange.getRequestBody()) {
       byte[] bytes = is.readAllBytes();
-      byte[] bodyBytes = bytes.length > 0 ? bytes : new byte[0];
-
-      chain.doFilter(new RequestBodyWrapper(exchange, bodyBytes));
+      chain.doFilter(new RequestBodyWrapper(exchange, bytes));
     }
   }
 
@@ -38,6 +42,10 @@ public class BodyHandler extends Filter {
     return "Body handler";
   }
 
+  /**
+   * Delegate to support get/set of private attributes on the HttpExchange. It also caches the
+   * request body for later use, as the inputstream of the request body can only be read once.
+   */
   public static class RequestBodyWrapper extends HttpExchange {
 
     private final HttpExchange delegate;
@@ -125,14 +133,39 @@ public class BodyHandler extends Filter {
 
     @Override
     public void setAttribute(String name, Object value) {
+      if (value == null) {
+        LOG.warn("Not allowed to insert a null value for attribute '{}'. Skipping..", name);
+        return;
+      }
       attributes.put(name, value);
     }
 
+    /**
+     * Custom method to access the delegate's attributes.
+     *
+     * <p><em>Note that these attributes are shared by all {@link HttpExchange} on the same {@link
+     * HttpContext}. For attributes private to the request scope, use {@link #getAttribute(String)}
+     * and {@link #setAttribute(String, Object)}.</em>
+     *
+     * @param name Name of the attribute
+     * @return The attribute, or null if not found
+     */
     public Object getContextAttribute(String name) {
       return delegate.getAttribute(name);
     }
 
+    /**
+     * Custom method to add a key-value pair to the shared attributes.
+     *
+     * @param name The name of the attribute
+     * @param value The value to add
+     * @see #getContextAttribute(String)
+     */
     public void setContextAttribute(String name, Object value) {
+      if (value == null) {
+        LOG.warn("Not allowed to insert a null value for shared attribute '{}'. Skipping..", name);
+        return;
+      }
       delegate.setAttribute(name, value);
     }
 

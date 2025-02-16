@@ -40,6 +40,10 @@ public class NumberValidator implements Validator {
         number = number.longValue();
       }
 
+      if ("int32".equals(schema.format())) {
+        number = number.intValue();
+      }
+
       return switch (number) {
         case Long l -> validateLong(l);
         case Double d -> validateDouble(d);

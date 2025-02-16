@@ -9,7 +9,7 @@
 
 <!--  <logger name="com.retailsvc" level="debug"/>-->
 
-  <root level="info">
+  <root level="off">
     <appender-ref ref="stdout"/>
   </root>
 </configuration>

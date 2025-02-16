@@ -155,6 +155,9 @@ public record OpenApi(
       if (type == null || type.isBlank()) {
         throw new LoadSpecificationException("Type is missing");
       }
+      if (type.equalsIgnoreCase("number") && format == null) {
+        format = "int32";
+      }
       required = Objects.requireNonNullElse(required, List.of());
       items = Objects.requireNonNullElse(items, Map.of());
       properties = Objects.requireNonNullElse(properties, Map.of());
@@ -171,17 +174,15 @@ public record OpenApi(
     }
 
     public boolean isInteger() {
-      return "integer".equalsIgnoreCase(type)
-          && Optional.ofNullable(format).map("int32"::equalsIgnoreCase).orElse(true);
+      return isNumber() && Optional.ofNullable(format).map("int32"::equalsIgnoreCase).orElse(true);
     }
 
     public boolean isLong() {
-      return "integer".equalsIgnoreCase(type)
-          && Optional.ofNullable(format).map("int64"::equalsIgnoreCase).orElse(false);
+      return isNumber() && Optional.ofNullable(format).map("int64"::equalsIgnoreCase).orElse(false);
     }
 
     public boolean isNumber() {
-      return "number".equalsIgnoreCase(type) || "integer".equalsIgnoreCase(type);
+      return "number".equalsIgnoreCase(type);
     }
 
     public boolean isObject() {
