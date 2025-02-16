@@ -2,6 +2,8 @@ package com.retailsvc.http.openapi.validation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatException;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -27,8 +29,13 @@ class NumberValidatorTest {
     schema = mock();
     when(schema.isInteger()).thenReturn(true);
     when(schema.isNumber()).thenReturn(true);
-    when(schema.maximum()).thenReturn(Double.MAX_VALUE);
-    when(schema.minimum()).thenReturn(Double.MIN_VALUE);
+    when(schema.maximum()).thenReturn(Long.MAX_VALUE);
+    when(schema.minimum()).thenReturn(Long.MIN_VALUE);
+  }
+
+  @Test
+  void validateLong_nullInput_returnsFalse() {
+    assertFalse(numberValidator.validate(null, schema));
   }
 
   @Test
@@ -55,6 +62,22 @@ class NumberValidatorTest {
     boolean isValid = numberValidator.validate("test", schema);
 
     assertThat(isValid).isFalse();
+  }
+
+  @Test
+  void testThatErrorCausesValidationToReturnFalse() {
+    when(schema.isInteger()).thenThrow(new RuntimeException("test"));
+
+    assertThat(numberValidator.validate(1, schema)).isFalse();
+  }
+
+  @Test
+  void shouldReturnBadRequestWhenClassCastingFails() {
+    when(schema.isInteger()).thenThrow(new ClassCastException("test"));
+
+    assertThatException()
+        .isThrownBy(() -> numberValidator.validate(1, schema))
+        .isInstanceOf(BadRequestException.class);
   }
 
   @ParameterizedTest
@@ -94,19 +117,26 @@ class NumberValidatorTest {
     assertThat(isValid).isTrue();
   }
 
-  @Test
-  void testThatErrorCausesValidationToReturnFalse() {
-    when(schema.isInteger()).thenThrow(new RuntimeException("test"));
-
-    assertThat(numberValidator.validate(1, schema)).isFalse();
+  private static Stream<Arguments> provideNumberValidationCases() {
+    return Stream.of(
+        arguments(123L, true), // Valid long
+        arguments(0L, true), // Zero is valid
+        arguments(Long.MAX_VALUE, true), // Maximum long value
+        arguments(Long.MIN_VALUE, true), // Minimum long value
+        arguments(123.5, true), // Decimal number
+        arguments(Double.POSITIVE_INFINITY, false), // Infinity
+        arguments(Double.NaN, false), // Not a Number
+        arguments(Float.NaN, false), // Float NaN
+        arguments(1.23e20, true) // Scientific notation
+        );
   }
 
-  @Test
-  void shouldReturnBadRequestWhenClassCastingFails() {
-    when(schema.isInteger()).thenThrow(new ClassCastException("test"));
+  @ParameterizedTest
+  @MethodSource("provideNumberValidationCases")
+  void shouldValidateNumberWithVariousInputs(Number input, boolean expectedResult) {
+    when(schema.isInteger()).thenReturn(input instanceof Integer);
+    when(schema.isLong()).thenReturn(input instanceof Long);
 
-    assertThatException()
-        .isThrownBy(() -> numberValidator.validate(1, schema))
-        .isInstanceOf(BadRequestException.class);
+    assertEquals(expectedResult, numberValidator.validate(input, schema));
   }
 }

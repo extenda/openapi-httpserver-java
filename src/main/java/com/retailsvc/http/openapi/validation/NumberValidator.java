@@ -31,7 +31,8 @@ public class NumberValidator implements Validator {
       }
 
       if (schema.isInteger()) {
-        boolean valid = number.longValue() % number.doubleValue() == 0;
+        double value = number.doubleValue();
+        boolean valid = Double.valueOf(value).equals(Math.floor(value));
         LOG.debug("Validated as integer? {}", valid);
         return valid;
       }
@@ -60,9 +61,11 @@ public class NumberValidator implements Validator {
   }
 
   private static boolean validateLong(Long l) {
-    boolean valid = l.doubleValue() % 1 == 0;
-    LOG.debug("Validated as long? {}", valid);
-    return valid;
+    if (l == null) {
+      return false;
+    }
+    LOG.debug("Validated as long? true");
+    return true;
   }
 
   private static boolean validateDouble(Double d) {
