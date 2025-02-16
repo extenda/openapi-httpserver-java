@@ -2,6 +2,7 @@ package com.retailsvc.http.openapi.validation;
 
 import com.retailsvc.http.openapi.exceptions.BadRequestException;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
+import java.math.BigDecimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,8 +32,8 @@ public class NumberValidator implements Validator {
       }
 
       if (schema.isInteger()) {
-        double value = number.doubleValue();
-        boolean valid = Double.valueOf(value).equals(Math.floor(value));
+        BigDecimal value = new BigDecimal(number.toString());
+        boolean valid = value.stripTrailingZeros().scale() <= 0;
         LOG.debug("Validated as integer? {}", valid);
         return valid;
       }

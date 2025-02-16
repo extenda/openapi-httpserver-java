@@ -10,6 +10,7 @@ import com.retailsvc.http.openapi.model.OpenApi.Operation;
 import com.retailsvc.http.openapi.model.OpenApi.PathItem;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import com.retailsvc.http.openapi.model.RequestBodyMapper;
+import com.retailsvc.http.openapi.validation.Validator;
 import com.retailsvc.http.openapi.validation.ValidatorImpl;
 import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpExchange;
@@ -32,13 +33,19 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
   private final OpenApi specification;
   private final Map<String, Operation> operations;
   private final RequestBodyMapper mapper;
+  private final Validator validator;
 
   public OpenApiValidationFilter(OpenApi spec, RequestBodyMapper mapper) {
-    this.mapper = mapper;
-    LOG.atDebug().addArgument(this::description).setMessage("Instantiating {}...").log();
+    this(spec, mapper, new ValidatorImpl());
+  }
 
-    specification = spec;
-    operations = new ConcurrentHashMap<>();
+  protected OpenApiValidationFilter(OpenApi spec, RequestBodyMapper mapper, Validator validator) {
+    this.mapper = mapper;
+    LOG.debug("Instantiating {}...", description());
+
+    this.specification = spec;
+    this.operations = new ConcurrentHashMap<>();
+    this.validator = validator;
 
     for (Entry<String, PathItem> pathItem : specification.paths().entrySet()) {
       String path = specification.stripBasePath(pathItem.getKey());
@@ -71,7 +78,6 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
     byte[] readBodyBytes = getRequestBody(exchange);
     if (readBodyBytes != null && readBodyBytes.length > 0) {
       var mappedBody = mapper.mapFrom(readBodyBytes);
-      var validator = new ValidatorImpl();
 
       String contentType = exchange.getRequestHeaders().getFirst("content-type");
       MediaType mediaType = operation.requestBody().content().get(contentType);
