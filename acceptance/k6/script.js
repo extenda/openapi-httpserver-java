@@ -25,6 +25,10 @@ const body = JSON.stringify({
       nestedValue: 43
     }
   },
+  aListOfObjects: [
+    { value: 42 },
+    { value: 43 }
+  ],
   aDate: '2025-03-02',
   aDateTime: '2025-03-02T12:34:56Z'
 });

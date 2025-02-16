@@ -22,7 +22,7 @@ public class ValidatorImpl implements Validator {
   public boolean validate(Object json, Schema schema) {
     return switch (schema.type()) {
       case "string" -> stringValidator.validate(json, schema);
-      case "number" -> numberValidator.validate(json, schema);
+      case "number", "integer" -> numberValidator.validate(json, schema);
       case "boolean" -> booleanValidator.validate(json, schema);
       case "object" -> objectValidator.validate(json, schema);
       case "array" -> arrayValidator.validate(json, schema);

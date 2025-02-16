@@ -52,7 +52,8 @@
                     "type": "integer"
                   },
                   "score": {
-                    "type": "number"
+                    "type": "number",
+                    "format": "double"
                   },
                   "random": {
                     "type": "string",

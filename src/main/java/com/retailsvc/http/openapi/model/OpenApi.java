@@ -1,5 +1,7 @@
 package com.retailsvc.http.openapi.model;
 
+import static java.util.Objects.isNull;
+
 import com.retailsvc.http.openapi.exceptions.LoadSpecificationException;
 import com.retailsvc.http.openapi.exceptions.NoServersDeclaredException;
 import com.retailsvc.http.openapi.exceptions.UnsupportedVersionException;
@@ -155,7 +157,7 @@ public record OpenApi(
       if (type == null || type.isBlank()) {
         throw new LoadSpecificationException("Type is missing");
       }
-      if (type.equalsIgnoreCase("number") && format == null) {
+      if (isNull(format) && isNumber()) {
         format = "int32";
       }
       required = Objects.requireNonNullElse(required, List.of());
@@ -182,7 +184,7 @@ public record OpenApi(
     }
 
     public boolean isNumber() {
-      return "number".equalsIgnoreCase(type);
+      return "number".equalsIgnoreCase(type) || "integer".equalsIgnoreCase(type);
     }
 
     public boolean isObject() {
