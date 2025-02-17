@@ -59,8 +59,8 @@ class BodyHandlerTest {
     verify(mockChain)
         .doFilter(
             argThat(
-                exchange -> {
-                  byte[] storedBytes = (byte[]) exchange.getAttribute(BodyHandler.BODY_ATTRIBUTE);
+                ex -> {
+                  byte[] storedBytes = (byte[]) ex.getAttribute(BodyHandler.BODY_ATTRIBUTE);
                   return nonNull(storedBytes) && Arrays.equals(expectedBytes, storedBytes);
                 }));
   }

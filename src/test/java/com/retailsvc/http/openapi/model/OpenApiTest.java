@@ -1,7 +1,10 @@
 package com.retailsvc.http.openapi.model;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.retailsvc.http.openapi.exceptions.NoServersDeclaredException;
@@ -17,27 +20,58 @@ import java.util.Optional;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
-@ExtendWith(MockitoExtension.class)
 class OpenApiTest {
 
-  @Mock Function<String, OpenApi> mockFunction;
+  Function<String, OpenApi> mockFunction;
 
   Info info = new Info("Test API", "0.0.1-local");
+  Operation head = new Operation("head", null, emptyMap());
+  Operation get = new Operation("get-data", null, emptyMap());
+  Operation put = new Operation("put", null, emptyMap());
+  Operation post = new Operation("post", null, emptyMap());
+  Operation delete = new Operation("delete", null, emptyMap());
+  Operation connect = new Operation("connect", null, emptyMap());
+  Operation options = new Operation("options", null, emptyMap());
+  Operation trace = new Operation("trace", null, emptyMap());
+  Operation patch = new Operation("patch", null, emptyMap());
 
   OpenApi openApi;
 
   @BeforeEach
   void setUp() {
+    mockFunction = mock();
+
     Collection<Server> servers = List.of(new Server("https://example.com/api"));
-    Operation getOperation = new Operation("get-data", null, Map.of());
-    PathItem pathItem = new PathItem(getOperation, null, null, null);
+    PathItem pathItem = new PathItem(head, get, put, post, delete, connect, options, trace, patch);
     Map<String, PathItem> paths = Map.of("/test", pathItem);
 
     openApi = new OpenApi("3.1.0", info, servers, paths);
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "GET,      /api/test,  get-data,  true",
+    "POST,     /api/test,  post,      true",
+    "PUT,      /api/test,  put,       true",
+    "DELETE,   /api/test,  delete,    true",
+    "PATCH,    /api/test,  patch,     true",
+    "HEAD,     /api/test,  head,      true",
+    "OPTIONS,  /api/test,  options,   true",
+    "TRACE,    /api/test,  trace,     true",
+    "CONNECT,  /api/test,  connect,   true",
+    "GT,       /api/test,  null,      false" // invalid method case
+  })
+  void testGetOperation(
+      String method, String path, String expectedOperationId, boolean shouldBePresent) {
+    Optional<Operation> operation = openApi.getOperation(method, path);
+    assertThat(operation.isPresent()).isEqualTo(shouldBePresent);
+    if (shouldBePresent) {
+      assertThat(operation.isPresent()).isTrue();
+      assertThat(operation.get().operationId()).isEqualTo(expectedOperationId);
+    }
   }
 
   @Test
@@ -54,21 +88,8 @@ class OpenApiTest {
   }
 
   @Test
-  void testGetOperation() {
-    Optional<Operation> operation = openApi.getOperation("GET", "/api/test");
-    assertThat(operation).isPresent();
-    assertThat(operation.get().operationId()).isEqualTo("get-data");
-  }
-
-  @Test
-  void testGetOperationNotFound() {
-    Optional<Operation> operation = openApi.getOperation("POST", "/api/test");
-    assertThat(operation).isNotPresent();
-  }
-
-  @Test
   void testBasePathThrowsWhenNoServers() {
-    OpenApi emptyServerOpenApi = new OpenApi("3.1.0", info, List.of(), Map.of());
+    OpenApi emptyServerOpenApi = new OpenApi("3.1.0", info, emptyList(), emptyMap());
 
     assertThatExceptionOfType(NoServersDeclaredException.class)
         .isThrownBy(emptyServerOpenApi::basePath);
@@ -77,6 +98,6 @@ class OpenApiTest {
   @Test
   void testOpenApiVersion() {
     assertThatExceptionOfType(UnsupportedVersionException.class)
-        .isThrownBy(() -> new OpenApi("3.0.0", info, List.of(), Map.of()));
+        .isThrownBy(() -> new OpenApi("3.0.0", info, emptyList(), emptyMap()));
   }
 }

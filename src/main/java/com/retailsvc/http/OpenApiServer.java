@@ -8,8 +8,8 @@ import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 import com.retailsvc.http.openapi.OpenApiValidationFilter;
 import com.retailsvc.http.openapi.RequestDispatchingHandler;
+import com.retailsvc.http.openapi.model.JsonMapper;
 import com.retailsvc.http.openapi.model.OpenApi;
-import com.retailsvc.http.openapi.model.RequestBodyMapper;
 import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
@@ -42,11 +42,11 @@ public class OpenApiServer implements AutoCloseable {
    */
   public OpenApiServer(
       OpenApi specification,
-      RequestBodyMapper requestBodyMapper,
+      JsonMapper jsonMapper,
       Map<String, HttpHandler> requestHandlers,
       ExceptionHandler exceptionHandler)
       throws IOException {
-    this(specification, requestBodyMapper, requestHandlers, exceptionHandler, PORT);
+    this(specification, jsonMapper, requestHandlers, exceptionHandler, PORT);
   }
 
   /**
@@ -58,7 +58,7 @@ public class OpenApiServer implements AutoCloseable {
    */
   public OpenApiServer(
       OpenApi specification,
-      RequestBodyMapper requestBodyMapper,
+      JsonMapper jsonMapper,
       Map<String, HttpHandler> requestHandlers,
       ExceptionHandler exceptionHandler,
       int httpPort)
@@ -66,42 +66,37 @@ public class OpenApiServer implements AutoCloseable {
 
     long t0 = System.currentTimeMillis();
     requireNonNull(specification, "OpenAPI specification must not be null");
-    requireNonNull(requestBodyMapper, "Request body mapper must not be null");
+    requireNonNull(jsonMapper, "Request body mapper must not be null");
     requireNonNull(requestHandlers, "Request handlers must not be null");
     ExceptionHandler errorHandler =
         requireNonNullElseGet(exceptionHandler, Handlers::defaultExceptionHandler);
 
     httpServer =
-        initializeServer(
-            httpPort, specification, requestBodyMapper, requestHandlers, errorHandler, t0);
+        initializeServer(httpPort, specification, jsonMapper, requestHandlers, errorHandler, t0);
   }
 
   private HttpServer initializeServer(
       int port,
       OpenApi specification,
-      RequestBodyMapper requestBodyMapper,
+      JsonMapper jsonMapper,
       Map<String, HttpHandler> requestHandlers,
       ExceptionHandler errorHandler,
       long t0)
       throws IOException {
 
-    final HttpServer server;
-
-    LOG.debug("Starting server...");
-
-    server = createHttpServer(port);
-
+    HttpServer server = createHttpServer(port);
     HttpContext context = server.createContext(specification.basePath());
 
     List<Filter> filters = context.getFilters();
     filters.add(new ExceptionHandlingFilter(errorHandler));
     filters.add(new BodyHandler());
-    filters.add(new OpenApiValidationFilter(specification, requestBodyMapper));
+    filters.add(new OpenApiValidationFilter(specification, jsonMapper));
 
     context.setHandler(new RequestDispatchingHandler(specification, requestHandlers));
 
     server.createContext("/", notFoundHandler());
 
+    LOG.debug("Starting server...");
     server.start();
     LOG.info("Server started (port {}) in {}ms", PORT, System.currentTimeMillis() - t0);
     return server;

@@ -1,18 +1,16 @@
 package com.retailsvc.http.start;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static com.retailsvc.http.openapi.SpecificationLoader.parseSpecification;
 
 import com.google.gson.Gson;
 import com.retailsvc.http.OpenApiServer;
-import com.retailsvc.http.openapi.SpecificationLoader;
+import com.retailsvc.http.openapi.model.JsonMapper;
 import com.retailsvc.http.openapi.model.OpenApi;
-import com.retailsvc.http.openapi.model.RequestBodyMapper;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,8 +24,9 @@ public class ServerLauncher {
 
   public ServerLauncher() throws IOException {
     long t0 = System.currentTimeMillis();
-    String specificationContents = loadSpecification("openapi.json");
-    OpenApi specification = parseSpecification(specificationContents);
+
+    var specification =
+        parseSpecification("openapi.json", s -> new Gson().fromJson(s, OpenApi.class));
 
     Map<String, HttpHandler> handlers = new HashMap<>();
     handlers.put("get-data", new GetDataHandler());
@@ -36,11 +35,11 @@ public class ServerLauncher {
 
     final Gson gson = new Gson();
     // TODO: better solution?! This way we support jackson and gson
-    RequestBodyMapper mapper =
-        new RequestBodyMapper() {
+    JsonMapper mapper =
+        new JsonMapper() {
           @Override
           public <T> T mapFrom(byte[] body) {
-            if (new String(body).startsWith("[")) {
+            if (body.length > 0 && body[0] == '[') {
               return (T) gson.fromJson(new String(body), List.class);
             }
             return (T) gson.fromJson(new String(body), Map.class);
@@ -49,22 +48,5 @@ public class ServerLauncher {
 
     new OpenApiServer(specification, mapper, handlers, null);
     LOG.info("Application started in {}ms", System.currentTimeMillis() - t0);
-  }
-
-  private static String loadSpecification(String spec) {
-    LOG.debug("Loading specification from '{}'...", spec);
-    return new String(SpecificationLoader.load(spec), UTF_8);
-  }
-
-  private static OpenApi parseSpecification(String specificationContents) {
-    /* TODO: this logic should be placed inside project code, and not in launcher */
-    long t0 = System.currentTimeMillis();
-    Function<String, OpenApi> mapper = json -> new Gson().fromJson(json, OpenApi.class);
-    OpenApi spec = OpenApi.parse(mapper, specificationContents);
-
-    LOG.debug(
-        "Parsed OpenAPI {} specification in {}ms", spec.openapi(), System.currentTimeMillis() - t0);
-
-    return spec;
   }
 }

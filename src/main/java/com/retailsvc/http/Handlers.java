@@ -34,9 +34,7 @@ public class Handlers {
 
   public static ExceptionHandler defaultExceptionHandler() {
     LOG.warn("No exception handler set, using default.");
-    return (exchange, e) -> {
-      internalServerErrorHandler().handleException(exchange, e);
-    };
+    return (exchange, e) -> internalServerErrorHandler().handleException(exchange, e);
   }
 
   private static void endRequest(HttpExchange exchange, int status) throws IOException {

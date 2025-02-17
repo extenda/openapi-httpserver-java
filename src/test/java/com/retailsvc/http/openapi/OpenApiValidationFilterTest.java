@@ -10,13 +10,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.retailsvc.http.openapi.model.JsonMapper;
 import com.retailsvc.http.openapi.model.OpenApi;
 import com.retailsvc.http.openapi.model.OpenApi.MediaType;
 import com.retailsvc.http.openapi.model.OpenApi.Operation;
 import com.retailsvc.http.openapi.model.OpenApi.PathItem;
 import com.retailsvc.http.openapi.model.OpenApi.RequestBody;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
-import com.retailsvc.http.openapi.model.RequestBodyMapper;
 import com.retailsvc.http.openapi.validation.Validator;
 import com.sun.net.httpserver.Filter.Chain;
 import com.sun.net.httpserver.Headers;
@@ -35,7 +35,7 @@ class OpenApiValidationFilterTest {
   private HttpExchange exchange;
   private Chain chain;
   private OpenApi specification;
-  private RequestBodyMapper bodyMapper;
+  private JsonMapper bodyMapper;
   private Validator validator;
 
   @BeforeEach

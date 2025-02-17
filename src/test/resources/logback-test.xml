@@ -7,9 +7,9 @@
     </encoder>
   </appender>
 
-<!--  <logger name="com.retailsvc" level="debug"/>-->
+  <logger name="com.retailsvc" level="debug"/>
 
-  <root level="off">
+  <root level="info">
     <appender-ref ref="stdout"/>
   </root>
 </configuration>

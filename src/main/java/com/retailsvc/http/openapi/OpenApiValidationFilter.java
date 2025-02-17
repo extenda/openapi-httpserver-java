@@ -4,12 +4,12 @@ import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 
 import com.retailsvc.http.openapi.exceptions.OperationIdNotFoundException;
 import com.retailsvc.http.openapi.model.GetRequestBody;
+import com.retailsvc.http.openapi.model.JsonMapper;
 import com.retailsvc.http.openapi.model.OpenApi;
 import com.retailsvc.http.openapi.model.OpenApi.MediaType;
 import com.retailsvc.http.openapi.model.OpenApi.Operation;
 import com.retailsvc.http.openapi.model.OpenApi.PathItem;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
-import com.retailsvc.http.openapi.model.RequestBodyMapper;
 import com.retailsvc.http.openapi.validation.Validator;
 import com.retailsvc.http.openapi.validation.ValidatorImpl;
 import com.sun.net.httpserver.Filter;
@@ -32,16 +32,18 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
   private static final Logger LOG = LoggerFactory.getLogger(OpenApiValidationFilter.class);
   private final OpenApi specification;
   private final Map<String, Operation> operations;
-  private final RequestBodyMapper mapper;
+  private final JsonMapper mapper;
   private final Validator validator;
 
-  public OpenApiValidationFilter(OpenApi spec, RequestBodyMapper mapper) {
+  public OpenApiValidationFilter(OpenApi spec, JsonMapper mapper) {
     this(spec, mapper, new ValidatorImpl());
   }
 
-  protected OpenApiValidationFilter(OpenApi spec, RequestBodyMapper mapper, Validator validator) {
+  protected OpenApiValidationFilter(OpenApi spec, JsonMapper mapper, Validator validator) {
     this.mapper = mapper;
-    LOG.debug("Instantiating {}...", description());
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Instantiating {}...", description());
+    }
 
     this.specification = spec;
     this.operations = new ConcurrentHashMap<>();
@@ -51,6 +53,8 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
       String path = specification.stripBasePath(pathItem.getKey());
       PathItem item = pathItem.getValue();
 
+      Optional.ofNullable(item.head())
+          .ifPresent(operation -> operations.put("HEAD:" + path, operation));
       Optional.ofNullable(item.get())
           .ifPresent(operation -> operations.put("GET:" + path, operation));
       Optional.ofNullable(item.put())
@@ -59,9 +63,23 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
           .ifPresent(operation -> operations.put("POST:" + path, operation));
       Optional.ofNullable(item.delete())
           .ifPresent(operation -> operations.put("DELETE:" + path, operation));
+      Optional.ofNullable(item.connect())
+          .ifPresent(operation -> operations.put("CONNECT:" + path, operation));
+      Optional.ofNullable(item.options())
+          .ifPresent(operation -> operations.put("OPTIONS:" + path, operation));
+      Optional.ofNullable(item.trace())
+          .ifPresent(operation -> operations.put("TRACE:" + path, operation));
+      Optional.ofNullable(item.patch())
+          .ifPresent(operation -> operations.put("PATCH:" + path, operation));
     }
 
-    LOG.debug("Operations: {}", operations);
+    if (LOG.isDebugEnabled()) {
+      operations.forEach(
+          (verb, operation) -> {
+            String id = operation.operationId();
+            LOG.debug("Server supports {} via operation-id '{}'", verb, id);
+          });
+    }
   }
 
   @Override

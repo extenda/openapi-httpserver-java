@@ -94,19 +94,29 @@ public record OpenApi(
   /**
    * The 'path item' represents all the methods/operations available on a path.
    *
-   * @param get The get operation
-   * @param post The post operation
-   * @param put The put operation
-   * @param delete The delete operation
    * @see <a href="https://swagger.io/specification/#path-item-object">Path Item Object</a>
    */
-  public record PathItem(Operation get, Operation post, Operation put, Operation delete) {
+  public record PathItem(
+      Operation head,
+      Operation get,
+      Operation put,
+      Operation post,
+      Operation delete,
+      Operation connect,
+      Operation options,
+      Operation trace,
+      Operation patch) {
     public Operation findByMethod(String method) {
       return switch (method) {
+        case "HEAD" -> head;
         case "GET" -> get;
-        case "POST" -> post;
         case "PUT" -> put;
+        case "POST" -> post;
         case "DELETE" -> delete;
+        case "CONNECT" -> connect;
+        case "OPTIONS" -> options;
+        case "TRACE" -> trace;
+        case "PATCH" -> patch;
         default -> null;
       };
     }
