@@ -1,6 +1,5 @@
 # openapi-httpserver-java
 
-
 # OpenAPI Server Library
 A lightweight Java library for creating HTTP servers based on OpenAPI specifications.
 
@@ -8,6 +7,7 @@ A lightweight Java library for creating HTTP servers based on OpenAPI specificat
 ## Overview
 This library provides a simple way to create an HTTP server that implements OpenAPI specifications.
 
+It is designed to be simple to use while providing the essential features needed for creating efficient HTTP servers in Java.
 
 ## Getting Started
 
@@ -100,10 +100,3 @@ The library uses a flexible JSON mapping system that automatically detects and p
 ## Known limitations (not exhaustive..)
 
 - OpenAPI refs are not supported yet.
-
-## Notes
-- The server uses a default configuration when initialized with a null parameter for the last argument
-- Make sure your OpenAPI specification file (`openapi.json`) is accessible in your classpath
-- Custom error handling and logging is provided through SLF4J
-
-This library is designed to be simple to use while providing the essential features needed for creating OpenAPI-compliant HTTP servers in Java.
