@@ -51,15 +51,15 @@ public class PostDataHandler implements HttpHandler, GetRequestBody {
 ``` java
 public class YourServerLauncher {
   public static void main(String[] args) throws Exception {
-    // Parse OpenAPI specification
-    var specification = parseSpecification("openapi.json",  s -> new Gson().fromJson(s, OpenApi.class));
+    final Gson gson = new Gson();
+
+    // Parse OpenAPI specification (or build your instance of OpenApi manually)
+    var specification = parseSpecification("openapi.json",  s -> gson.fromJson(s, OpenApi.class));
 
     // Register your handlers (operation-id -> handler)
     Map<String, HttpHandler> handlers = new HashMap<>();
     handlers.put("get-data", new GetDataHandler());
     handlers.put("post-data", new PostDataHandler());
-
-    Gson gson = new Gson();
 
     // Create JSON mapper (supports both arrays and objects)
     JsonMapper mapper = new JsonMapper() {

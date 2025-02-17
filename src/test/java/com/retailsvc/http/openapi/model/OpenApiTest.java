@@ -69,7 +69,7 @@ class OpenApiTest {
     Optional<Operation> operation = openApi.getOperation(method, path);
     assertThat(operation.isPresent()).isEqualTo(shouldBePresent);
     if (shouldBePresent) {
-      assertThat(operation.isPresent()).isTrue();
+      assertThat(operation).isPresent();
       assertThat(operation.get().operationId()).isEqualTo(expectedOperationId);
     }
   }
@@ -97,7 +97,10 @@ class OpenApiTest {
 
   @Test
   void testOpenApiVersion() {
+    List<Server> servers = emptyList();
+    Map<String, PathItem> pathItems = emptyMap();
+
     assertThatExceptionOfType(UnsupportedVersionException.class)
-        .isThrownBy(() -> new OpenApi("3.0.0", info, emptyList(), emptyMap()));
+        .isThrownBy(() -> new OpenApi("3.0.0", info, servers, pathItems));
   }
 }

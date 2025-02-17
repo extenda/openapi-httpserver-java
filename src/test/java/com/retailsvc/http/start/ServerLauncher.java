@@ -27,16 +27,15 @@ public class ServerLauncher {
   public ServerLauncher() throws IOException {
     long t0 = System.currentTimeMillis();
 
-    var specification =
-        parseSpecification("openapi.json", s -> new Gson().fromJson(s, OpenApi.class));
+    final Gson gson = new Gson();
+
+    var specification = parseSpecification("openapi.json", s -> gson.fromJson(s, OpenApi.class));
 
     Map<String, HttpHandler> handlers = new HashMap<>();
     handlers.put("get-data", new GetDataHandler());
     handlers.put("post-data", new PostDataHandler());
     handlers.put("post-list-objects", new PostListObjectsHandler());
 
-    final Gson gson = new Gson();
-    // TODO: better solution?! This way we support jackson and gson
     JsonMapper mapper =
         new JsonMapper() {
           @Override

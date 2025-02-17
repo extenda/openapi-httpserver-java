@@ -72,9 +72,9 @@ class OpenApiServerTest {
   @Test
   void testExceptionIsThrownOnInvalidHttpPort() {
     OpenApi validSpec = testSpecification();
-
+    Map<String, HttpHandler> handlers = emptyMap();
     assertThatThrownBy(
-            () -> new OpenApiServer(validSpec, jsonMapper, emptyMap(), defaultExceptionHandler, -1))
+            () -> new OpenApiServer(validSpec, jsonMapper, handlers, defaultExceptionHandler, -1))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
