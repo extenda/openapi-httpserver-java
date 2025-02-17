@@ -1,0 +1,181 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "API Title",
+    "version": "0.0.1-local"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080/api/v1"
+    }
+  ],
+  "paths": {
+    "/data": {
+      "get": {
+        "operationId": "get-data",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "description": "Response body",
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "post-data",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "aList",
+                  "feelingGood"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^s.+d$"
+                  },
+                  "age": {
+                    "type": "integer"
+                  },
+                  "score": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "random": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [ "COMPLETED", "ERROR" ]
+                  },
+                  "feelingGood": {
+                    "type": "boolean"
+                  },
+                  "aList": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "aListOfObjects": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  },
+                  "anObject": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "age"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "age": {
+                        "type": "integer",
+                        "format": "int32"
+                      },
+                      "longNumber": {
+                        "type": "integer",
+                        "format": "int64",
+                        "maximum": 1000,
+                        "minimum": 100
+                      },
+                      "nested": {
+                        "type": "object",
+                        "required": [
+                          "nestedValue"
+                        ],
+                        "properties": {
+                          "nestedValue": {
+                            "type": "integer",
+                            "format": "int32"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "aDate": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "aDateTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "description": "Response body",
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/list/objects": {
+      "post": {
+        "operationId": "post-list-objects",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  }
+}
