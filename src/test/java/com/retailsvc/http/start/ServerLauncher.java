@@ -3,6 +3,8 @@ package com.retailsvc.http.start;
 import static com.retailsvc.http.openapi.SpecificationLoader.parseSpecification;
 
 import com.google.gson.Gson;
+import com.retailsvc.http.ExceptionHandler;
+import com.retailsvc.http.Handlers;
 import com.retailsvc.http.OpenApiServer;
 import com.retailsvc.http.openapi.model.JsonMapper;
 import com.retailsvc.http.openapi.model.OpenApi;
@@ -46,7 +48,9 @@ public class ServerLauncher {
           }
         };
 
-    new OpenApiServer(specification, mapper, handlers, null);
+    ExceptionHandler exceptionHandler = Handlers.defaultExceptionHandler();
+
+    new OpenApiServer(specification, mapper, handlers, exceptionHandler);
     LOG.info("Application started in {}ms", System.currentTimeMillis() - t0);
   }
 }
