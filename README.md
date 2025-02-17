@@ -97,6 +97,9 @@ The library uses a flexible JSON mapping system that automatically detects and p
 - JSON arrays (`[...]`)
 - JSON objects (`{...}`)
 
+## Known limitations (not exhaustive..)
+
+- OpenAPI refs are not supported yet.
 
 ## Notes
 - The server uses a default configuration when initialized with a null parameter for the last argument
