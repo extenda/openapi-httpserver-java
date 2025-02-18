@@ -9,6 +9,7 @@ import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -18,7 +19,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 /** Tests complex or "deep" objects that are harder to test with Validators in isolation */
 class ValidatorImplTest {
 
-  private final Validator validator = new ValidatorImpl();
+  private final Function<String, Schema> referencedSchema = schemaName -> null;
+
+  private final Validator validator = new ValidatorImpl(referencedSchema);
 
   @Test
   void shouldValidateNestedObjectProperty() {

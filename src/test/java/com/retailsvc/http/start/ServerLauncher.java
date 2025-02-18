@@ -29,7 +29,8 @@ public class ServerLauncher {
 
     final Gson gson = new Gson();
 
-    var specification = parseSpecification("openapi.json", s -> gson.fromJson(s, OpenApi.class));
+    var specification =
+        parseSpecification("openapi-refs.json", s -> gson.fromJson(s, OpenApi.class));
 
     Map<String, HttpHandler> handlers = new HashMap<>();
     handlers.put("get-data", new GetDataHandler());

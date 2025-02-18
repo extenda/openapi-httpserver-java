@@ -1,6 +1,7 @@
 package com.retailsvc.http.openapi;
 
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
+import static java.util.Objects.nonNull;
 
 import com.retailsvc.http.openapi.exceptions.OperationIdNotFoundException;
 import com.retailsvc.http.openapi.model.GetRequestBody;
@@ -36,7 +37,7 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
   private final Validator validator;
 
   public OpenApiValidationFilter(OpenApi spec, JsonMapper mapper) {
-    this(spec, mapper, new ValidatorImpl());
+    this(spec, mapper, new ValidatorImpl(spec::getResolvedSchema));
   }
 
   protected OpenApiValidationFilter(OpenApi spec, JsonMapper mapper, Validator validator) {
@@ -100,6 +101,10 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
       String contentType = exchange.getRequestHeaders().getFirst("content-type");
       MediaType mediaType = operation.requestBody().content().get(contentType);
       Schema schema = mediaType.schema();
+
+      if (nonNull(schema.$ref())) {
+        schema = specification.getResolvedSchema(schema.$ref());
+      }
 
       boolean isValid = validator.validate(mappedBody, schema);
 

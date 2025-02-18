@@ -5,6 +5,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,9 +13,17 @@ public class ArrayValidator implements Validator {
 
   private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private final Validator rootValidator;
+  private final Function<String, Schema> referencedSchema;
 
-  public ArrayValidator(Validator rootValidator) {
+  /**
+   * Validate lists
+   *
+   * @param rootValidator The parent that delegates types to correct validator
+   * @param referencedSchema Referenced schema registry
+   */
+  public ArrayValidator(Validator rootValidator, Function<String, Schema> referencedSchema) {
     this.rootValidator = rootValidator;
+    this.referencedSchema = referencedSchema;
   }
 
   @Override
@@ -29,27 +38,28 @@ public class ArrayValidator implements Validator {
 
     Map<String, Object> items = schema.items();
     String type = (String) items.get("type");
+    String $ref = (String) items.get("$ref");
     Map<String, Object> props = (Map<String, Object>) items.get("properties");
     String format = (String) items.get("format");
     List<String> required = (List<String>) items.get("required");
-    var maximum =
-        Optional.ofNullable(props)
-            .map(p -> p.get("maximum"))
-            .map(Number.class::cast)
-            .orElse(Double.MAX_VALUE);
-    var minimum =
-        Optional.ofNullable(props)
-            .map(p -> p.get("minimum"))
-            .map(Number.class::cast)
-            .orElse(Double.MIN_VALUE);
+    var max = getLimitForNumber(props, "maximum", Double.MAX_VALUE);
+    var min = getLimitForNumber(props, "minimum", Double.MIN_VALUE);
 
     for (Object entry : iterable) {
-      if (!rootValidator.validate(
-          entry, new Schema(type, format, props, items, required, maximum, minimum))) {
+      Schema propertySchema =
+          Optional.ofNullable($ref)
+              .map(referencedSchema)
+              .orElseGet(() -> new Schema($ref, type, format, props, items, required, max, min));
+
+      if (!rootValidator.validate(entry, propertySchema)) {
         LOG.debug("Failed to validate '{}'", entry);
         return false;
       }
     }
     return true;
+  }
+
+  private static Number getLimitForNumber(Map<String, Object> props, String name, double limit) {
+    return Optional.ofNullable(props).map(p -> p.get(name)).map(Number.class::cast).orElse(limit);
   }
 }

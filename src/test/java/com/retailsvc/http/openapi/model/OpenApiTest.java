@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.retailsvc.http.openapi.exceptions.NoServersDeclaredException;
 import com.retailsvc.http.openapi.exceptions.UnsupportedVersionException;
+import com.retailsvc.http.openapi.model.OpenApi.Components;
 import com.retailsvc.http.openapi.model.OpenApi.Info;
 import com.retailsvc.http.openapi.model.OpenApi.Operation;
 import com.retailsvc.http.openapi.model.OpenApi.PathItem;
@@ -37,6 +38,7 @@ class OpenApiTest {
   Operation options = new Operation("options", null, emptyMap());
   Operation trace = new Operation("trace", null, emptyMap());
   Operation patch = new Operation("patch", null, emptyMap());
+  Components components = new Components(emptyMap());
 
   OpenApi openApi;
 
@@ -48,7 +50,7 @@ class OpenApiTest {
     PathItem pathItem = new PathItem(head, get, put, post, delete, connect, options, trace, patch);
     Map<String, PathItem> paths = Map.of("/test", pathItem);
 
-    openApi = new OpenApi("3.1.0", info, servers, paths);
+    openApi = new OpenApi("3.1.0", info, servers, paths, components);
   }
 
   @ParameterizedTest
@@ -89,7 +91,7 @@ class OpenApiTest {
 
   @Test
   void testBasePathThrowsWhenNoServers() {
-    OpenApi emptyServerOpenApi = new OpenApi("3.1.0", info, emptyList(), emptyMap());
+    OpenApi emptyServerOpenApi = new OpenApi("3.1.0", info, emptyList(), emptyMap(), components);
 
     assertThatExceptionOfType(NoServersDeclaredException.class)
         .isThrownBy(emptyServerOpenApi::basePath);
@@ -101,6 +103,6 @@ class OpenApiTest {
     Map<String, PathItem> pathItems = emptyMap();
 
     assertThatExceptionOfType(UnsupportedVersionException.class)
-        .isThrownBy(() -> new OpenApi("3.0.0", info, servers, pathItems));
+        .isThrownBy(() -> new OpenApi("3.0.0", info, servers, pathItems, components));
   }
 }
