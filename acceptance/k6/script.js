@@ -10,7 +10,7 @@ export const options = {
   ],
 };
 
-const body = JSON.stringify({
+const exampleObjectRequest = {
   id: 'some-id',
   age: 42,
   random: 'd5af5004-8b5a-4db6-838e-38be773eac34',
@@ -31,12 +31,15 @@ const body = JSON.stringify({
   ],
   aDate: '2025-03-02',
   aDateTime: '2025-03-02T12:34:56Z'
-});
+};
 
-const listOfObjects = JSON.stringify([
+const exampleListRequest = [
   { value: 42 },
   { value: 43 }
-]);
+];
+
+const objectBody = JSON.stringify(exampleObjectRequest);
+const listBody = JSON.stringify(exampleListRequest);
 
 export default function () {
   group('get request', () => {
@@ -52,7 +55,7 @@ export default function () {
 
   group('post request', () => {
     const url = 'http://localhost:8080/api/v1/data';
-    const res = http.post(url, body, {
+    const res = http.post(url, objectBody, {
       headers: {
         'Content-Type':'application/json',
       }
@@ -67,7 +70,7 @@ export default function () {
 
   group('post list-of-objects request', () => {
     const url = 'http://localhost:8080/api/v1/list/objects';
-    const res = http.post(url, listOfObjects, {
+    const res = http.post(url, listBody, {
       headers: {
         'Content-Type':'application/json',
       }
