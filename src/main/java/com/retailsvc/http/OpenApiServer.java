@@ -65,6 +65,8 @@ public class OpenApiServer implements AutoCloseable {
       throws IOException {
 
     long t0 = System.currentTimeMillis();
+    LOG.debug("Starting server...");
+
     requireNonNull(specification, "OpenAPI specification must not be null");
     requireNonNull(jsonMapper, "Request body mapper must not be null");
     requireNonNull(requestHandlers, "Request handlers must not be null");
@@ -95,10 +97,10 @@ public class OpenApiServer implements AutoCloseable {
     context.setHandler(new RequestDispatchingHandler(specification, requestHandlers));
 
     server.createContext("/", notFoundHandler());
-
-    LOG.debug("Starting server...");
     server.start();
+
     LOG.info("Server started (port {}) in {}ms", PORT, System.currentTimeMillis() - t0);
+
     return server;
   }
 

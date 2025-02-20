@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.retailsvc.http.openapi.model.JsonMapper;
 import com.retailsvc.http.openapi.model.OpenApi;
+import com.retailsvc.http.openapi.model.OpenApi.Components;
 import com.retailsvc.http.openapi.model.OpenApi.Info;
 import com.retailsvc.http.openapi.model.OpenApi.Server;
 import com.sun.net.httpserver.HttpHandler;
@@ -80,6 +81,10 @@ class OpenApiServerTest {
 
   private OpenApi testSpecification() {
     return new OpenApi(
-        "3.1.0", new Info("API", "1.0"), Collections.singletonList(server), emptyMap());
+        "3.1.0",
+        new Info("API", "1.0"),
+        Collections.singletonList(server),
+        emptyMap(),
+        new Components(emptyMap()));
   }
 }

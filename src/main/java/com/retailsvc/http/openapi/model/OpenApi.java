@@ -13,6 +13,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,10 +24,15 @@ import org.slf4j.LoggerFactory;
  * @author thced
  */
 public record OpenApi(
-    String openapi, Info info, Collection<Server> servers, Map<String, PathItem> paths) {
+    String openapi,
+    Info info,
+    Collection<Server> servers,
+    Map<String, PathItem> paths,
+    Components components) {
 
   private static final Logger LOG = LoggerFactory.getLogger(OpenApi.class);
   private static final Set<String> SUPPORTED_VERSIONS = Set.of("3.1.0");
+  private static final Map<String, Schema> SCHEMAS_CACHE = new ConcurrentHashMap<>();
 
   public static OpenApi parse(Function<String, OpenApi> fn, String spec) {
     return fn.apply(spec);
@@ -67,6 +73,20 @@ public record OpenApi(
         .map(pathItem -> pathItem.findByMethod(method))
         .filter(Objects::nonNull)
         .findFirst();
+  }
+
+  /**
+   * Used to get access to the referenced schema components. It will strip off the
+   * '#/components/schemas/' prefix and cache the found {@link Schema} instance.
+   *
+   * @param ref The "full" ref name
+   * @return The found schema, or null
+   */
+  public Schema getResolvedSchema(String ref) {
+    String name = ref.replace("#/components/schemas/", "");
+    Schema found = SCHEMAS_CACHE.computeIfAbsent(name, components::getSchema);
+    LOG.debug("Found resolved schema: {} -> {}", ref, found);
+    return found;
   }
 
   /**
@@ -155,6 +175,7 @@ public record OpenApi(
   public record MediaType(Schema schema) {}
 
   public record Schema(
+      String $ref,
       String type,
       String format,
       Map<String, Object> properties,
@@ -163,18 +184,35 @@ public record OpenApi(
       Number maximum,
       Number minimum) {
 
+    /**
+     * If Schema has a $ref, we do not set any properties. The properties will be resolved later via
+     * the referenced component {@link Components}.
+     */
     public Schema {
-      if (type == null || type.isBlank()) {
-        throw new LoadSpecificationException("Type is missing");
+      if (isNull($ref)) {
+        if (type == null || type.isBlank()) {
+          throw new LoadSpecificationException("Type is missing");
+        }
+        if (isNull(format) && isNumber()) {
+          format = "int32";
+        }
+        required = Objects.requireNonNullElse(required, List.of());
+        items = Objects.requireNonNullElse(items, Map.of());
+        properties = Objects.requireNonNullElse(properties, Map.of());
+        maximum = Objects.requireNonNullElse(maximum, Double.MAX_VALUE);
+        minimum = Objects.requireNonNullElse(minimum, Double.MIN_VALUE);
       }
-      if (isNull(format) && isNumber()) {
-        format = "int32";
-      }
-      required = Objects.requireNonNullElse(required, List.of());
-      items = Objects.requireNonNullElse(items, Map.of());
-      properties = Objects.requireNonNullElse(properties, Map.of());
-      maximum = Objects.requireNonNullElse(maximum, Double.MAX_VALUE);
-      minimum = Objects.requireNonNullElse(minimum, Double.MIN_VALUE);
+    }
+
+    public Schema(
+        String type,
+        String format,
+        Map<String, Object> properties,
+        Map<String, Object> items,
+        List<String> required,
+        Number maximum,
+        Number minimum) {
+      this(null, type, format, properties, items, required, maximum, minimum);
     }
 
     public boolean isString() {
@@ -203,6 +241,12 @@ public record OpenApi(
 
     public boolean isArray() {
       return "array".equalsIgnoreCase(type);
+    }
+  }
+
+  public record Components(Map<String, Schema> schemas) {
+    public Schema getSchema(String name) {
+      return schemas.get(name);
     }
   }
 }

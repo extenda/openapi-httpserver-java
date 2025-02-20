@@ -104,6 +104,12 @@ The library uses a flexible JSON mapping system that automatically detects and p
 - JSON arrays (`[...]`)
 - JSON objects (`{...}`)
 
-## Known limitations (not exhaustive..)
+## Local development
 
-- OpenAPI refs are not supported yet.
+To test the server in isolation, you can start an example server (`src/test/java/com/retailsvc/http/start/ServerLauncher.java`).
+Schemas are located under test resources folder.
+
+- Example requests can be found under `acceptance/k6` that can be a base for exploring the functionality.
+- The logger in the configuration needs to be enabled to get some insight into the code.
+
+## Known limitations or missing features

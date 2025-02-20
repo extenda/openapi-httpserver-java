@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -17,9 +18,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class ObjectValidatorTest {
 
-  private Validator rootValidator = mock();
-
-  private final ObjectValidator validator = new ObjectValidator(rootValidator);
+  private final Validator rootValidator = mock();
+  private final Function<String, Schema> referencedSchema = mock();
+  private final ObjectValidator validator = new ObjectValidator(rootValidator, referencedSchema);
 
   @Test
   void shouldReturnFalseWhenSchemaIsNotObject() {
