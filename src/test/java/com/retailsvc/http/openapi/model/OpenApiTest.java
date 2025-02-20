@@ -11,8 +11,11 @@ import com.retailsvc.http.openapi.exceptions.NoServersDeclaredException;
 import com.retailsvc.http.openapi.exceptions.UnsupportedVersionException;
 import com.retailsvc.http.openapi.model.OpenApi.Components;
 import com.retailsvc.http.openapi.model.OpenApi.Info;
+import com.retailsvc.http.openapi.model.OpenApi.MediaType;
 import com.retailsvc.http.openapi.model.OpenApi.Operation;
 import com.retailsvc.http.openapi.model.OpenApi.PathItem;
+import com.retailsvc.http.openapi.model.OpenApi.RequestBody;
+import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import com.retailsvc.http.openapi.model.OpenApi.Server;
 import java.util.Collection;
 import java.util.List;
@@ -104,5 +107,28 @@ class OpenApiTest {
 
     assertThatExceptionOfType(UnsupportedVersionException.class)
         .isThrownBy(() -> new OpenApi("3.0.0", info, servers, pathItems, components));
+  }
+
+  @Test
+  void shouldFindResolvedSchemaWhenUsingRef() {
+    String $ref = "#/components/schemas/test";
+
+    var schema = new OpenApi.Schema($ref, null, null, null, null, null, null, null);
+    Map<String, MediaType> mediaTypes = Map.of("application/json", new MediaType(schema));
+    var requestBody = new RequestBody("fictive request body", mediaTypes, emptyList());
+    var operation = new Operation("op", requestBody, emptyMap());
+
+    var pathItem = new PathItem(null, operation, null, null, null, null, null, null, null);
+    Map<String, PathItem> paths = Map.of("/test", pathItem);
+
+    Schema referencedSchema =
+        new Schema("integer", "int32", emptyMap(), emptyMap(), emptyList(), null, null);
+    Components components = new Components(Map.of("test", referencedSchema));
+
+    var spec = new OpenApi("3.1.0", new Info("test", "0"), emptyList(), paths, components);
+
+    assertThat(referencedSchema)
+        .isSameAs(spec.getResolvedSchema($ref))
+        .isSameAs(spec.getResolvedSchema($ref));
   }
 }
