@@ -18,14 +18,8 @@
             "description": "OK",
             "content": {
               "application/json": {
-                "description": "Response body",
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "integer"
-                    }
-                  }
+                  "$ref": "#/components/schemas/GetDataResponse"
                 }
               }
             }
@@ -38,94 +32,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "aList",
-                  "feelingGood"
-                ],
-                "properties": {
-                  "id": {
-                    "type": "string",
-                    "pattern": "^s.+d$"
-                  },
-                  "age": {
-                    "type": "integer"
-                  },
-                  "score": {
-                    "type": "number",
-                    "format": "double"
-                  },
-                  "random": {
-                    "type": "string",
-                    "format": "uuid"
-                  },
-                  "status": {
-                    "type": "string",
-                    "enum": [ "COMPLETED", "ERROR" ]
-                  },
-                  "feelingGood": {
-                    "type": "boolean"
-                  },
-                  "aList": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "aListOfObjects": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "value": {
-                          "type": "integer"
-                        }
-                      }
-                    }
-                  },
-                  "anObject": {
-                    "type": "object",
-                    "required": [
-                      "id",
-                      "age"
-                    ],
-                    "properties": {
-                      "id": {
-                        "type": "string"
-                      },
-                      "age": {
-                        "type": "integer",
-                        "format": "int32"
-                      },
-                      "longNumber": {
-                        "type": "integer",
-                        "format": "int64",
-                        "maximum": 1000,
-                        "minimum": 100
-                      },
-                      "nested": {
-                        "type": "object",
-                        "required": [
-                          "nestedValue"
-                        ],
-                        "properties": {
-                          "nestedValue": {
-                            "type": "integer",
-                            "format": "int32"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "aDate": {
-                    "type": "string",
-                    "format": "date"
-                  },
-                  "aDateTime": {
-                    "type": "string",
-                    "format": "date-time"
-                  }
-                }
+                "$ref": "#/components/schemas/PostDataRequest"
               }
             }
           }
@@ -135,14 +42,8 @@
             "description": "OK",
             "content": {
               "application/json": {
-                "description": "Response body",
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/PostDataResponse"
                 }
               }
             }
@@ -159,12 +60,7 @@
               "schema": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "value": {
-                      "type": "integer"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ListItem"
                 }
               }
             }
@@ -173,6 +69,125 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "GetDataResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          }
+        }
+      },
+      "NestedObject": {
+        "type": "object",
+        "required": [
+          "nestedValue"
+        ],
+        "properties": {
+          "nestedValue": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "InnerObject": {
+        "type": "object",
+        "required": [
+          "id",
+          "age"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "age": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "longNumber": {
+            "type": "integer",
+            "format": "int64",
+            "maximum": 1000,
+            "minimum": 100
+          },
+          "nested": {
+            "$ref": "#/components/schemas/NestedObject"
+          }
+        }
+      },
+      "ListItem": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "integer"
+          }
+        }
+      },
+      "PostDataRequest": {
+        "type": "object",
+        "required": [
+          "aList",
+          "feelingGood"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^s.+d$"
+          },
+          "age": {
+            "type": "integer"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "random": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["COMPLETED", "ERROR"]
+          },
+          "feelingGood": {
+            "type": "boolean"
+          },
+          "aList": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "aListOfObjects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListItem"
+            }
+          },
+          "anObject": {
+            "$ref": "#/components/schemas/InnerObject"
+          },
+          "aDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "aDateTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PostDataResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
           }
         }
       }
