@@ -47,7 +47,7 @@ class RequestDispatchingHandlerTest {
   void testInvalidOperationThrows() {
     when(exchange.getRequestMethod()).thenReturn("GET");
     when(exchange.getRequestURI()).thenReturn(URI.create("/api/test"));
-    when(specification.getOperation("GET", "/api/test")).thenReturn(Optional.empty());
+    when(specification.findOperation("GET", "/api/test")).thenReturn(Optional.empty());
 
     assertThatException()
         .isThrownBy(() -> handler.handle(exchange))
@@ -61,14 +61,14 @@ class RequestDispatchingHandlerTest {
     when(exchange.getRequestURI()).thenReturn(URI.create("/api/test"));
     when(exchange.getAttribute("operation-id")).thenReturn("test");
 
-    when(specification.getOperation("GET", "/api/test"))
+    when(specification.findOperation("GET", "/api/test"))
         .thenReturn(Optional.of(new Operation("test", null, List.of(), Map.of())));
 
     handler.handle(exchange);
     handler.handle(exchange);
 
     verify(mockHandler, times(2)).handle(exchange);
-    verify(specification, atMostOnce()).getOperation("GET", "/api/test");
+    verify(specification, atMostOnce()).findOperation("GET", "/api/test");
   }
 
   @Test
@@ -76,7 +76,7 @@ class RequestDispatchingHandlerTest {
     when(exchange.getRequestMethod()).thenReturn("GET");
     when(exchange.getRequestURI()).thenReturn(URI.create("/api/test"));
     when(exchange.getAttribute("operation-id")).thenReturn("not-present-id");
-    when(specification.getOperation("GET", "/api/test"))
+    when(specification.findOperation("GET", "/api/test"))
         .thenReturn(Optional.of(new Operation("aa", null, List.of(), Map.of())));
 
     assertThatException()

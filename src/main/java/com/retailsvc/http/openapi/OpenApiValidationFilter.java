@@ -42,7 +42,7 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
   private final Validator validator;
 
   public OpenApiValidationFilter(OpenApi spec, JsonMapper mapper) {
-    this(spec, mapper, new ValidatorImpl(spec::getResolvedSchema));
+    this(spec, mapper, new ValidatorImpl(spec::resolveSchema));
   }
 
   protected OpenApiValidationFilter(OpenApi spec, JsonMapper mapper, Validator validator) {
@@ -123,7 +123,7 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
       for (Parameter parameter : operation.parameters()) {
         if (nonNull(parameter.$ref())) {
           // parameter has ref, find it instead
-          parameter = specification.getResolvedParameter(parameter.$ref());
+          parameter = specification.resolveParameter(parameter.$ref());
         }
 
         if (!parameter.isHeader()) {
@@ -161,7 +161,7 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
       for (Parameter queryParameter : operation.parameters()) {
         if (nonNull(queryParameter.$ref())) {
           // parameter has ref, find it instead
-          queryParameter = specification.getResolvedParameter(queryParameter.$ref());
+          queryParameter = specification.resolveParameter(queryParameter.$ref());
         }
 
         if (!queryParameter.isQuery()) {
@@ -220,7 +220,7 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
       Schema schema = mediaType.schema();
 
       if (nonNull(schema.$ref())) {
-        schema = specification.getResolvedSchema(schema.$ref());
+        schema = specification.resolveSchema(schema.$ref());
       }
 
       if (!validator.validate(mappedBody, schema)) {

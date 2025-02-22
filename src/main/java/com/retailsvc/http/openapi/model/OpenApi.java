@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -33,16 +32,14 @@ public record OpenApi(
     Components components) {
 
   private static final Logger LOG = LoggerFactory.getLogger(OpenApi.class);
-  private static final Set<String> SUPPORTED_VERSIONS = Set.of("3.1.0");
 
+  /** Parses OpenAPI specification using provided parser function. */
   public static OpenApi parse(Function<String, OpenApi> fn, String spec) {
     return fn.apply(spec);
   }
 
   public OpenApi {
-    if (!SUPPORTED_VERSIONS.contains(openapi)) {
-      throw new UnsupportedVersionException(openapi);
-    }
+    validateVersion(openapi);
   }
 
   public String stripBasePath(String path) {
@@ -58,18 +55,11 @@ public record OpenApi(
         .orElseThrow(NoServersDeclaredException::new);
   }
 
-  public Optional<Operation> getOperation(String method, String path) {
+  public Optional<Operation> findOperation(String method, String path) {
     LOG.debug("Finding operationId for {} {}...", method, path);
-    String foundPath =
-        servers.stream()
-            .map(Server::baseUrl)
-            .filter(path::startsWith)
-            .map(s -> path.replace(s, ""))
-            .findFirst()
-            .orElse("");
-
+    String normalizedPath = normalizePath(path);
     return paths.entrySet().stream()
-        .filter(e -> e.getKey().equals(foundPath))
+        .filter(e -> e.getKey().equals(normalizedPath))
         .map(Entry::getValue)
         .map(pathItem -> pathItem.findByMethod(method))
         .filter(Objects::nonNull)
@@ -83,7 +73,7 @@ public record OpenApi(
    * @param ref The "full" ref name
    * @return The found schema, or null
    */
-  public Schema getResolvedSchema(String ref) {
+  public Schema resolveSchema(String ref) {
     String name = ref.replace("#/components/schemas/", "");
     Schema found = components.getSchema(name);
     LOG.debug("Found resolved schema: {} -> {}", ref, found);
@@ -97,11 +87,26 @@ public record OpenApi(
    * @param ref The "full" ref name
    * @return The found schema, or null
    */
-  public Parameter getResolvedParameter(String ref) {
+  public Parameter resolveParameter(String ref) {
     String name = ref.replace("#/components/parameters/", "");
     Parameter parameter = components.getParameter(name);
     LOG.debug("Found resolved parameter: {} -> {}", ref, parameter);
     return parameter;
+  }
+
+  private String normalizePath(String path) {
+    return servers.stream()
+        .map(Server::baseUrl)
+        .filter(path::startsWith)
+        .map(baseUrl -> path.replace(baseUrl, ""))
+        .findFirst()
+        .orElse("");
+  }
+
+  private void validateVersion(String version) {
+    if (!OpenApiConstants.SUPPORTED_VERSIONS.contains(version)) {
+      throw new UnsupportedVersionException(version);
+    }
   }
 
   /**

@@ -69,9 +69,9 @@ class OpenApiTest {
     "CONNECT,  /api/test,  connect,   true",
     "GT,       /api/test,  null,      false" // invalid method case
   })
-  void testGetOperation(
+  void testFindOperation(
       String method, String path, String expectedOperationId, boolean shouldBePresent) {
-    Optional<Operation> operation = openApi.getOperation(method, path);
+    Optional<Operation> operation = openApi.findOperation(method, path);
     assertThat(operation.isPresent()).isEqualTo(shouldBePresent);
     if (shouldBePresent) {
       assertThat(operation).isPresent();
@@ -128,7 +128,7 @@ class OpenApiTest {
     var spec = new OpenApi("3.1.0", new Info("test", "0"), emptyList(), paths, components);
 
     assertThat(referencedSchema)
-        .isSameAs(spec.getResolvedSchema($ref))
-        .isSameAs(spec.getResolvedSchema($ref));
+        .isSameAs(spec.resolveSchema($ref))
+        .isSameAs(spec.resolveSchema($ref));
   }
 }
