@@ -12,7 +12,6 @@ import com.retailsvc.http.openapi.exceptions.UnsupportedVersionException;
 import com.retailsvc.http.openapi.model.OpenApi.Components;
 import com.retailsvc.http.openapi.model.OpenApi.MediaType;
 import com.retailsvc.http.openapi.model.OpenApi.Operation;
-import com.retailsvc.http.openapi.model.OpenApi.PathItem;
 import com.retailsvc.http.openapi.model.OpenApi.RequestBody;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import java.util.Collection;
