@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 import com.retailsvc.http.openapi.exceptions.NoServersDeclaredException;
 import com.retailsvc.http.openapi.exceptions.UnsupportedVersionException;
 import com.retailsvc.http.openapi.model.OpenApi.Components;
-import com.retailsvc.http.openapi.model.OpenApi.Info;
 import com.retailsvc.http.openapi.model.OpenApi.MediaType;
 import com.retailsvc.http.openapi.model.OpenApi.Operation;
 import com.retailsvc.http.openapi.model.OpenApi.PathItem;
