@@ -3,7 +3,6 @@ package com.retailsvc.http.openapi.model;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNullElse;
 
-import com.retailsvc.http.openapi.model.OpenApi.Parameter;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import java.lang.invoke.MethodHandles;
 import java.util.HashMap;
