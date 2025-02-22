@@ -9,7 +9,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.retailsvc.http.openapi.model.OpenApi.Operation;
 import com.retailsvc.http.openapi.model.OpenApi.Parameter;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import java.util.List;

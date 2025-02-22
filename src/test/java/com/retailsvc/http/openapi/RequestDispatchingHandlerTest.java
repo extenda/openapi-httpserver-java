@@ -11,7 +11,7 @@ import static org.mockito.Mockito.when;
 import com.retailsvc.http.openapi.exceptions.MissingOperationHandlerException;
 import com.retailsvc.http.openapi.exceptions.NotFoundTypeException;
 import com.retailsvc.http.openapi.model.OpenApi;
-import com.retailsvc.http.openapi.model.OpenApi.Operation;
+import com.retailsvc.http.openapi.model.Operation;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.net.URI;

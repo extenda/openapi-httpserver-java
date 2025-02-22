@@ -1,7 +1,5 @@
 package com.retailsvc.http.openapi.model;
 
-import com.retailsvc.http.openapi.model.OpenApi.Operation;
-
 /**
  * The 'path item' represents all the methods/operations available on a path.
  *
