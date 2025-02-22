@@ -14,7 +14,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -183,7 +183,7 @@ public record OpenApi(
     }
 
     public boolean matchesPath(
-        String schemaPath, String requestPath, BiFunction<Object, Schema, Boolean> validator) {
+        String schemaPath, String requestPath, BiPredicate<Object, Schema> validator) {
       if (schemaPath.equals(requestPath)) {
         return true;
       }
@@ -199,8 +199,7 @@ public record OpenApi(
         return false;
       }
 
-      Map<String, String> foundParameters = new HashMap<>();
-
+      var foundParameters = new HashMap<String, String>();
       for (int i = 0; i < splitSchemaPath.length; i++) {
         String schemaToken = splitSchemaPath[i];
         String requestToken = splitRequestPath[i];
@@ -226,7 +225,7 @@ public record OpenApi(
             "Validating path parameter value '{}' against path parameter '{}'",
             toValidate,
             parameter.name());
-        if (!validator.apply(toValidate, schema)) {
+        if (!validator.test(toValidate, schema)) {
           LOG.debug("Failed to validate path parameter '{}'", parameter.name());
           return false;
         }

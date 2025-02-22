@@ -13,7 +13,7 @@ import com.retailsvc.http.openapi.model.OpenApi.Operation;
 import com.retailsvc.http.openapi.model.OpenApi.Parameter;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import java.util.List;
-import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -22,13 +22,13 @@ class OperationTest {
   @Nested
   class MatchesPathTest {
 
-    BiFunction<Object, Schema, Boolean> validator = mock();
+    BiPredicate<Object, Schema> validator = mock();
 
     @Test
     void shouldFindNamedParameters() {
-      when(validator.apply(eq("abc"), any())).thenReturn(true);
-      when(validator.apply(eq("Justin"), any())).thenReturn(true);
-      when(validator.apply(eq("Case"), any())).thenReturn(true);
+      when(validator.test(eq("abc"), any())).thenReturn(true);
+      when(validator.test(eq("Justin"), any())).thenReturn(true);
+      when(validator.test(eq("Case"), any())).thenReturn(true);
 
       var idSchema = mock(Schema.class);
       var idParameter = new Parameter(null, "path", "ID", true, idSchema);
@@ -46,9 +46,9 @@ class OperationTest {
       var requestPath = "/params/path/abc/Justin/Case";
       operation.matchesPath(schemaPath, requestPath, validator);
 
-      verify(validator).apply("abc", idSchema);
-      verify(validator).apply("Justin", nameSchema);
-      verify(validator).apply("Case", surnameSchema);
+      verify(validator).test("abc", idSchema);
+      verify(validator).test("Justin", nameSchema);
+      verify(validator).test("Case", surnameSchema);
     }
 
     @Test
@@ -61,7 +61,7 @@ class OperationTest {
 
       assertThat(result).isFalse();
       verify(operation).hasPathParameters();
-      verify(validator, never()).apply(any(), any());
+      verify(validator, never()).test(any(), any());
     }
 
     @Test
@@ -74,7 +74,7 @@ class OperationTest {
 
       assertThat(result).isTrue();
       verify(operation, never()).hasPathParameters();
-      verify(validator, never()).apply(any(), any());
+      verify(validator, never()).test(any(), any());
     }
   }
 }
