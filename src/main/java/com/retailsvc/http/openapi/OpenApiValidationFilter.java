@@ -1,6 +1,7 @@
 package com.retailsvc.http.openapi;
 
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
+import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 
 import com.retailsvc.http.openapi.exceptions.OperationIdNotFoundException;
@@ -9,13 +10,17 @@ import com.retailsvc.http.openapi.model.JsonMapper;
 import com.retailsvc.http.openapi.model.OpenApi;
 import com.retailsvc.http.openapi.model.OpenApi.MediaType;
 import com.retailsvc.http.openapi.model.OpenApi.Operation;
+import com.retailsvc.http.openapi.model.OpenApi.Parameter;
 import com.retailsvc.http.openapi.model.OpenApi.PathItem;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import com.retailsvc.http.openapi.validation.Validator;
 import com.retailsvc.http.openapi.validation.ValidatorImpl;
 import com.sun.net.httpserver.Filter;
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -83,20 +88,126 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
     }
   }
 
+  private String cutPrefix(String input) {
+    return input.split("^.*?:")[1];
+  }
+
   @Override
   public void doFilter(HttpExchange exchange, Chain chain) throws IOException {
     String method = exchange.getRequestMethod();
-    String requestURI = exchange.getRequestURI().getPath();
-    String path = specification.stripBasePath(requestURI);
+    String path = specification.stripBasePath(exchange.getRequestURI().getPath());
     String key = method + ":" + path;
 
-    Operation operation =
-        Optional.ofNullable(operations.get(key))
+    Operation operation = operations.get(key);
+
+    if (operation == null) {
+      for (Entry<String, Operation> entry : operations.entrySet()) {
+        String methodAndPath = entry.getKey();
+        String unresolvedPath = cutPrefix(methodAndPath);
+        Operation currentOperation = entry.getValue();
+
+        if (currentOperation.hasPathParameters()
+            && currentOperation.matchesPath(unresolvedPath, path, validator::validate)) {
+          LOG.debug("Validated parameterized path '{} -> {}'", unresolvedPath, path);
+          operation = currentOperation;
+          break;
+        }
+      }
+    }
+
+    operation =
+        Optional.ofNullable(operation)
             .orElseThrow(() -> new OperationIdNotFoundException(method, path));
+
+    // Validate headers
+    if (operation.hasHeaderParameters()) {
+      Headers headers = exchange.getRequestHeaders();
+      for (Parameter parameter : operation.headerParameters()) {
+        if (nonNull(parameter.$ref())) {
+          // parameter has ref, find it instead
+          parameter = specification.getResolvedParameter(parameter.$ref());
+        }
+
+        List<String> headerValues =
+            Optional.ofNullable(headers.get(parameter.name())).orElseGet(ArrayList::new);
+
+        if (parameter.required() && headerValues.isEmpty()) {
+          respondAsBadRequest(exchange);
+          return;
+        }
+
+        for (String header : headerValues) {
+          LOG.debug("Validating '{}' against parameter '{}'", header, parameter.name());
+
+          if (!validator.validate(header, parameter.schema())) {
+            respondAsBadRequest(exchange);
+            return;
+          }
+        }
+      }
+    }
+
+    // Validate query params
+    if (operation.hasQueryParameters()) {
+      String query = exchange.getRequestURI().getQuery();
+
+      if (isNull(query) || query.isBlank()) {
+        respondAsBadRequest(exchange);
+        return;
+      }
+
+      for (Parameter queryParameter : operation.queryParameters()) {
+        if (nonNull(queryParameter.$ref())) {
+          // parameter has ref, find it instead
+          queryParameter = specification.getResolvedParameter(queryParameter.$ref());
+        }
+
+        var required = queryParameter.required();
+        var queryName = queryParameter.name();
+
+        if (required && !query.contains(queryName)) {
+          LOG.debug("Required query parameter '{}' not found in '{}'", queryName, query);
+          respondAsBadRequest(exchange);
+          return;
+        }
+
+        String[] queryPairs = query.split("&");
+        for (int i = 0; i < queryPairs.length; i++) {
+          String[] splitPair = queryPairs[i].split("=");
+          String name = splitPair[0];
+          String value = splitPair[1];
+
+          if (queryParameter.name().equals(name)) {
+            Schema schema = queryParameter.schema();
+            LOG.debug("Validating query parameter value '{}' against parameter '{}'", value, name);
+            boolean valid = validator.validate(value, schema);
+            if (required && !valid) {
+              respondAsBadRequest(exchange);
+              return;
+            }
+            if (!valid) {
+              respondAsBadRequest(exchange);
+              return;
+            }
+            // optimization: Remove the validated pair for next iterations
+            queryPairs[i] = "";
+          }
+        }
+        // optimization
+        query =
+            String.join("&", queryPairs)
+                // replace '&&' -> '&'
+                .replaceAll("&{2,}", "&")
+                // cut leading and trailing ampersand
+                .replaceFirst("^&|&$", "");
+      }
+    }
 
     byte[] readBodyBytes = getRequestBody(exchange);
     if (readBodyBytes != null && readBodyBytes.length > 0) {
       var mappedBody = mapper.mapFrom(readBodyBytes);
+
+      LOG.debug("Validating request body...");
 
       String contentType = exchange.getRequestHeaders().getFirst("content-type");
       MediaType mediaType = operation.requestBody().content().get(contentType);
@@ -106,18 +217,21 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
         schema = specification.getResolvedSchema(schema.$ref());
       }
 
-      boolean isValid = validator.validate(mappedBody, schema);
-
-      LOG.debug("Overall validation is {}", isValid ? "VALID" : "INVALID");
-
-      if (!isValid) {
-        try (exchange) {
-          exchange.sendResponseHeaders(HTTP_BAD_REQUEST, 0);
-          return;
-        }
+      if (!validator.validate(mappedBody, schema)) {
+        respondAsBadRequest(exchange);
+        return;
       }
     }
+
+    exchange.setAttribute("operation-id", operation.operationId());
+
     chain.doFilter(exchange);
+  }
+
+  private void respondAsBadRequest(HttpExchange exchange) throws IOException {
+    try (exchange) {
+      exchange.sendResponseHeaders(HTTP_BAD_REQUEST, 0);
+    }
   }
 
   @Override

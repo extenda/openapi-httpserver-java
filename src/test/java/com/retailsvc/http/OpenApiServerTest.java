@@ -35,10 +35,11 @@ class OpenApiServerTest {
     OpenApi validSpec = testSpecification();
     Map<String, HttpHandler> handlers = emptyMap();
 
-    OpenApiServer openApiServer =
-        assertDoesNotThrow(
-            () -> new OpenApiServer(validSpec, jsonMapper, handlers, defaultExceptionHandler));
-    assertDoesNotThrow(openApiServer::close);
+    assertDoesNotThrow(
+        () -> {
+          try (var server =
+              new OpenApiServer(validSpec, jsonMapper, handlers, defaultExceptionHandler, 0)) {}
+        });
   }
 
   @Test
@@ -85,6 +86,6 @@ class OpenApiServerTest {
         new Info("API", "1.0"),
         Collections.singletonList(server),
         emptyMap(),
-        new Components(emptyMap()));
+        new Components(emptyMap(), emptyMap()));
   }
 }

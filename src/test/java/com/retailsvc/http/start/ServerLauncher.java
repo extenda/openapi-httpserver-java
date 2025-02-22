@@ -35,6 +35,9 @@ public class ServerLauncher {
     handlers.put("get-data", new GetDataHandler());
     handlers.put("post-data", new PostDataHandler());
     handlers.put("post-list-objects", new PostListObjectsHandler());
+    handlers.put("query-params", new ParamHandler());
+    handlers.put("path-params", new ParamHandler());
+    handlers.put("path-params-multi", new ParamHandler());
 
     JsonMapper mapper =
         new JsonMapper() {

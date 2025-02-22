@@ -27,7 +27,8 @@ class ValidatorImplTest {
   void shouldValidateNestedObjectProperty() {
     Map<String, Object> nestedSchema = Map.of("type", "string");
     Map<String, Object> properties = Map.of("properties", Map.of("name", nestedSchema));
-    Schema schema = new Schema("object", null, properties, emptyMap(), emptyList(), null, null);
+    Schema schema =
+        new Schema("object", null, null, properties, emptyMap(), emptyList(), null, null);
     Map<String, Object> input = Map.of("name", "John");
 
     boolean result = validator.validate(input, schema);
@@ -54,7 +55,7 @@ class ValidatorImplTest {
   void shouldValidateComplexObjects(
       Map<String, Object> input, Map<String, Object> schemaProperties, boolean expected) {
     Schema schema =
-        new Schema("object", null, schemaProperties, emptyMap(), emptyList(), null, null);
+        new Schema("object", null, null, schemaProperties, emptyMap(), emptyList(), null, null);
 
     boolean result = validator.validate(input, schema);
 
@@ -65,7 +66,7 @@ class ValidatorImplTest {
   void validateShouldReturnFalseForInvalidArrayElements() {
     Map<String, Object> items = new HashMap<>();
     items.put("type", "string");
-    Schema schema = new Schema("array", null, Map.of(), items, List.of(), null, null);
+    Schema schema = new Schema("array", null, null, Map.of(), items, List.of(), null, null);
 
     boolean result = validator.validate(List.of("test", 123), schema);
 
@@ -76,7 +77,7 @@ class ValidatorImplTest {
   void validateShouldReturnTrueForValidStringArray() {
     Map<String, Object> items = new HashMap<>();
     items.put("type", "string");
-    Schema schema = new Schema("array", null, Map.of(), items, List.of(), null, null);
+    Schema schema = new Schema("array", null, null, Map.of(), items, List.of(), null, null);
 
     boolean result = validator.validate(List.of("test1", "test2"), schema);
 

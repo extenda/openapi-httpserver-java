@@ -1,9 +1,12 @@
 package com.retailsvc.http.openapi.validation;
 
+import static java.util.Objects.nonNull;
+
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -25,27 +28,40 @@ public class StringValidator implements Validator {
       return false;
     }
 
-    LOG.debug("Validating string input: {}", json);
+    LOG.debug("Validating as string input: {}", json);
 
     Map<String, Object> properties = schema.properties();
 
-    if (properties.containsKey("pattern")) {
-      String patternString = properties.get("pattern").toString();
+    Optional<String> optionalPattern =
+        Optional.ofNullable((String) properties.get("pattern"))
+            .or(() -> Optional.ofNullable(schema.pattern()));
+
+    if (optionalPattern.isPresent()) {
+      String patternString = optionalPattern.get();
       Pattern pattern = patterns.computeIfAbsent(patternString, this::compile);
+      LOG.debug("Validating '{}' against pattern {}", input, pattern);
       boolean match = pattern.matcher(json).matches();
-      LOG.debug("{} matches pattern {}? {}", json, pattern, match);
+      if (!match) {
+        LOG.debug("'{}' does not match pattern {}", json, pattern);
+      }
       return match;
     }
 
-    if (properties.containsKey("format")) {
-      String formatString = properties.get("format").toString();
+    if (properties.containsKey("format") || nonNull(schema.format())) {
+      String formatString =
+          Optional.ofNullable(properties.get("format"))
+              .map(String.class::cast)
+              .orElse(schema.format());
       if ("uuid".equalsIgnoreCase(formatString)) {
         try {
+          if (json.length() != 36) {
+            throw new IllegalArgumentException("Length != 36");
+          }
           UUID.fromString(json);
           LOG.debug("Validated as UUID? true");
           return true;
         } catch (IllegalArgumentException e) {
-          LOG.debug("Failed to validate UUID.", e);
+          LOG.debug("Failed to validate UUID: " + e.getMessage());
           return false;
         }
       }

@@ -12,14 +12,14 @@ import org.junit.jupiter.api.Test;
 
 class ArrayValidatorTest {
 
-  private Validator rootValidator = mock();
-  private Function<String, Schema> referencedSchema = mock();
+  private final Validator rootValidator = mock();
+  private final Function<String, Schema> referencedSchema = mock();
 
   private final ArrayValidator validator = new ArrayValidator(rootValidator, referencedSchema);
 
   @Test
   void shouldReturnFalseWhenSchemaIsNotArray() {
-    var schema = new Schema("string", null, Map.of(), Map.of(), List.of(), null, null);
+    var schema = new Schema("string", null, null, Map.of(), Map.of(), List.of(), null, null);
 
     boolean result = validator.validate(List.of(), schema);
 
@@ -29,7 +29,7 @@ class ArrayValidatorTest {
   @Test
   void shouldReturnTrueForEmptyArray() {
     var schema =
-        new Schema("array", null, Map.of(), Map.of("type", "string"), List.of(), null, null);
+        new Schema("array", null, null, Map.of(), Map.of("type", "string"), List.of(), null, null);
 
     boolean result = validator.validate(List.of(), schema);
 
@@ -42,7 +42,7 @@ class ArrayValidatorTest {
     items.put("type", "number");
     items.put("properties", null);
 
-    var schema = new Schema("array", null, Map.of(), items, List.of(), null, null);
+    var schema = new Schema("array", null, null, Map.of(), items, List.of(), null, null);
 
     boolean result = validator.validate(List.of(), schema);
 

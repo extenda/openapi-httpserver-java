@@ -32,7 +32,10 @@ public class ArrayValidator implements Validator {
       return false;
     }
 
-    Iterable<?> iterable = (Iterable<?>) json;
+    if (!(json instanceof Iterable<?> iterable)) {
+      LOG.debug("Input is not an array -> {}", json);
+      return false;
+    }
 
     LOG.debug("Validate as list: {}", iterable);
 
@@ -49,7 +52,8 @@ public class ArrayValidator implements Validator {
       Schema propertySchema =
           Optional.ofNullable($ref)
               .map(referencedSchema)
-              .orElseGet(() -> new Schema($ref, type, format, props, items, required, max, min));
+              .orElseGet(
+                  () -> new Schema($ref, type, format, null, props, items, required, max, min));
 
       if (!rootValidator.validate(entry, propertySchema)) {
         LOG.debug("Failed to validate '{}'", entry);

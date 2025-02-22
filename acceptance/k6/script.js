@@ -80,4 +80,43 @@ export default function () {
       'is status 200': (r) => r.status === 200,
     });
   });
+
+  group('get query params', () => {
+    const url = 'http://localhost:8080/api/v1/params/query?q1=data&q2=data';
+    const res = http.get(url, listBody, {
+      headers: {
+        'Content-Type':'application/json',
+      }
+    });
+
+    check(res, {
+      'is status 200': (r) => r.status === 200,
+    });
+  });
+
+  group('get path params', () => {
+    const url = 'http://localhost:8080/api/v1/params/path/1234567890';
+    const res = http.get(url, listBody, {
+      headers: {
+        'Content-Type':'application/json',
+      }
+    });
+
+    check(res, {
+      'is status 200': (r) => r.status === 200,
+    });
+  });
+
+  group('get with many path params', () => {
+    const url = 'http://localhost:8080/api/v1/params/path/1234567890/Justin/Case';
+    const res = http.get(url, listBody, {
+      headers: {
+        'Content-Type':'application/json',
+      }
+    });
+
+    check(res, {
+      'is status 200': (r) => r.status === 200,
+    });
+  });
 }

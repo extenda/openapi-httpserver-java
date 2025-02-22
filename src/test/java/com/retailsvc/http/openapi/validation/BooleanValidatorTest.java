@@ -14,8 +14,8 @@ class BooleanValidatorTest {
 
   @BeforeEach
   void setUp() {
-    booleanSchema = new Schema("boolean", null, null, null, null, null, null);
-    nonBooleanSchema = new Schema("string", null, null, null, null, null, null);
+    booleanSchema = new Schema("boolean", null, null, null, null, null, null, null);
+    nonBooleanSchema = new Schema("string", null, null, null, null, null, null, null);
   }
 
   @Test

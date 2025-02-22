@@ -81,7 +81,9 @@ public class ObjectValidator implements Validator {
               */
               .filter(not(ignore -> "array".equals(type)))
               .orElseGet(
-                  () -> new Schema($ref, type, format, subSchema, items, subRequired, max, min));
+                  () ->
+                      new Schema(
+                          $ref, type, format, null, subSchema, items, subRequired, max, min));
 
       Object propertyToValidate = entry.getValue();
 

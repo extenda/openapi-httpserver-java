@@ -21,14 +21,14 @@ class StringValidatorTest {
 
   @Test
   void shouldReturnFalseWhenSchemaIsNotString() {
-    var schema = new Schema("number", null, emptyMap(), emptyMap(), emptyList(), null, null);
+    var schema = new Schema("number", null, null, emptyMap(), emptyMap(), emptyList(), null, null);
     boolean result = validator.validate("test", schema);
     assertThat(result).isFalse();
   }
 
   @Test
   void shouldReturnTrueWhenNoValidationRulesExist() {
-    var schema = new Schema("string", null, emptyMap(), emptyMap(), emptyList(), null, null);
+    var schema = new Schema("string", null, null, emptyMap(), emptyMap(), emptyList(), null, null);
     boolean result = validator.validate("any string", schema);
     assertThat(result).isTrue();
   }
@@ -36,7 +36,8 @@ class StringValidatorTest {
   @Test
   void shouldInvalidateIncorrectUUID() {
     var schema =
-        new Schema("string", null, Map.of("format", "uuid"), emptyMap(), emptyList(), null, null);
+        new Schema(
+            "string", null, null, Map.of("format", "uuid"), emptyMap(), emptyList(), null, null);
     boolean result = validator.validate("not-a-uuid", schema);
     assertThat(result).isFalse();
   }
@@ -53,7 +54,8 @@ class StringValidatorTest {
   @MethodSource("patternTestCases")
   void shouldValidatePatterns(String input, String pattern, boolean expected) {
     var schema =
-        new Schema("string", null, Map.of("pattern", pattern), emptyMap(), emptyList(), null, null);
+        new Schema(
+            "string", null, null, Map.of("pattern", pattern), emptyMap(), emptyList(), null, null);
     boolean result = validator.validate(input, schema);
     assertThat(result).isEqualTo(expected);
   }
@@ -63,7 +65,8 @@ class StringValidatorTest {
       strings = {"123e4567-e89b-12d3-a456-426614174000", "87e3a40c-6def-4444-8888-7777b4e43b68"})
   void shouldValidateValidUUIDs(String input) {
     var schema =
-        new Schema("string", null, Map.of("format", "uuid"), emptyMap(), emptyList(), null, null);
+        new Schema(
+            "string", null, null, Map.of("format", "uuid"), emptyMap(), emptyList(), null, null);
     boolean result = validator.validate(input, schema);
     assertThat(result).isTrue();
   }
@@ -80,7 +83,8 @@ class StringValidatorTest {
   @MethodSource("dateTimeTestCases")
   void shouldValidateDateTimes(String input, String format, boolean expected) {
     var schema =
-        new Schema("string", null, Map.of("format", format), emptyMap(), emptyList(), null, null);
+        new Schema(
+            "string", null, null, Map.of("format", format), emptyMap(), emptyList(), null, null);
     boolean result = validator.validate(input, schema);
     assertThat(result).isEqualTo(expected);
   }
@@ -96,7 +100,8 @@ class StringValidatorTest {
   @MethodSource("enumTestCases")
   void shouldValidateEnums(String input, List<String> enumValues, boolean expected) {
     var schema =
-        new Schema("string", null, Map.of("enum", enumValues), emptyMap(), emptyList(), null, null);
+        new Schema(
+            "string", null, null, Map.of("enum", enumValues), emptyMap(), emptyList(), null, null);
     boolean result = validator.validate(input, schema);
     assertThat(result).isEqualTo(expected);
   }

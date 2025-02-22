@@ -2,8 +2,8 @@ package com.retailsvc.http;
 
 import static com.retailsvc.http.Handlers.notFoundHandler;
 import static java.lang.Thread.ofVirtual;
+import static java.util.Objects.isNull;
 import static java.util.Objects.requireNonNull;
-import static java.util.Objects.requireNonNullElseGet;
 import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 import com.retailsvc.http.openapi.OpenApiValidationFilter;
@@ -70,11 +70,19 @@ public class OpenApiServer implements AutoCloseable {
     requireNonNull(specification, "OpenAPI specification must not be null");
     requireNonNull(jsonMapper, "Request body mapper must not be null");
     requireNonNull(requestHandlers, "Request handlers must not be null");
-    ExceptionHandler errorHandler =
-        requireNonNullElseGet(exceptionHandler, Handlers::defaultExceptionHandler);
+
+    if (isNull(exceptionHandler)) {
+      LOG.warn("No exception handler set, using default.");
+      exceptionHandler = Handlers.defaultExceptionHandler();
+    }
 
     httpServer =
-        initializeServer(httpPort, specification, jsonMapper, requestHandlers, errorHandler, t0);
+        initializeServer(
+            httpPort, specification, jsonMapper, requestHandlers, exceptionHandler, t0);
+  }
+
+  public int listenPort() {
+    return httpServer.getAddress().getPort();
   }
 
   private HttpServer initializeServer(
@@ -94,7 +102,7 @@ public class OpenApiServer implements AutoCloseable {
     filters.add(new BodyHandler());
     filters.add(new OpenApiValidationFilter(specification, jsonMapper));
 
-    context.setHandler(new RequestDispatchingHandler(specification, requestHandlers));
+    context.setHandler(new RequestDispatchingHandler(requestHandlers));
 
     server.createContext("/", notFoundHandler());
     server.start();
