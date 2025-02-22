@@ -8,7 +8,7 @@ import com.retailsvc.http.openapi.model.Info;
 import com.retailsvc.http.openapi.model.JsonMapper;
 import com.retailsvc.http.openapi.model.OpenApi;
 import com.retailsvc.http.openapi.model.OpenApi.Components;
-import com.retailsvc.http.openapi.model.OpenApi.Server;
+import com.retailsvc.http.openapi.model.Server;
 import com.sun.net.httpserver.HttpHandler;
 import java.util.Collections;
 import java.util.HashMap;

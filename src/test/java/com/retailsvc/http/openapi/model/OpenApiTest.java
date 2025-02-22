@@ -15,7 +15,6 @@ import com.retailsvc.http.openapi.model.OpenApi.Operation;
 import com.retailsvc.http.openapi.model.OpenApi.PathItem;
 import com.retailsvc.http.openapi.model.OpenApi.RequestBody;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
-import com.retailsvc.http.openapi.model.OpenApi.Server;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
