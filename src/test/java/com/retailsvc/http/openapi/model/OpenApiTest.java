@@ -103,21 +103,18 @@ class OpenApiTest {
 
   @Test
   void shouldFindResolvedSchemaWhenUsingRef() {
-    String $ref = "#/components/schemas/test";
-
+    var $ref = "#/components/schemas/test";
     var schema = new Schema($ref, null, null, null, null, null, null, null);
-    Map<String, MediaType> mediaTypes = Map.of("application/json", new MediaType(schema));
+    var mediaTypes = Map.of("application/json", new MediaType(schema));
     var requestBody = new RequestBody("fictive request body", mediaTypes, emptyList());
     var operation = new Operation("op", requestBody, emptyList(), emptyMap());
-
     var pathItem = new PathItem(null, operation, null, null, null, null, null, null, null);
-    Map<String, PathItem> paths = Map.of("/test", pathItem);
-
-    Schema referencedSchema =
+    var paths = Map.of("/test", pathItem);
+    var referencedSchema =
         new Schema("integer", "int32", null, emptyMap(), emptyMap(), emptyList(), null, null);
-    Components components = new Components(Map.of("test", referencedSchema), emptyMap());
+    var comps = new Components(Map.of("test", referencedSchema), emptyMap());
 
-    var spec = new OpenApi("3.1.0", new Info("test", "0"), emptyList(), paths, components);
+    var spec = new OpenApi("3.1.0", new Info("test", "0"), emptyList(), paths, comps);
 
     assertThat(referencedSchema)
         .isSameAs(spec.resolveSchema($ref))
