@@ -161,16 +161,26 @@
         <version>0.8.12</version>
         <executions>
           <execution>
+            <id>jacoco-surefire</id>
             <goals>
               <goal>prepare-agent</goal>
             </goals>
+            <phase>initialize</phase>
+            <configuration>
+              <destFile>${project.build.directory}/jacoco.exec</destFile>
+              <append>true</append>
+            </configuration>
           </execution>
           <execution>
-            <id>generate-code-coverage-report</id>
+            <id>jacoco-report</id>
             <goals>
               <goal>report</goal>
             </goals>
-            <phase>test</phase>
+            <phase>verify</phase>
+            <configuration>
+              <dataFile>${project.build.directory}/jacoco.exec</dataFile>
+              <outputDirectory>${project.reporting.outputDirectory}/jacoco</outputDirectory>
+            </configuration>
           </execution>
         </executions>
       </plugin>
