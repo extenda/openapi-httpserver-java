@@ -86,8 +86,8 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
         });
   }
 
-  private String cutPrefix(String input) {
-    return input.split("^.*?:")[1];
+  protected String cutPrefix(String input) {
+    return input.split("^[A-Z]+:")[1];
   }
 
   @Override

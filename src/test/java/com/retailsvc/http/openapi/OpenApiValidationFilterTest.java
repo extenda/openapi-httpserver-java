@@ -1,6 +1,7 @@
 package com.retailsvc.http.openapi;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -26,9 +27,13 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class OpenApiValidationFilterTest {
 
@@ -58,6 +63,21 @@ class OpenApiValidationFilterTest {
   void testDescribeSelf() {
     var filter = new OpenApiValidationFilter(specification, bodyMapper);
     assertThat(filter.description()).isEqualTo("OpenAPI filter");
+  }
+
+  private static Stream<Arguments> prefixesToCut() {
+    return Stream.of(
+        arguments("GET:/api/v1", "/api/v1"),
+        arguments("POST:/api/v1/", "/api/v1/"),
+        arguments("PATCH:/api/v1/test", "/api/v1/test"),
+        arguments("PATCH:/api/v1/{PARAM}/test:action", "/api/v1/{PARAM}/test:action"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("prefixesToCut")
+  void testCutPrefix(String input, String expectedOutput) {
+    var filter = new OpenApiValidationFilter(specification, bodyMapper);
+    assertThat(filter.cutPrefix(input)).isEqualTo(expectedOutput);
   }
 
   @Nested
