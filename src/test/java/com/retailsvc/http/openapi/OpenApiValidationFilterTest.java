@@ -75,9 +75,9 @@ class OpenApiValidationFilterTest {
 
   @ParameterizedTest
   @MethodSource("prefixesToCut")
-  void testCutPrefix(String input, String expectedOutput) {
+  void testExtractPath(String input, String expectedOutput) {
     var filter = new OpenApiValidationFilter(specification, bodyMapper);
-    assertThat(filter.cutPrefix(input)).isEqualTo(expectedOutput);
+    assertThat(filter.extractPath(input)).isEqualTo(expectedOutput);
   }
 
   @Nested
