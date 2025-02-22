@@ -106,21 +106,6 @@ public record OpenApi(
     }
   }
 
-  /**
-   * Represents the 'requestBody' for an endpoint.
-   *
-   * @param description The description for the request body
-   * @param content The map of media types the endpoint supports
-   * @param required The required properties for this request body
-   * @see <a href="https://swagger.io/specification/#request-body-object">Request Body Object</a>
-   */
-  public record RequestBody(
-      String description, Map<String, MediaType> content, List<String> required) {
-    public RequestBody {
-      required = Objects.requireNonNullElse(required, List.of());
-    }
-  }
-
   public record Parameter(String $ref, String in, String name, boolean required, Schema schema) {
 
     private static final String HEADER = "header";
