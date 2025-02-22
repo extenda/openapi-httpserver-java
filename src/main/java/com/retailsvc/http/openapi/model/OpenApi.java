@@ -1,13 +1,9 @@
 package com.retailsvc.http.openapi.model;
 
-import static java.util.Objects.isNull;
-
-import com.retailsvc.http.openapi.exceptions.LoadSpecificationException;
 import com.retailsvc.http.openapi.exceptions.NoServersDeclaredException;
 import com.retailsvc.http.openapi.exceptions.UnsupportedVersionException;
 import java.net.URI;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -103,78 +99,6 @@ public record OpenApi(
   private void validateVersion(String version) {
     if (!OpenApiConstants.SUPPORTED_VERSIONS.contains(version)) {
       throw new UnsupportedVersionException(version);
-    }
-  }
-
-  public record Schema(
-      String $ref,
-      String type,
-      String format,
-      String pattern,
-      Map<String, Object> properties,
-      Map<String, Object> items,
-      List<String> required,
-      Number maximum,
-      Number minimum) {
-
-    /**
-     * If Schema has a $ref, we do not set any properties. The properties will be resolved later via
-     * the referenced component {@link Components}.
-     */
-    public Schema {
-      if (isNull($ref)) {
-        if (type == null || type.isBlank()) {
-          throw new LoadSpecificationException("Type is missing");
-        }
-        if (isNull(format) && isNumber()) {
-          format = "int32";
-        }
-        required = Objects.requireNonNullElse(required, List.of());
-        items = Objects.requireNonNullElse(items, Map.of());
-        properties = Objects.requireNonNullElse(properties, Map.of());
-        maximum = Objects.requireNonNullElse(maximum, Double.MAX_VALUE);
-        minimum = Objects.requireNonNullElse(minimum, Double.MIN_VALUE);
-      }
-    }
-
-    public Schema(
-        String type,
-        String format,
-        String pattern,
-        Map<String, Object> properties,
-        Map<String, Object> items,
-        List<String> required,
-        Number maximum,
-        Number minimum) {
-      this(null, type, format, pattern, properties, items, required, maximum, minimum);
-    }
-
-    public boolean isString() {
-      return "string".equalsIgnoreCase(type);
-    }
-
-    public boolean isBoolean() {
-      return "boolean".equalsIgnoreCase(type);
-    }
-
-    public boolean isInteger() {
-      return isNumber() && Optional.ofNullable(format).map("int32"::equalsIgnoreCase).orElse(true);
-    }
-
-    public boolean isLong() {
-      return isNumber() && Optional.ofNullable(format).map("int64"::equalsIgnoreCase).orElse(false);
-    }
-
-    public boolean isNumber() {
-      return "number".equalsIgnoreCase(type) || "integer".equalsIgnoreCase(type);
-    }
-
-    public boolean isObject() {
-      return "object".equalsIgnoreCase(type);
-    }
-
-    public boolean isArray() {
-      return "array".equalsIgnoreCase(type);
     }
   }
 }

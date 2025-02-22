@@ -9,7 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.retailsvc.http.openapi.exceptions.BadRequestException;
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
+import com.retailsvc.http.openapi.model.Schema;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

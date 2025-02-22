@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.Mockito.mock;
 
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
+import com.retailsvc.http.openapi.model.Schema;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;

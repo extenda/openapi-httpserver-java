@@ -1,7 +1,5 @@
 package com.retailsvc.http.openapi.model;
 
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
-
 /**
  * The 'parameter' describes a single operation parameter.
  *

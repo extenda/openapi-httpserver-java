@@ -9,7 +9,6 @@ import static org.mockito.Mockito.when;
 
 import com.retailsvc.http.openapi.exceptions.NoServersDeclaredException;
 import com.retailsvc.http.openapi.exceptions.UnsupportedVersionException;
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -106,7 +105,7 @@ class OpenApiTest {
   void shouldFindResolvedSchemaWhenUsingRef() {
     String $ref = "#/components/schemas/test";
 
-    var schema = new OpenApi.Schema($ref, null, null, null, null, null, null, null);
+    var schema = new Schema($ref, null, null, null, null, null, null, null);
     Map<String, MediaType> mediaTypes = Map.of("application/json", new MediaType(schema));
     var requestBody = new RequestBody("fictive request body", mediaTypes, emptyList());
     var operation = new Operation("op", requestBody, emptyList(), emptyMap());

@@ -1,6 +1,6 @@
 package com.retailsvc.http.openapi.validation;
 
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
+import com.retailsvc.http.openapi.model.Schema;
 
 @FunctionalInterface
 public interface Validator {

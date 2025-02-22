@@ -1,7 +1,5 @@
 package com.retailsvc.http.openapi.model;
 
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
-
 /**
  * Represents a supported 'media-type' for an endpoint.
  *

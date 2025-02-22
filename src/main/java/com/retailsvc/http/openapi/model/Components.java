@@ -1,6 +1,5 @@
 package com.retailsvc.http.openapi.model;
 
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import java.util.Map;
 
 //

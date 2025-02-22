@@ -2,7 +2,7 @@ package com.retailsvc.http.openapi.validation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
+import com.retailsvc.http.openapi.model.Schema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

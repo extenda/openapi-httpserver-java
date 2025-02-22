@@ -9,7 +9,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import java.util.List;
 import java.util.function.BiPredicate;
 import org.junit.jupiter.api.Nested;

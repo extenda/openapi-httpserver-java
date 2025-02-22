@@ -1,6 +1,6 @@
 package com.retailsvc.http.openapi.validation;
 
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
+import com.retailsvc.http.openapi.model.Schema;
 import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Map;
