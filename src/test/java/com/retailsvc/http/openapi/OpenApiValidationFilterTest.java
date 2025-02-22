@@ -12,8 +12,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.retailsvc.http.openapi.model.JsonMapper;
+import com.retailsvc.http.openapi.model.MediaType;
 import com.retailsvc.http.openapi.model.OpenApi;
-import com.retailsvc.http.openapi.model.OpenApi.MediaType;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import com.retailsvc.http.openapi.model.Operation;
 import com.retailsvc.http.openapi.model.PathItem;

@@ -3,7 +3,6 @@ package com.retailsvc.http.openapi.model;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNullElse;
 
-import com.retailsvc.http.openapi.model.OpenApi.MediaType;
 import java.util.List;
 import java.util.Map;
 
