@@ -177,14 +177,4 @@ public record OpenApi(
       return "array".equalsIgnoreCase(type);
     }
   }
-
-  public record Components(Map<String, Schema> schemas, Map<String, Parameter> parameters) {
-    public Schema getSchema(String name) {
-      return schemas.get(name);
-    }
-
-    public Parameter getParameter(String name) {
-      return parameters.get(name);
-    }
-  }
 }

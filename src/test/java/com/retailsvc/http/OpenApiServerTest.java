@@ -4,10 +4,10 @@ import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import com.retailsvc.http.openapi.model.Components;
 import com.retailsvc.http.openapi.model.Info;
 import com.retailsvc.http.openapi.model.JsonMapper;
 import com.retailsvc.http.openapi.model.OpenApi;
-import com.retailsvc.http.openapi.model.OpenApi.Components;
 import com.retailsvc.http.openapi.model.Server;
 import com.sun.net.httpserver.HttpHandler;
 import java.util.Collections;

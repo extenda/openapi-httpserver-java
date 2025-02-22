@@ -9,7 +9,6 @@ import static org.mockito.Mockito.when;
 
 import com.retailsvc.http.openapi.exceptions.NoServersDeclaredException;
 import com.retailsvc.http.openapi.exceptions.UnsupportedVersionException;
-import com.retailsvc.http.openapi.model.OpenApi.Components;
 import com.retailsvc.http.openapi.model.OpenApi.Schema;
 import java.util.Collection;
 import java.util.List;
