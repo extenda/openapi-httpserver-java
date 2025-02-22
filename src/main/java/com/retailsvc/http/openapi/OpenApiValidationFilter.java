@@ -205,7 +205,7 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
                 // replace '&&' -> '&'
                 .replaceAll("&{2,}", "&")
                 // cut leading and trailing ampersand
-                .replaceFirst("^&|&$", "");
+                .replaceFirst("(^&)|(&$)", "");
       }
     }
 
