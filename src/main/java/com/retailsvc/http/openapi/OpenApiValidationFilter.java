@@ -116,14 +116,14 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
     Operation operation = operationsByPath.get(key);
 
     if (isNull(operation)) {
-      operation = findOperationWithPathParameters(method, path);
+      operation = findOperationWithPathParameters(path);
     }
 
     return Optional.ofNullable(operation)
         .orElseThrow(() -> new OperationIdNotFoundException(method, path));
   }
 
-  private Operation findOperationWithPathParameters(String method, String path) {
+  private Operation findOperationWithPathParameters(String path) {
     return operationsByPath.entrySet().stream()
         .filter(entry -> isMatchingPathOperation(entry, path))
         .map(Entry::getValue)
