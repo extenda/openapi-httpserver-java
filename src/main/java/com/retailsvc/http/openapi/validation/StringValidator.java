@@ -17,6 +17,7 @@ public class StringValidator implements Validator {
 
   private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
+  private static final Integer LENGTH_OF_UUID = UUID.randomUUID().toString().length();
   private static final Map<String, Pattern> patterns = new ConcurrentHashMap<>();
 
   @Override
@@ -54,14 +55,14 @@ public class StringValidator implements Validator {
               .orElse(schema.format());
       if ("uuid".equalsIgnoreCase(formatString)) {
         try {
-          if (json.length() != 36) {
-            throw new IllegalArgumentException("Length != 36");
+          if (json.length() != LENGTH_OF_UUID) {
+            throw new IllegalArgumentException("Length != " + LENGTH_OF_UUID);
           }
           UUID.fromString(json);
           LOG.debug("Validated as UUID? true");
           return true;
         } catch (IllegalArgumentException e) {
-          LOG.debug("Failed to validate UUID: " + e.getMessage());
+          LOG.debug("Failed to validate UUID", e);
           return false;
         }
       }
