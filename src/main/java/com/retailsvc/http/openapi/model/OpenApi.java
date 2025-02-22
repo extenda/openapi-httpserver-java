@@ -14,7 +14,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -35,8 +34,6 @@ public record OpenApi(
 
   private static final Logger LOG = LoggerFactory.getLogger(OpenApi.class);
   private static final Set<String> SUPPORTED_VERSIONS = Set.of("3.1.0");
-  private static final Map<String, Schema> SCHEMAS_CACHE = new ConcurrentHashMap<>();
-  private static final Map<String, Parameter> PARAMETERS_CACHE = new ConcurrentHashMap<>();
 
   public static OpenApi parse(Function<String, OpenApi> fn, String spec) {
     return fn.apply(spec);
@@ -88,7 +85,7 @@ public record OpenApi(
    */
   public Schema getResolvedSchema(String ref) {
     String name = ref.replace("#/components/schemas/", "");
-    Schema found = SCHEMAS_CACHE.computeIfAbsent(name, components::getSchema);
+    Schema found = components.getSchema(name);
     LOG.debug("Found resolved schema: {} -> {}", ref, found);
     return found;
   }
@@ -102,7 +99,7 @@ public record OpenApi(
    */
   public Parameter getResolvedParameter(String ref) {
     String name = ref.replace("#/components/parameters/", "");
-    Parameter parameter = PARAMETERS_CACHE.computeIfAbsent(name, components::getParameter);
+    Parameter parameter = components.getParameter(name);
     LOG.debug("Found resolved parameter: {} -> {}", ref, parameter);
     return parameter;
   }
