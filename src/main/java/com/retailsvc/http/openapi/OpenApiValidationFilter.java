@@ -79,13 +79,11 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
           .ifPresent(operation -> operations.put("PATCH:" + path, operation));
     }
 
-    if (LOG.isDebugEnabled()) {
-      operations.forEach(
-          (verb, operation) -> {
-            String id = operation.operationId();
-            LOG.debug("Server supports {} via operation-id '{}'", verb, id);
-          });
-    }
+    operations.forEach(
+        (verb, operation) -> {
+          var id = operation.operationId();
+          LOG.debug("Server supports {} via operation-id '{}'", verb, id);
+        });
   }
 
   private String cutPrefix(String input) {
