@@ -12,6 +12,14 @@ import org.slf4j.LoggerFactory;
 public class ArrayValidator implements Validator {
 
   private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+  private static final String TYPE_KEY = "type";
+  private static final String REF_KEY = "$ref";
+  private static final String PROPERTIES_KEY = "properties";
+  private static final String FORMAT_KEY = "format";
+  private static final String REQUIRED_KEY = "required";
+  private static final String MAXIMUM_KEY = "maximum";
+  private static final String MINIMUM_KEY = "minimum";
+
   private final Validator rootValidator;
   private final Function<String, Schema> referencedSchema;
 
@@ -38,23 +46,13 @@ public class ArrayValidator implements Validator {
     }
 
     LOG.debug("Validate as list: {}", iterable);
+    return validateIterableElements(iterable, extractItemProperties(schema));
+  }
 
-    Map<String, Object> items = schema.items();
-    String type = (String) items.get("type");
-    String $ref = (String) items.get("$ref");
-    Map<String, Object> props = (Map<String, Object>) items.get("properties");
-    String format = (String) items.get("format");
-    List<String> required = (List<String>) items.get("required");
-    var max = getLimitForNumber(props, "maximum", Double.MAX_VALUE);
-    var min = getLimitForNumber(props, "minimum", Double.MIN_VALUE);
+  private boolean validateIterableElements(Iterable<?> iterable, SchemaProperties props) {
+    Schema propertySchema = createPropertySchema(props);
 
     for (Object entry : iterable) {
-      Schema propertySchema =
-          Optional.ofNullable($ref)
-              .map(referencedSchema)
-              .orElseGet(
-                  () -> new Schema($ref, type, format, null, props, items, required, max, min));
-
       if (!rootValidator.validate(entry, propertySchema)) {
         LOG.debug("Failed to validate '{}'", entry);
         return false;
@@ -63,7 +61,49 @@ public class ArrayValidator implements Validator {
     return true;
   }
 
+  private SchemaProperties extractItemProperties(Schema schema) {
+    Map<String, Object> items = schema.items();
+    Map<String, Object> props = (Map<String, Object>) items.get(PROPERTIES_KEY);
+
+    return new SchemaProperties(
+        (String) items.get(REF_KEY),
+        (String) items.get(TYPE_KEY),
+        (String) items.get(FORMAT_KEY),
+        props,
+        items,
+        (List<String>) items.get(REQUIRED_KEY),
+        getLimitForNumber(props, MAXIMUM_KEY, Double.MAX_VALUE),
+        getLimitForNumber(props, MINIMUM_KEY, Double.MIN_VALUE));
+  }
+
+  private Schema createPropertySchema(SchemaProperties props) {
+    return Optional.ofNullable(props.ref())
+        .map(referencedSchema)
+        .orElseGet(
+            () ->
+                new Schema(
+                    props.ref(),
+                    props.type(),
+                    props.format(),
+                    null,
+                    props.properties(),
+                    props.items(),
+                    props.required(),
+                    props.maximum(),
+                    props.minimum()));
+  }
+
   private static Number getLimitForNumber(Map<String, Object> props, String name, double limit) {
     return Optional.ofNullable(props).map(p -> p.get(name)).map(Number.class::cast).orElse(limit);
   }
+
+  private record SchemaProperties(
+      String ref,
+      String type,
+      String format,
+      Map<String, Object> properties,
+      Map<String, Object> items,
+      List<String> required,
+      Number maximum,
+      Number minimum) {}
 }
