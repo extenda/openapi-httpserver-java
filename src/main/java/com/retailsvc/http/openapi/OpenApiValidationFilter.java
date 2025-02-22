@@ -122,10 +122,14 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
     // Validate headers
     if (operation.hasHeaderParameters()) {
       Headers headers = exchange.getRequestHeaders();
-      for (Parameter parameter : operation.headerParameters()) {
+      for (Parameter parameter : operation.parameters()) {
         if (nonNull(parameter.$ref())) {
           // parameter has ref, find it instead
           parameter = specification.getResolvedParameter(parameter.$ref());
+        }
+
+        if (!parameter.isHeader()) {
+          continue;
         }
 
         List<String> headerValues =
@@ -156,10 +160,14 @@ public class OpenApiValidationFilter extends Filter implements GetRequestBody {
         return;
       }
 
-      for (Parameter queryParameter : operation.queryParameters()) {
+      for (Parameter queryParameter : operation.parameters()) {
         if (nonNull(queryParameter.$ref())) {
           // parameter has ref, find it instead
           queryParameter = specification.getResolvedParameter(queryParameter.$ref());
+        }
+
+        if (!queryParameter.isQuery()) {
+          continue;
         }
 
         var required = queryParameter.required();

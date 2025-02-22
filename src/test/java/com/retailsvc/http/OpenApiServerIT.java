@@ -35,7 +35,8 @@ public class OpenApiServerIT extends ServerBaseTest {
       try (var server = newServer(Map.of("get-data", new GetDataHandler()));
           var client = httpClient()) {
 
-        var request = newRequest(server, path, "GET", noBody());
+        var headers = Map.of("x-name", "Alotta");
+        var request = newRequest(server, path, "GET", noBody(), headers);
 
         var response = client.send(request, BodyHandlers.ofString());
         var statusCode = response.statusCode();
@@ -43,6 +44,29 @@ public class OpenApiServerIT extends ServerBaseTest {
 
         assertThat(statusCode).isEqualTo(200);
         assertThat(responseBody).isEqualToIgnoringWhitespace("{\"id\":\"some-id\"}");
+
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void getData_shouldReturnBadRequestOnInvalidXNameHeader() {
+      try (var server = newServer(Map.of("get-data", new GetDataHandler()));
+          var client = httpClient()) {
+
+        var headers = Map.of("x-name", "invalid-header");
+        var request = newRequest(server, path, "GET", noBody(), headers);
+
+        var response = client.send(request, BodyHandlers.ofString());
+        var statusCode = response.statusCode();
+        var responseBody = response.body();
+
+        assertThat(statusCode).isEqualTo(400);
+        assertThat(responseBody).isEmpty();
 
       } catch (IOException e) {
         fail(e);

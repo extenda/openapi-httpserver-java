@@ -177,7 +177,8 @@
         "in": "header",
         "name": "X-Name",
         "schema": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[Aa].+"
         }
       }
     },

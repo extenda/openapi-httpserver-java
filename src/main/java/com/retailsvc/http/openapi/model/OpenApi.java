@@ -216,7 +216,10 @@ public record OpenApi(
         return false;
       }
 
-      for (Parameter parameter : pathParameters()) {
+      for (Parameter parameter : parameters()) {
+        if (!parameter.isPath()) {
+          continue;
+        }
         var toValidate = foundParameters.get(parameter.name());
         var schema = parameter.schema();
         LOG.debug(
@@ -231,24 +234,12 @@ public record OpenApi(
       return true;
     }
 
-    public List<Parameter> headerParameters() {
-      return parameters.stream().filter(p -> HEADER.equalsIgnoreCase(p.in)).toList();
-    }
-
     public boolean hasHeaderParameters() {
       return has(HEADER);
     }
 
-    public List<Parameter> pathParameters() {
-      return parameters.stream().filter(p -> PATH.equalsIgnoreCase(p.in)).toList();
-    }
-
     public boolean hasQueryParameters() {
       return has(QUERY);
-    }
-
-    public List<Parameter> queryParameters() {
-      return parameters.stream().filter(p -> QUERY.equalsIgnoreCase(p.in)).toList();
     }
 
     public boolean hasPathParameters() {
@@ -275,7 +266,24 @@ public record OpenApi(
     }
   }
 
-  public record Parameter(String $ref, String in, String name, boolean required, Schema schema) {}
+  public record Parameter(String $ref, String in, String name, boolean required, Schema schema) {
+
+    private static final String HEADER = "header";
+    private static final String QUERY = "query";
+    private static final String PATH = "path";
+
+    public boolean isHeader() {
+      return in != null && in.equalsIgnoreCase(HEADER);
+    }
+
+    public boolean isPath() {
+      return in != null && in.equalsIgnoreCase(PATH);
+    }
+
+    public boolean isQuery() {
+      return in != null && in.equalsIgnoreCase(QUERY);
+    }
+  }
 
   /**
    * Represents a supported 'media-type' for an endpoint.

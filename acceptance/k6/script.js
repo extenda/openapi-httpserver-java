@@ -44,7 +44,7 @@ const listBody = JSON.stringify(exampleListRequest);
 export default function () {
   group('get request', () => {
     const url = 'http://localhost:8080/api/v1/data';
-    const res = http.get(url);
+    const res = http.get(url, { headers: { 'X-Name': "Alotta" }});
 
     check(res, {
       'is status 200': (r) => r.status === 200,
