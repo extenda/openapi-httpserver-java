@@ -2,8 +2,6 @@ package com.retailsvc.http.openapi.model;
 
 import java.util.Map;
 
-//
-
 /**
  * The 'components' holds a set of reusable objects for different aspects of the OAS. All objects
  * defined within the Components Object will have no effect on the API unless they are explicitly

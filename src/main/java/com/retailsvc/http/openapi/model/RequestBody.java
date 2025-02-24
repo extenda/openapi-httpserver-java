@@ -1,6 +1,7 @@
 package com.retailsvc.http.openapi.model;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNullElse;
 
 import java.util.List;
@@ -18,6 +19,7 @@ public record RequestBody(
     String description, Map<String, MediaType> content, List<String> required) {
 
   public RequestBody {
+    content = requireNonNullElse(content, emptyMap());
     required = requireNonNullElse(required, emptyList());
   }
 }

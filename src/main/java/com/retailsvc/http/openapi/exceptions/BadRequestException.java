@@ -5,8 +5,4 @@ public class BadRequestException extends RuntimeException implements BadRequestT
   public BadRequestException() {
     super();
   }
-
-  public BadRequestException(String message) {
-    super(message);
-  }
 }

@@ -60,7 +60,6 @@ public record Operation(
       String schemaToken = splitSchemaPath[i];
       String requestToken = splitRequestPath[i];
 
-      // Extract named parameters using regex
       var matcher = TOKEN_PATTERN.matcher(schemaToken);
       while (matcher.find()) {
         foundParameters.put(matcher.group(1), requestToken);
