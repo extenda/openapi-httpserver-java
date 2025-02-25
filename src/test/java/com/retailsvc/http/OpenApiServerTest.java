@@ -4,11 +4,11 @@ import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import com.retailsvc.http.openapi.model.Components;
+import com.retailsvc.http.openapi.model.Info;
 import com.retailsvc.http.openapi.model.JsonMapper;
 import com.retailsvc.http.openapi.model.OpenApi;
-import com.retailsvc.http.openapi.model.OpenApi.Components;
-import com.retailsvc.http.openapi.model.OpenApi.Info;
-import com.retailsvc.http.openapi.model.OpenApi.Server;
+import com.retailsvc.http.openapi.model.Server;
 import com.sun.net.httpserver.HttpHandler;
 import java.util.Collections;
 import java.util.HashMap;
@@ -21,7 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class OpenApiServerTest {
 
   Server server = new Server("http://localhost:8080/api");
-  ExceptionHandler defaultExceptionHandler = Handlers.defaultExceptionHandler();
+  ExceptionHandler onError = Handlers.defaultExceptionHandler();
   JsonMapper jsonMapper =
       new JsonMapper() {
         @Override
@@ -35,17 +35,19 @@ class OpenApiServerTest {
     OpenApi validSpec = testSpecification();
     Map<String, HttpHandler> handlers = emptyMap();
 
-    OpenApiServer openApiServer =
-        assertDoesNotThrow(
-            () -> new OpenApiServer(validSpec, jsonMapper, handlers, defaultExceptionHandler));
-    assertDoesNotThrow(openApiServer::close);
+    assertDoesNotThrow(
+        () -> {
+          try (var ignore = new OpenApiServer(validSpec, jsonMapper, handlers, onError, 0)) {
+            // also close on exit
+          }
+        });
   }
 
   @Test
   void shouldThrowExceptionWhenOpenApiSpecificationIsNull() {
     Map<String, HttpHandler> handlers = emptyMap();
 
-    assertThatThrownBy(() -> new OpenApiServer(null, jsonMapper, handlers, defaultExceptionHandler))
+    assertThatThrownBy(() -> new OpenApiServer(null, jsonMapper, handlers, onError))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("OpenAPI specification must not be null");
   }
@@ -55,7 +57,7 @@ class OpenApiServerTest {
     OpenApi validSpec = testSpecification();
     Map<String, HttpHandler> handlers = emptyMap();
 
-    assertThatThrownBy(() -> new OpenApiServer(validSpec, null, handlers, defaultExceptionHandler))
+    assertThatThrownBy(() -> new OpenApiServer(validSpec, null, handlers, onError))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("Request body mapper must not be null");
   }
@@ -64,8 +66,7 @@ class OpenApiServerTest {
   void shouldThrowExceptionWhenRequestHandlersMapIsNull() {
     OpenApi validSpec = testSpecification();
 
-    assertThatThrownBy(
-            () -> new OpenApiServer(validSpec, jsonMapper, null, defaultExceptionHandler))
+    assertThatThrownBy(() -> new OpenApiServer(validSpec, jsonMapper, null, onError))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("Request handlers must not be null");
   }
@@ -74,8 +75,7 @@ class OpenApiServerTest {
   void testExceptionIsThrownOnInvalidHttpPort() {
     OpenApi validSpec = testSpecification();
     Map<String, HttpHandler> handlers = emptyMap();
-    assertThatThrownBy(
-            () -> new OpenApiServer(validSpec, jsonMapper, handlers, defaultExceptionHandler, -1))
+    assertThatThrownBy(() -> new OpenApiServer(validSpec, jsonMapper, handlers, onError, -1))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
@@ -85,6 +85,6 @@ class OpenApiServerTest {
         new Info("API", "1.0"),
         Collections.singletonList(server),
         emptyMap(),
-        new Components(emptyMap()));
+        new Components(emptyMap(), emptyMap()));
   }
 }

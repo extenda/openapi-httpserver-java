@@ -13,6 +13,19 @@
     "/data": {
       "get": {
         "operationId": "get-data",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "correlation-id",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Name-Header"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -72,9 +85,103 @@
           }
         }
       }
+    },
+    "/params/query": {
+      "get": {
+        "operationId": "query-params",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q1",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q2",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/params/path/{ID}": {
+      "get": {
+        "operationId": "path-params",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/params/path/{ID}/{Name}/{Surname}": {
+      "get": {
+        "operationId": "path-params-multi",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "Name",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "[A-Za-z]+"
+            }
+          },
+          {
+            "in": "path",
+            "name": "Surname",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
+    "parameters": {
+      "Name-Header": {
+        "in": "header",
+        "name": "X-Name",
+        "schema": {
+          "type": "string",
+          "pattern": "^[Aa].+"
+        }
+      }
+    },
     "schemas": {
       "GetDataResponse": {
         "type": "object",

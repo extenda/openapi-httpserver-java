@@ -44,7 +44,7 @@ const listBody = JSON.stringify(exampleListRequest);
 export default function () {
   group('get request', () => {
     const url = 'http://localhost:8080/api/v1/data';
-    const res = http.get(url);
+    const res = http.get(url, { headers: { 'X-Name': "Alotta" }});
 
     check(res, {
       'is status 200': (r) => r.status === 200,
@@ -71,6 +71,45 @@ export default function () {
   group('post list-of-objects request', () => {
     const url = 'http://localhost:8080/api/v1/list/objects';
     const res = http.post(url, listBody, {
+      headers: {
+        'Content-Type':'application/json',
+      }
+    });
+
+    check(res, {
+      'is status 200': (r) => r.status === 200,
+    });
+  });
+
+  group('get query params', () => {
+    const url = 'http://localhost:8080/api/v1/params/query?q1=data&q2=data';
+    const res = http.get(url, listBody, {
+      headers: {
+        'Content-Type':'application/json',
+      }
+    });
+
+    check(res, {
+      'is status 200': (r) => r.status === 200,
+    });
+  });
+
+  group('get path params', () => {
+    const url = 'http://localhost:8080/api/v1/params/path/1234567890';
+    const res = http.get(url, listBody, {
+      headers: {
+        'Content-Type':'application/json',
+      }
+    });
+
+    check(res, {
+      'is status 200': (r) => r.status === 200,
+    });
+  });
+
+  group('get with many path params', () => {
+    const url = 'http://localhost:8080/api/v1/params/path/1234567890/Justin/Case';
+    const res = http.get(url, listBody, {
       headers: {
         'Content-Type':'application/json',
       }

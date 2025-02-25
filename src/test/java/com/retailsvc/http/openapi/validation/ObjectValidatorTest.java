@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.Mockito.mock;
 
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
+import com.retailsvc.http.openapi.model.Schema;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -24,7 +24,7 @@ class ObjectValidatorTest {
 
   @Test
   void shouldReturnFalseWhenSchemaIsNotObject() {
-    var schema = new Schema("string", null, emptyMap(), emptyMap(), emptyList(), null, null);
+    var schema = new Schema("string", null, null, emptyMap(), emptyMap(), emptyList(), null, null);
     Map<String, Object> input = Map.of("key", "value");
     boolean result = validator.validate(input, schema);
     assertThat(result).isFalse();
@@ -33,7 +33,8 @@ class ObjectValidatorTest {
   @Test
   void shouldReturnTrueWhenPropertyHasNoSubSchema() {
     Map<String, Object> properties = Map.of("properties", emptyMap());
-    Schema schema = new Schema("object", null, properties, emptyMap(), emptyList(), null, null);
+    Schema schema =
+        new Schema("object", null, null, properties, emptyMap(), emptyList(), null, null);
     Map<String, Object> input = Map.of("unknownProperty", "value");
 
     boolean result = validator.validate(input, schema);
@@ -49,7 +50,7 @@ class ObjectValidatorTest {
             "minimum", 0,
             "maximum", 100);
     Map<String, Object> properties = Map.of("properties", Map.of("age", nestedSchema));
-    var schema = new Schema("object", null, properties, emptyMap(), emptyList(), null, null);
+    var schema = new Schema("object", null, null, properties, emptyMap(), emptyList(), null, null);
     Map<String, Object> input = Map.of("age", "invalid");
 
     boolean result = validator.validate(input, schema);
@@ -69,7 +70,7 @@ class ObjectValidatorTest {
   @MethodSource("requiredFieldsValidationArguments")
   void shouldValidateRequiredFields(
       Map<String, Object> input, List<String> required, boolean expected) {
-    var schema = new Schema("object", null, emptyMap(), emptyMap(), required, null, null);
+    var schema = new Schema("object", null, null, emptyMap(), emptyMap(), required, null, null);
     boolean result = validator.validate(input, schema);
     assertThat(result).isEqualTo(expected);
   }

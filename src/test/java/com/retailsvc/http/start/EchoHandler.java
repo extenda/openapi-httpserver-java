@@ -8,14 +8,13 @@ import java.lang.invoke.MethodHandles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class PostListObjectsHandler implements HttpHandler, GetRequestBody {
+/** Echoes back the request body as a response body */
+public class EchoHandler implements HttpHandler, GetRequestBody {
 
   private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   @Override
   public void handle(HttpExchange exchange) throws IOException {
-    LOG.debug("POST /list/objects");
-
     byte[] bytes = getRequestBody(exchange);
 
     if (bytes.length == 0) {
@@ -29,7 +28,9 @@ public class PostListObjectsHandler implements HttpHandler, GetRequestBody {
 
     try (var os = exchange.getResponseBody();
         exchange) {
-      exchange.getResponseHeaders().add("Content-Type", "application/json");
+
+      var responseHeaders = exchange.getResponseHeaders();
+      responseHeaders.add("Content-Type", "application/json");
       exchange.sendResponseHeaders(200, requestBody.getBytes().length);
       os.write(requestBody.getBytes());
     }

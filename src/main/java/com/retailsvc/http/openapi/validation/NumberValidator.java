@@ -1,7 +1,7 @@
 package com.retailsvc.http.openapi.validation;
 
 import com.retailsvc.http.openapi.exceptions.BadRequestException;
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
+import com.retailsvc.http.openapi.model.Schema;
 import java.math.BigDecimal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

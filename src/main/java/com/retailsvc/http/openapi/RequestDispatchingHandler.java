@@ -4,15 +4,12 @@ import static java.util.Objects.requireNonNull;
 
 import com.retailsvc.http.openapi.exceptions.MissingOperationHandlerException;
 import com.retailsvc.http.openapi.exceptions.OperationIdNotFoundException;
-import com.retailsvc.http.openapi.model.OpenApi;
-import com.retailsvc.http.openapi.model.OpenApi.Operation;
+import com.retailsvc.http.openapi.model.Operation;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
-import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,17 +25,11 @@ public class RequestDispatchingHandler implements HttpHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(RequestDispatchingHandler.class);
 
-  private final OpenApi specification;
   private final Map<String, HttpHandler> requestHandlers;
 
-  /** Holds mapping between a method+path and an operationId */
-  private final Map<String, String> operationIds;
-
-  public RequestDispatchingHandler(OpenApi spec, Map<String, HttpHandler> requestHandlers) {
+  public RequestDispatchingHandler(Map<String, HttpHandler> requestHandlers) {
     LOG.debug("Instantiating RequestDispatchingHandler...");
-    this.specification = requireNonNull(spec);
     this.requestHandlers = requireNonNull(requestHandlers);
-    this.operationIds = new ConcurrentHashMap<>();
   }
 
   /**
@@ -58,25 +49,16 @@ public class RequestDispatchingHandler implements HttpHandler {
    */
   @Override
   public void handle(HttpExchange exchange) throws IOException {
-    String method = exchange.getRequestMethod();
-    URI requestURI = exchange.getRequestURI();
-    String path = requestURI.getPath();
+    var operationId = (String) exchange.getAttribute(Operation.OPERATION_ID);
 
-    String operation = getOperationId(method, path);
-    LOG.debug("Found operation id: {}", operation);
+    if (operationId == null) {
+      throw new OperationIdNotFoundException(
+          exchange.getRequestMethod(), exchange.getRequestURI().getPath());
+    }
 
-    getHandler(operation).handle(exchange);
-  }
-
-  private String getOperationId(String method, String path) {
-    final String key = method + ":" + path;
-    return operationIds.computeIfAbsent(
-        key,
-        k ->
-            specification
-                .getOperation(method, path)
-                .map(Operation::operationId)
-                .orElseThrow(() -> new OperationIdNotFoundException(method, path)));
+    var handler = getHandler(operationId);
+    LOG.debug("Calling handler for operation-id [{}]", operationId);
+    handler.handle(exchange);
   }
 
   private HttpHandler getHandler(String operationId) {

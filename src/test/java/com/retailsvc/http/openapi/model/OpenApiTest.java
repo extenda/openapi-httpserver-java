@@ -9,14 +9,6 @@ import static org.mockito.Mockito.when;
 
 import com.retailsvc.http.openapi.exceptions.NoServersDeclaredException;
 import com.retailsvc.http.openapi.exceptions.UnsupportedVersionException;
-import com.retailsvc.http.openapi.model.OpenApi.Components;
-import com.retailsvc.http.openapi.model.OpenApi.Info;
-import com.retailsvc.http.openapi.model.OpenApi.MediaType;
-import com.retailsvc.http.openapi.model.OpenApi.Operation;
-import com.retailsvc.http.openapi.model.OpenApi.PathItem;
-import com.retailsvc.http.openapi.model.OpenApi.RequestBody;
-import com.retailsvc.http.openapi.model.OpenApi.Schema;
-import com.retailsvc.http.openapi.model.OpenApi.Server;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -32,16 +24,16 @@ class OpenApiTest {
   Function<String, OpenApi> mockFunction;
 
   Info info = new Info("Test API", "0.0.1-local");
-  Operation head = new Operation("head", null, emptyMap());
-  Operation get = new Operation("get-data", null, emptyMap());
-  Operation put = new Operation("put", null, emptyMap());
-  Operation post = new Operation("post", null, emptyMap());
-  Operation delete = new Operation("delete", null, emptyMap());
-  Operation connect = new Operation("connect", null, emptyMap());
-  Operation options = new Operation("options", null, emptyMap());
-  Operation trace = new Operation("trace", null, emptyMap());
-  Operation patch = new Operation("patch", null, emptyMap());
-  Components components = new Components(emptyMap());
+  Operation head = new Operation("head", null, emptyList(), emptyMap());
+  Operation get = new Operation("get-data", null, emptyList(), emptyMap());
+  Operation put = new Operation("put", null, emptyList(), emptyMap());
+  Operation post = new Operation("post", null, emptyList(), emptyMap());
+  Operation delete = new Operation("delete", null, emptyList(), emptyMap());
+  Operation connect = new Operation("connect", null, emptyList(), emptyMap());
+  Operation options = new Operation("options", null, emptyList(), emptyMap());
+  Operation trace = new Operation("trace", null, emptyList(), emptyMap());
+  Operation patch = new Operation("patch", null, emptyList(), emptyMap());
+  Components components = new Components(emptyMap(), emptyMap());
 
   OpenApi openApi;
 
@@ -69,9 +61,9 @@ class OpenApiTest {
     "CONNECT,  /api/test,  connect,   true",
     "GT,       /api/test,  null,      false" // invalid method case
   })
-  void testGetOperation(
+  void testFindOperation(
       String method, String path, String expectedOperationId, boolean shouldBePresent) {
-    Optional<Operation> operation = openApi.getOperation(method, path);
+    Optional<Operation> operation = openApi.findOperation(method, path);
     assertThat(operation.isPresent()).isEqualTo(shouldBePresent);
     if (shouldBePresent) {
       assertThat(operation).isPresent();
@@ -111,24 +103,21 @@ class OpenApiTest {
 
   @Test
   void shouldFindResolvedSchemaWhenUsingRef() {
-    String $ref = "#/components/schemas/test";
-
-    var schema = new OpenApi.Schema($ref, null, null, null, null, null, null, null);
-    Map<String, MediaType> mediaTypes = Map.of("application/json", new MediaType(schema));
+    var $ref = "#/components/schemas/test";
+    var schema = new Schema($ref, null, null, null, null, null, null, null);
+    var mediaTypes = Map.of("application/json", new MediaType(schema));
     var requestBody = new RequestBody("fictive request body", mediaTypes, emptyList());
-    var operation = new Operation("op", requestBody, emptyMap());
-
+    var operation = new Operation("op", requestBody, emptyList(), emptyMap());
     var pathItem = new PathItem(null, operation, null, null, null, null, null, null, null);
-    Map<String, PathItem> paths = Map.of("/test", pathItem);
+    var paths = Map.of("/test", pathItem);
+    var referencedSchema =
+        new Schema("integer", "int32", null, emptyMap(), emptyMap(), emptyList(), null, null);
+    var comps = new Components(Map.of("test", referencedSchema), emptyMap());
 
-    Schema referencedSchema =
-        new Schema("integer", "int32", emptyMap(), emptyMap(), emptyList(), null, null);
-    Components components = new Components(Map.of("test", referencedSchema));
-
-    var spec = new OpenApi("3.1.0", new Info("test", "0"), emptyList(), paths, components);
+    var spec = new OpenApi("3.1.0", new Info("test", "0"), emptyList(), paths, comps);
 
     assertThat(referencedSchema)
-        .isSameAs(spec.getResolvedSchema($ref))
-        .isSameAs(spec.getResolvedSchema($ref));
+        .isSameAs(spec.resolveSchema($ref))
+        .isSameAs(spec.resolveSchema($ref));
   }
 }
