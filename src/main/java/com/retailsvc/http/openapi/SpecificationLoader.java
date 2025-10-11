@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
 
 public class SpecificationLoader {
 
@@ -29,10 +30,17 @@ public class SpecificationLoader {
    * @return The openapi model
    */
   public static OpenApi parseSpecification(
-      String specificationPath, Function<String, OpenApi> mapper) {
+      String specificationPath, Function<String, OpenApi> mapper, Function<Object, String> toJson) {
     long t0 = System.currentTimeMillis();
     byte[] data = load(specificationPath);
     String openapiAsText = new String(data, StandardCharsets.UTF_8);
+
+    if (specificationPath.endsWith(".yaml") || specificationPath.endsWith(".yml")) {
+      var yaml = new Yaml();
+      Object yamlObj = yaml.load(openapiAsText);
+      openapiAsText = toJson.apply(yamlObj);
+    }
+
     OpenApi spec = OpenApi.parse(mapper, openapiAsText);
 
     LOG.debug(
