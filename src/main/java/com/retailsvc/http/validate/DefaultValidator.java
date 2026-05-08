@@ -88,7 +88,9 @@ public final class DefaultValidator implements Validator {
           Map.entry("ipv4", new FormatCheck(s -> IPV4.matcher(s).matches(), "not a valid ipv4")),
           Map.entry("ipv6", new FormatCheck(s -> IPV6.matcher(s).matches(), "not a valid ipv6")),
           Map.entry("regex", new FormatCheck(DefaultValidator::isRegex, "not a valid regex")),
-          Map.entry("byte", new FormatCheck(DefaultValidator::isByte, "not valid base64")));
+          Map.entry("byte", new FormatCheck(DefaultValidator::isByte, "not valid base64")),
+          Map.entry("binary", new FormatCheck(s -> true, "not valid binary")),
+          Map.entry("password", new FormatCheck(s -> true, "not valid password")));
 
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();

@@ -211,6 +211,19 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void stringFormatBinaryAcceptsAnyString() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "binary", null);
+    assertThatCode(() -> v.validate("anything goes", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(" ", s, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
+  void stringFormatPasswordAcceptsAnyString() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "password", null);
+    assertThatCode(() -> v.validate("anything goes", s, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
   void stringRejectsNonString() {
     StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, null, null);
     assertThatThrownBy(() -> v.validate(42, s, "/v"))
