@@ -107,4 +107,43 @@ class SchemaParserTest {
     assertThat(a.minItems()).isEqualTo(1);
     assertThat(a.uniqueItems()).isTrue();
   }
+
+  @Test
+  void parsesOneOf() {
+    Map<String, Object> raw =
+        Map.of("oneOf", List.of(Map.of("type", "string"), Map.of("type", "integer")));
+    OneOfSchema o = (OneOfSchema) SchemaParser.parse(raw);
+    assertThat(o.options()).hasSize(2);
+    assertThat(o.options().get(0)).isInstanceOf(StringSchema.class);
+  }
+
+  @Test
+  void parsesAnyOfAllOfNot() {
+    assertThat(SchemaParser.parse(Map.of("anyOf", List.of(Map.of("type", "string")))))
+        .isInstanceOf(AnyOfSchema.class);
+    assertThat(SchemaParser.parse(Map.of("allOf", List.of(Map.of("type", "string")))))
+        .isInstanceOf(AllOfSchema.class);
+    assertThat(SchemaParser.parse(Map.of("not", Map.of("type", "null"))))
+        .isInstanceOf(NotSchema.class);
+  }
+
+  @Test
+  void parsesConst() {
+    assertThat(SchemaParser.parse(Map.of("const", 42))).isInstanceOf(ConstSchema.class);
+    assertThat(((ConstSchema) SchemaParser.parse(Map.of("const", "a"))).value()).isEqualTo("a");
+  }
+
+  @Test
+  void parsesTopLevelEnumWithoutType() {
+    Schema s = SchemaParser.parse(Map.of("enum", List.of(1, 2, 3)));
+    assertThat(s).isInstanceOf(EnumSchema.class);
+    assertThat(((EnumSchema) s).values()).containsExactly(1, 2, 3);
+  }
+
+  @Test
+  void enumOnStringStaysAsStringSchema() {
+    Schema s = SchemaParser.parse(Map.of("type", "string", "enum", List.of("a", "b")));
+    assertThat(s).isInstanceOf(StringSchema.class);
+    assertThat(((StringSchema) s).enumValues()).containsExactly("a", "b");
+  }
 }

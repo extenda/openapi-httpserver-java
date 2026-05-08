@@ -1,5 +1,6 @@
 package com.retailsvc.http.spec.schema;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,6 +14,15 @@ public final class SchemaParser {
   public static Schema parse(Map<String, Object> raw) {
     if (raw.containsKey("$ref")) {
       return new RefSchema((String) raw.get("$ref"));
+    }
+
+    if (raw.containsKey("oneOf")) return new OneOfSchema(parseList(raw, "oneOf"));
+    if (raw.containsKey("anyOf")) return new AnyOfSchema(parseList(raw, "anyOf"));
+    if (raw.containsKey("allOf")) return new AllOfSchema(parseList(raw, "allOf"));
+    if (raw.containsKey("not")) return new NotSchema(parse((Map<String, Object>) raw.get("not")));
+    if (raw.containsKey("const")) return new ConstSchema(raw.get("const"));
+    if (raw.containsKey("enum") && !raw.containsKey("type")) {
+      return new EnumSchema(List.copyOf((List<Object>) raw.get("enum")));
     }
 
     Set<TypeName> types = parseTypes(raw);
@@ -120,6 +130,14 @@ public final class SchemaParser {
         toIntOrNull(raw.get("minItems")),
         toIntOrNull(raw.get("maxItems")),
         Boolean.TRUE.equals(raw.get("uniqueItems")));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<Schema> parseList(Map<String, Object> raw, String key) {
+    List<Map<String, Object>> raws = (List<Map<String, Object>>) raw.get(key);
+    List<Schema> out = new ArrayList<>(raws.size());
+    for (Map<String, Object> r : raws) out.add(parse(r));
+    return List.copyOf(out);
   }
 
   private static Integer toIntOrNull(Object v) {
