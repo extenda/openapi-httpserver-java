@@ -120,4 +120,17 @@ Schemas are located under test resources folder.
 - Example requests can be found under `acceptance/k6` that can be a base for exploring the functionality.
 - The logger in the configuration needs to be enabled to get some insight into the code.
 
+## Performance and caveats
+
+The library wraps the JDK's bundled `com.sun.net.httpserver.HttpServer` and uses a virtual-thread-per-request executor. On a developer laptop (Apple Silicon, single instance, default JVM flags) it sustains roughly:
+
+- **20k–35k requests/second** for small JSON GETs and POSTs (~300 byte bodies), measured both via parallelised `curl` (no connection reuse) and via `k6` at moderate VU counts.
+- The HTTP layer reports **0% request failures** even when sustained at 30 concurrent virtual users for 45 seconds (~1.5M requests).
+
+That said, the underlying JDK HttpServer is documented as a low-throughput / dev-test server, and a few caveats are worth knowing:
+
+- **Keep-alive reuse at high concurrency.** k6 and other clients that aggressively reuse HTTP/1.1 connections will occasionally observe empty response bodies (with the correct `Content-Length` header) when running tens of VUs against this server. Curl-style clients that open a fresh connection per request do not see this. If you need consistent throughput above a few thousand RPS with keep-alive clients, consider deploying behind a real HTTP server (Jetty, Helidon Níma, Netty) — this library's filter/validator stack is independent of the underlying server and could be ported.
+- **Single-process model.** No horizontal scaling primitives are bundled; run multiple instances behind a load balancer for production scale.
+- **`HttpExchange.sendResponseHeaders(rCode, length)` semantics.** When a handler has no response body, pass `-1` (no body, `Content-Length: 0`); passing `0` produces a chunked response with zero chunks, which is technically non-conformant.
+
 ## Known limitations or missing features
