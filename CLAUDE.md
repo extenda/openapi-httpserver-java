@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-A lightweight Java 21 library that wraps the JDK's built-in `com.sun.net.httpserver.HttpServer` and exposes endpoints declared in an OpenAPI 3.1.x specification. Consumers register `HttpHandler` instances by OpenAPI `operationId`. The library is published as a JAR; the example launcher under `src/test/java/.../start/ServerLauncher.java` is for local development only.
+A lightweight Java 25 library that wraps the JDK's built-in `com.sun.net.httpserver.HttpServer` and exposes endpoints declared in an OpenAPI 3.1.x specification. Consumers register `HttpHandler` instances by OpenAPI `operationId`. The library is published as a JAR; the example launcher under `src/test/java/.../start/ServerLauncher.java` is for local development only.
 
-Java 21 is required (see `.java-version`). The server uses thread-per-request with virtual threads.
+Java 25 is required (see `.java-version`). The server uses thread-per-request with virtual threads.
 
 ## Common commands
 
@@ -26,20 +26,20 @@ Java 21 is required (see `.java-version`). The server uses thread-per-request wi
 Request flow when `OpenApiServer` boots (`src/main/java/com/retailsvc/http/OpenApiServer.java`):
 
 1. `HttpServer` is created on a port with a virtual-thread-per-task executor.
-2. A single `HttpContext` is registered at `specification.basePath()` (the first `servers[].url` path from the OpenAPI doc). A catch-all `/` context returns 404.
+2. A single `HttpContext` is registered at `spec.basePath()` (the first `servers[].url` path from the OpenAPI doc). A catch-all `/` context returns 404.
 3. Three filters run in order on every request:
-    - `ExceptionHandlingFilter` — wraps the chain; delegates uncaught exceptions to the user-supplied `ExceptionHandler` (default in `Handlers`).
-    - `BodyHandler` — reads the raw request body and stashes it as an exchange attribute so handlers/validators can read it without re-consuming the stream.
-    - `OpenApiValidationFilter` — matches the request to an `Operation` from the spec, validates path/query parameters and body against the schema (`com.retailsvc.http.openapi.validation.*`), and stores the resolved `operationId` on the exchange.
-4. `RequestDispatchingHandler` looks up the `HttpHandler` registered for that `operationId` in the user-supplied map and invokes it. Missing handler → `MissingOperationHandlerException`.
+    - `ExceptionFilter` — wraps the chain; delegates uncaught exceptions to the user-supplied `ExceptionHandler` (default in `Handlers`).
+    - `RequestPreparationFilter` — reads the raw request body, stashes it as an exchange attribute, runs OpenAPI parameter + body validation via `DefaultValidator`, and stores the resolved `operationId` on the exchange.
+    - `DispatchHandler` — looks up the `HttpHandler` registered for that `operationId` in the user-supplied map and invokes it. Missing handler → `MissingOperationHandlerException`.
 
 Key abstractions:
 
-- `com.retailsvc.http.openapi.model.OpenApi` and siblings (`PathItem`, `Operation`, `Parameter`, `Schema`, `MediaType`, …) are plain records/POJOs that the consumer's JSON library (Gson, Jackson, …) deserializes into. The library does not pull in a JSON dependency.
-- `JsonMapper` is the consumer-supplied bridge for parsing request bodies. Implementations must handle both top-level JSON objects and arrays (see README example).
-- `GetRequestBody` is a marker-style interface handlers implement when they need access to the parsed body via the exchange attribute set by `BodyHandler`.
-- Validators in `openapi/validation/` are per-type (`StringValidator`, `NumberValidator`, `ArrayValidator`, `ObjectValidator`, `BooleanValidator`) composed by `ValidatorImpl`. Validation failures throw `BadRequestException` / `BadRequestTypeException` which the default exception handler maps to 4xx.
-- `SpecificationLoader.parseSpecification(String, Function<String, OpenApi>)` reads a classpath resource and hands the JSON string to the consumer's parser.
+- `com.retailsvc.http.spec.Spec` — parsed from a consumer-supplied `Map<String, Object>` via `Spec.from(raw)`. No JSON library dependency in the library itself; callers use Gson, Jackson, SnakeYAML, etc. to produce the map.
+- Sealed `com.retailsvc.http.spec.schema.Schema` interface with per-kind records (`StringSchema`, `NumberSchema`, `IntegerSchema`, `ArraySchema`, `ObjectSchema`, `BooleanSchema`, `NullSchema`, `AnyOfSchema`, `AllOfSchema`, `OneOfSchema`). Pattern-match dispatch eliminates instanceof chains.
+- `com.retailsvc.http.validate.DefaultValidator` — single class using `switch` pattern-match over `Schema` subtypes. Validation failures produce RFC 7807 `application/problem+json` 400 responses.
+- `com.retailsvc.http.internal.Router` — two indexes: exact path map and templated path list. Resolves `operationId` + extracted path variables for each request.
+- `JsonMapper` — `@FunctionalInterface`; single method `Object mapFrom(byte[])`. Callers supply a lambda (see README).
+- `com.retailsvc.http.Request` — static helper; `Request.bytes(exchange)` returns raw body bytes, `Request.parsed(exchange)` returns the `Object` produced by the `JsonMapper`.
 
 ## Conventions
 
