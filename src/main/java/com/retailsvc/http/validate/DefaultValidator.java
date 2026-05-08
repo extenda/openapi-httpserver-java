@@ -3,12 +3,14 @@ package com.retailsvc.http.validate;
 import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.schema.AdditionalProperties;
 import com.retailsvc.http.spec.schema.AllOfSchema;
+import com.retailsvc.http.spec.schema.AlwaysSchema;
 import com.retailsvc.http.spec.schema.AnyOfSchema;
 import com.retailsvc.http.spec.schema.ArraySchema;
 import com.retailsvc.http.spec.schema.BooleanSchema;
 import com.retailsvc.http.spec.schema.ConstSchema;
 import com.retailsvc.http.spec.schema.EnumSchema;
 import com.retailsvc.http.spec.schema.IntegerSchema;
+import com.retailsvc.http.spec.schema.NeverSchema;
 import com.retailsvc.http.spec.schema.NotSchema;
 import com.retailsvc.http.spec.schema.NullSchema;
 import com.retailsvc.http.spec.schema.NumberSchema;
@@ -72,6 +74,10 @@ public final class DefaultValidator implements Validator {
       case AnyOfSchema(List<Schema> options) -> validateAnyOf(value, options, pointer);
       case OneOfSchema(List<Schema> options) -> validateOneOf(value, options, pointer);
       case NotSchema(Schema inner) -> validateNot(value, inner, pointer);
+      case AlwaysSchema _ -> {
+        /* accepts any value, including null */
+      }
+      case NeverSchema _ -> fail(pointer, "false", "schema rejects all values", value);
     }
   }
 

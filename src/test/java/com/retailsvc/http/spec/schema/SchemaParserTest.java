@@ -1,6 +1,7 @@
 package com.retailsvc.http.spec.schema;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.Map;
@@ -390,5 +391,40 @@ class SchemaParserTest {
     assertThat(one.options().get(0)).isInstanceOf(AnyOfSchema.class);
     assertThat(((AnyOfSchema) one.options().get(0)).options()).hasSize(2);
     assertThat(one.options().get(1)).isInstanceOf(BooleanSchema.class);
+  }
+
+  @Test
+  void parsesTrueAsAlwaysSchema() {
+    assertThat(SchemaParser.parse(Boolean.TRUE)).isInstanceOf(AlwaysSchema.class);
+  }
+
+  @Test
+  void parsesFalseAsNeverSchema() {
+    assertThat(SchemaParser.parse(Boolean.FALSE)).isInstanceOf(NeverSchema.class);
+  }
+
+  @Test
+  void rejectsNonMapNonBooleanRawSchema() {
+    assertThatThrownBy(() -> SchemaParser.parse("oops"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("schema must be a boolean or an object");
+  }
+
+  @Test
+  void parsesObjectWithBooleanPropertySchemas() {
+    Schema s =
+        SchemaParser.parse(
+            Map.of("type", "object", "properties", Map.of("x", Boolean.TRUE, "y", Boolean.FALSE)));
+    assertThat(s).isInstanceOf(ObjectSchema.class);
+    ObjectSchema obj = (ObjectSchema) s;
+    assertThat(obj.properties().get("x")).isInstanceOf(AlwaysSchema.class);
+    assertThat(obj.properties().get("y")).isInstanceOf(NeverSchema.class);
+  }
+
+  @Test
+  void parsesArrayWithBooleanItemsSchema() {
+    Schema s = SchemaParser.parse(Map.of("type", "array", "items", Boolean.TRUE));
+    assertThat(s).isInstanceOf(ArraySchema.class);
+    assertThat(((ArraySchema) s).items()).isInstanceOf(AlwaysSchema.class);
   }
 }
