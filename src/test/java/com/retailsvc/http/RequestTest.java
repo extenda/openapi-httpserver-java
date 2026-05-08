@@ -39,6 +39,6 @@ class RequestTest {
 
   @Test
   void readingOutsideScopeThrows() {
-    assertThrows(NoSuchElementException.class, () -> Request.bytes());
+    assertThrows(NoSuchElementException.class, Request::bytes);
   }
 }

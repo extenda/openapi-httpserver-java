@@ -25,8 +25,7 @@ class RequestContextTest {
   void equalsTreatsByteArraysStructurally() {
     RequestContext a = context(BODY_A, "p", "op", Map.of("k", "v"));
     RequestContext b = context(BODY_A_COPY, "p", "op", Map.of("k", "v"));
-    assertThat(a).isEqualTo(b);
-    assertThat(a).hasSameHashCodeAs(b);
+    assertThat(a).isEqualTo(b).hasSameHashCodeAs(b);
   }
 
   @Test
@@ -60,8 +59,7 @@ class RequestContextTest {
   @Test
   void equalsRejectsNullAndOtherTypes() {
     RequestContext c = context(BODY_A, "p", "op", Map.of());
-    assertThat(c).isNotEqualTo(null);
-    assertThat(c).isNotEqualTo("not a context");
+    assertThat(c).isNotEqualTo(null).isNotEqualTo("not a context");
   }
 
   @Test
