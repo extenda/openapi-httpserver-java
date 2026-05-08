@@ -10,6 +10,12 @@ public sealed interface Schema
         ObjectSchema,
         ArraySchema,
         NullSchema,
-        RefSchema {
+        RefSchema,
+        OneOfSchema,
+        AnyOfSchema,
+        AllOfSchema,
+        NotSchema,
+        ConstSchema,
+        EnumSchema {
   Set<TypeName> types();
 }
