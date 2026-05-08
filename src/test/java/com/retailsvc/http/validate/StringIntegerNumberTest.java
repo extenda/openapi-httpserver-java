@@ -131,6 +131,21 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void stringFormatIpv6() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "ipv6", null);
+    assertThatCode(() -> v.validate("2001:0db8:85a3:0000:0000:8a2e:0370:7334", s, "/v"))
+        .doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("2001:db8::1", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("::1", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("not:an:ipv6", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("12345::1", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
   void integerWithMinMax() {
     IntegerSchema s =
         new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 10L, null, null, null, "int32");

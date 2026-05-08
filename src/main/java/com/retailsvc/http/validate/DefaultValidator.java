@@ -50,6 +50,20 @@ public final class DefaultValidator implements Validator {
   private static final Pattern IPV4 =
       Pattern.compile("^((25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(25[0-5]|2[0-4]\\d|1?\\d?\\d)$");
 
+  private static final Pattern IPV6 =
+      Pattern.compile(
+          "^("
+              + "([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}"
+              + "|([0-9a-fA-F]{1,4}:){1,7}:"
+              + "|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}"
+              + "|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}"
+              + "|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}"
+              + "|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}"
+              + "|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}"
+              + "|[0-9a-fA-F]{1,4}:(:[0-9a-fA-F]{1,4}){1,6}"
+              + "|:((:[0-9a-fA-F]{1,4}){1,7}|:)"
+              + ")$");
+
   private static final Pattern HOSTNAME =
       Pattern.compile(
           "^(?=.{1,253}$)([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)"
@@ -69,7 +83,8 @@ public final class DefaultValidator implements Validator {
           Map.entry(
               "hostname",
               new FormatCheck(s -> HOSTNAME.matcher(s).matches(), "not a valid hostname")),
-          Map.entry("ipv4", new FormatCheck(s -> IPV4.matcher(s).matches(), "not a valid ipv4")));
+          Map.entry("ipv4", new FormatCheck(s -> IPV4.matcher(s).matches(), "not a valid ipv4")),
+          Map.entry("ipv6", new FormatCheck(s -> IPV6.matcher(s).matches(), "not a valid ipv6")));
 
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
