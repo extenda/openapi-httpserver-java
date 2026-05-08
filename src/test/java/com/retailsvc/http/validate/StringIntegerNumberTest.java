@@ -117,6 +117,20 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void stringFormatIpv4() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "ipv4", null);
+    assertThatCode(() -> v.validate("192.168.0.1", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("0.0.0.0", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("255.255.255.255", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("256.0.0.1", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("1.2.3", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
   void integerWithMinMax() {
     IntegerSchema s =
         new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 10L, null, null, null, "int32");

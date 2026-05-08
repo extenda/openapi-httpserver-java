@@ -47,6 +47,9 @@ public final class DefaultValidator implements Validator {
 
   private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
+  private static final Pattern IPV4 =
+      Pattern.compile("^((25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(25[0-5]|2[0-4]\\d|1?\\d?\\d)$");
+
   private static final Pattern HOSTNAME =
       Pattern.compile(
           "^(?=.{1,253}$)([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)"
@@ -65,7 +68,8 @@ public final class DefaultValidator implements Validator {
               new FormatCheck(DefaultValidator::isUriReference, "not a valid uri-reference")),
           Map.entry(
               "hostname",
-              new FormatCheck(s -> HOSTNAME.matcher(s).matches(), "not a valid hostname")));
+              new FormatCheck(s -> HOSTNAME.matcher(s).matches(), "not a valid hostname")),
+          Map.entry("ipv4", new FormatCheck(s -> IPV4.matcher(s).matches(), "not a valid ipv4")));
 
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
