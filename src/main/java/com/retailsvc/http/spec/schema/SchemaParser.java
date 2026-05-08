@@ -126,7 +126,7 @@ public final class SchemaParser {
     return switch (value) {
       case null -> new AdditionalProperties.Allowed();
       case Boolean b when b -> new AdditionalProperties.Allowed();
-      case Boolean b -> new AdditionalProperties.Forbidden();
+      case Boolean _ -> new AdditionalProperties.Forbidden();
       default -> new AdditionalProperties.SchemaConstraint(parse((Map<String, Object>) value));
     };
   }

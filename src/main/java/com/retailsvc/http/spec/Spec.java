@@ -151,7 +151,6 @@ public record Spec(
     return new Operation(opId, method, path, body, params, responses);
   }
 
-  @SuppressWarnings("unchecked")
   private static Parameter resolveParameterOrParse(
       Map<String, Object> raw, Map<String, Parameter> componentParameters) {
     String ref = (String) raw.get("$ref");
