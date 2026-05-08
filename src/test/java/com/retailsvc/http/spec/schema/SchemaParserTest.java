@@ -427,4 +427,18 @@ class SchemaParserTest {
     assertThat(s).isInstanceOf(ArraySchema.class);
     assertThat(((ArraySchema) s).items()).isInstanceOf(AlwaysSchema.class);
   }
+
+  @Test
+  void parsesArrayWithBooleanFalseItems() {
+    Schema s = SchemaParser.parse(Map.of("type", "array", "items", Boolean.FALSE));
+    assertThat(s).isInstanceOf(ArraySchema.class);
+    assertThat(((ArraySchema) s).items()).isInstanceOf(NeverSchema.class);
+  }
+
+  @Test
+  void rejectsNullRawSchema() {
+    assertThatThrownBy(() -> SchemaParser.parse(null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("schema must be a boolean or an object");
+  }
 }
