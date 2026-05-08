@@ -50,7 +50,9 @@ class RequestPreparationFilterTest {
         List.of(ops),
         Map.of(),
         Map.of(),
-        "");
+        "",
+        Map.of(),
+        Map.of());
   }
 
   private Filter newFilter(Spec spec) {

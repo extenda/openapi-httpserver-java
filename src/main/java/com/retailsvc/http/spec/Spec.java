@@ -17,9 +17,13 @@ public record Spec(
     List<Operation> operations,
     Map<String, Schema> componentSchemas,
     Map<String, Parameter> componentParameters,
-    String basePath) {
+    String basePath,
+    Map<String, Schema> schemaRefIndex,
+    Map<String, Parameter> parameterRefIndex) {
 
   private static final String SCHEMA_KEY = "schema";
+  private static final String SCHEMA_REF_PREFIX = "#/components/schemas/";
+  private static final String PARAMETER_REF_PREFIX = "#/components/parameters/";
 
   @SuppressWarnings("unchecked")
   public static Spec from(Map<String, Object> raw) {
@@ -40,7 +44,9 @@ public record Spec(
         operations,
         componentSchemas,
         componentParameters,
-        computeBasePath(servers));
+        computeBasePath(servers),
+        indexByRef(componentSchemas, SCHEMA_REF_PREFIX),
+        indexByRef(componentParameters, PARAMETER_REF_PREFIX));
   }
 
   private static String computeBasePath(List<Server> servers) {
@@ -50,9 +56,16 @@ public record Spec(
     return Optional.ofNullable(URI.create(servers.getFirst().url()).getPath()).orElse("");
   }
 
+  private static <T> Map<String, T> indexByRef(Map<String, T> components, String prefix) {
+    Map<String, T> out = new LinkedHashMap<>(components.size());
+    for (var e : components.entrySet()) {
+      out.put(prefix + e.getKey(), e.getValue());
+    }
+    return Map.copyOf(out);
+  }
+
   public Schema resolveSchema(String ref) {
-    String name = stripPrefix(ref, "#/components/schemas/");
-    Schema s = componentSchemas.get(name);
+    Schema s = schemaRefIndex.get(ref);
     if (s == null) {
       throw new IllegalArgumentException("unknown schema ref: " + ref);
     }
@@ -60,8 +73,7 @@ public record Spec(
   }
 
   public Parameter resolveParameter(String ref) {
-    String name = stripPrefix(ref, "#/components/parameters/");
-    Parameter p = componentParameters.get(name);
+    Parameter p = parameterRefIndex.get(ref);
     if (p == null) {
       throw new IllegalArgumentException("unknown parameter ref: " + ref);
     }
