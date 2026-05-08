@@ -236,6 +236,27 @@ class SchemaParserTest {
   }
 
   @Test
+  void parsesEmptySchemaAsPermissiveObject() {
+    // {} accepts anything that's an object; this is the JSON Schema 3.1 default
+    // and a behaviour change from the previous parser, which returned NullSchema.
+    Schema s = SchemaParser.parse(Map.of());
+    assertThat(s).isInstanceOf(ObjectSchema.class);
+    ObjectSchema obj = (ObjectSchema) s;
+    assertThat(obj.types()).isEmpty();
+    assertThat(obj.properties()).isEmpty();
+    assertThat(obj.required()).isEmpty();
+    assertThat(obj.additionalProperties()).isInstanceOf(AdditionalProperties.Allowed.class);
+  }
+
+  @Test
+  void parsesEmptyAllOfAsPermissiveObject() {
+    // allOf: [] contributes zero assertions; with no base assertion, the parser
+    // falls back to permissive object.
+    Schema s = SchemaParser.parse(Map.of("allOf", List.of()));
+    assertThat(s).isInstanceOf(ObjectSchema.class);
+  }
+
+  @Test
   void allOfBranchesFlattenIntoOuterAllOf() {
     Schema s =
         SchemaParser.parse(
@@ -250,6 +271,11 @@ class SchemaParserTest {
     AllOfSchema all = (AllOfSchema) s;
     // Base + the two allOf branches flattened.
     assertThat(all.parts()).hasSize(3);
+    assertThat(all.parts().get(0)).isInstanceOf(StringSchema.class);
+    assertThat(all.parts().get(1)).isInstanceOf(StringSchema.class);
+    assertThat(all.parts().get(2)).isInstanceOf(StringSchema.class);
+    assertThat(((StringSchema) all.parts().get(1)).minLength()).isEqualTo(1);
+    assertThat(((StringSchema) all.parts().get(2)).maxLength()).isEqualTo(10);
   }
 
   @Test

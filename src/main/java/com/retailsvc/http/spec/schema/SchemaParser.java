@@ -58,10 +58,6 @@ public final class SchemaParser {
     if (types.isEmpty() && !hasObjectShapeKeywords(raw) && !hasArrayShapeKeywords(raw)) {
       return null;
     }
-
-    TypeName primary =
-        types.stream().filter(t -> t != TypeName.NULL).findFirst().orElse(TypeName.NULL);
-
     if (types.isEmpty() && hasObjectShapeKeywords(raw)) {
       return parseObject(raw, types);
     }
@@ -69,6 +65,8 @@ public final class SchemaParser {
       return parseArray(raw, types);
     }
 
+    TypeName primary =
+        types.stream().filter(t -> t != TypeName.NULL).findFirst().orElse(TypeName.NULL);
     return switch (primary) {
       case STRING -> parseString(raw, types);
       case INTEGER -> parseInteger(raw, types);
