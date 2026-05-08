@@ -20,8 +20,12 @@ import com.retailsvc.http.spec.schema.StringSchema;
 import com.retailsvc.http.spec.schema.TypeName;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -196,7 +200,26 @@ public final class DefaultValidator implements Validator {
   }
 
   private void validateArray(Object value, ArraySchema s, String pointer) {
-    throw new UnsupportedOperationException("E5 implements array");
+    require(value instanceof Iterable, pointer, "type", "expected array");
+    Iterable<?> it = (Iterable<?>) value;
+    List<Object> elements = new ArrayList<>();
+    for (Object o : it) elements.add(o);
+
+    if (s.minItems() != null && elements.size() < s.minItems())
+      fail(pointer, "minItems", "fewer than " + s.minItems() + " items", elements.size());
+    if (s.maxItems() != null && elements.size() > s.maxItems())
+      fail(pointer, "maxItems", "more than " + s.maxItems() + " items", elements.size());
+
+    if (s.uniqueItems()) {
+      Set<Object> seen = new HashSet<>();
+      for (Object e : elements) {
+        if (!seen.add(e)) fail(pointer, "uniqueItems", "duplicate item", e);
+      }
+    }
+
+    for (int i = 0; i < elements.size(); i++) {
+      validate(elements.get(i), s.items(), pointer + "/" + i);
+    }
   }
 
   private static void fail(String pointer, String keyword, String message, Object rejectedValue) {
