@@ -348,6 +348,32 @@ class SchemaParserTest {
   }
 
   @Test
+  void parsesImplicitObjectFromShapeKeywords() {
+    // Schema with object-shape keywords but no explicit type still produces
+    // an ObjectSchema (parseBaseIfPresent's implicit-object branch).
+    Schema s =
+        SchemaParser.parse(
+            Map.of("required", List.of("x"), "properties", Map.of("x", Map.of("type", "string"))));
+    assertThat(s).isInstanceOf(ObjectSchema.class);
+    ObjectSchema obj = (ObjectSchema) s;
+    assertThat(obj.types()).isEmpty();
+    assertThat(obj.required()).containsExactly("x");
+    assertThat(obj.properties().get("x")).isInstanceOf(StringSchema.class);
+  }
+
+  @Test
+  void parsesImplicitArrayFromShapeKeywords() {
+    // Schema with array-shape keywords but no explicit type still produces
+    // an ArraySchema (parseBaseIfPresent's implicit-array branch).
+    Schema s = SchemaParser.parse(Map.of("items", Map.of("type", "integer"), "minItems", 1));
+    assertThat(s).isInstanceOf(ArraySchema.class);
+    ArraySchema arr = (ArraySchema) s;
+    assertThat(arr.types()).isEmpty();
+    assertThat(arr.items()).isInstanceOf(IntegerSchema.class);
+    assertThat(arr.minItems()).isEqualTo(1);
+  }
+
+  @Test
   void oneOfContainingNestedAnyOfRecurses() {
     // Pins that combinator branches are themselves passed through parse(),
     // so nested combinators survive intact.
