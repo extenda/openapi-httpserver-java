@@ -60,4 +60,51 @@ class SchemaParserTest {
     Schema s = SchemaParser.parse(Map.of("type", "string", "nullable", true));
     assertThat(s.types()).containsExactlyInAnyOrder(TypeName.STRING, TypeName.NULL);
   }
+
+  @Test
+  void parsesObjectWithRequiredAndProperties() {
+    Map<String, Object> raw =
+        Map.of(
+            "type", "object",
+            "required", List.of("name"),
+            "properties", Map.of("name", Map.of("type", "string")));
+    ObjectSchema o = (ObjectSchema) SchemaParser.parse(raw);
+    assertThat(o.required()).containsExactly("name");
+    assertThat(o.properties()).containsKey("name");
+    assertThat(o.properties().get("name")).isInstanceOf(StringSchema.class);
+    assertThat(o.additionalProperties()).isInstanceOf(AdditionalProperties.Allowed.class);
+  }
+
+  @Test
+  void parsesObjectWithAdditionalPropertiesFalse() {
+    Map<String, Object> raw = Map.of("type", "object", "additionalProperties", false);
+    ObjectSchema o = (ObjectSchema) SchemaParser.parse(raw);
+    assertThat(o.additionalProperties()).isInstanceOf(AdditionalProperties.Forbidden.class);
+  }
+
+  @Test
+  void parsesObjectWithAdditionalPropertiesSchema() {
+    Map<String, Object> raw =
+        Map.of("type", "object", "additionalProperties", Map.of("type", "string"));
+    ObjectSchema o = (ObjectSchema) SchemaParser.parse(raw);
+    assertThat(o.additionalProperties()).isInstanceOf(AdditionalProperties.SchemaConstraint.class);
+  }
+
+  @Test
+  void parsesArrayWithItems() {
+    Map<String, Object> raw =
+        Map.of(
+            "type",
+            "array",
+            "items",
+            Map.of("type", "integer"),
+            "minItems",
+            1,
+            "uniqueItems",
+            true);
+    ArraySchema a = (ArraySchema) SchemaParser.parse(raw);
+    assertThat(a.items()).isInstanceOf(IntegerSchema.class);
+    assertThat(a.minItems()).isEqualTo(1);
+    assertThat(a.uniqueItems()).isTrue();
+  }
 }

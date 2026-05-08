@@ -1,6 +1,7 @@
 package com.retailsvc.http.spec.schema;
 
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -26,8 +27,8 @@ public final class SchemaParser {
       case NUMBER -> parseNumber(raw, types);
       case BOOLEAN -> new BooleanSchema(types);
       case NULL -> new NullSchema();
-      case OBJECT, ARRAY ->
-          throw new UnsupportedOperationException("object/array parsing comes in C2");
+      case OBJECT -> parseObject(raw, types);
+      case ARRAY -> parseArray(raw, types);
     };
   }
 
@@ -78,6 +79,47 @@ public final class SchemaParser {
         (Number) raw.get("exclusiveMaximum"),
         (Number) raw.get("multipleOf"),
         (String) raw.get("format"));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static ObjectSchema parseObject(Map<String, Object> raw, Set<TypeName> types) {
+    Map<String, Object> rawProps = (Map<String, Object>) raw.getOrDefault("properties", Map.of());
+    Map<String, Schema> properties = new LinkedHashMap<>();
+    for (var e : rawProps.entrySet()) {
+      properties.put(e.getKey(), parse((Map<String, Object>) e.getValue()));
+    }
+    List<String> required = (List<String>) raw.getOrDefault("required", List.of());
+    AdditionalProperties ap = parseAdditionalProperties(raw.get("additionalProperties"));
+    return new ObjectSchema(
+        types,
+        Map.copyOf(properties),
+        List.copyOf(required),
+        ap,
+        toIntOrNull(raw.get("minProperties")),
+        toIntOrNull(raw.get("maxProperties")));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static AdditionalProperties parseAdditionalProperties(Object value) {
+    if (value == null || Boolean.TRUE.equals(value)) {
+      return new AdditionalProperties.Allowed();
+    }
+    if (Boolean.FALSE.equals(value)) {
+      return new AdditionalProperties.Forbidden();
+    }
+    return new AdditionalProperties.SchemaConstraint(parse((Map<String, Object>) value));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static ArraySchema parseArray(Map<String, Object> raw, Set<TypeName> types) {
+    Map<String, Object> items = (Map<String, Object>) raw.getOrDefault("items", Map.of());
+    Schema itemSchema = items.isEmpty() ? new NullSchema() : parse(items);
+    return new ArraySchema(
+        types,
+        itemSchema,
+        toIntOrNull(raw.get("minItems")),
+        toIntOrNull(raw.get("maxItems")),
+        Boolean.TRUE.equals(raw.get("uniqueItems")));
   }
 
   private static Integer toIntOrNull(Object v) {
