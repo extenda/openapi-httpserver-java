@@ -1,6 +1,7 @@
 package com.retailsvc.http.validate;
 
 import com.retailsvc.http.ValidationException;
+import com.retailsvc.http.spec.schema.AdditionalProperties;
 import com.retailsvc.http.spec.schema.AllOfSchema;
 import com.retailsvc.http.spec.schema.AnyOfSchema;
 import com.retailsvc.http.spec.schema.ArraySchema;
@@ -19,6 +20,7 @@ import com.retailsvc.http.spec.schema.StringSchema;
 import com.retailsvc.http.spec.schema.TypeName;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
@@ -154,8 +156,43 @@ public final class DefaultValidator implements Validator {
       fail(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
   }
 
+  @SuppressWarnings("unchecked")
   private void validateObject(Object value, ObjectSchema s, String pointer) {
-    throw new UnsupportedOperationException("E4 implements object");
+    require(value instanceof Map, pointer, "type", "expected object");
+    Map<String, Object> map = (Map<String, Object>) value;
+
+    for (String required : s.required()) {
+      require(
+          map.containsKey(required),
+          pointer + "/" + required,
+          "required",
+          "required property missing");
+    }
+
+    if (s.minProperties() != null && map.size() < s.minProperties())
+      fail(pointer, "minProperties", "fewer than " + s.minProperties() + " properties", map.size());
+    if (s.maxProperties() != null && map.size() > s.maxProperties())
+      fail(pointer, "maxProperties", "more than " + s.maxProperties() + " properties", map.size());
+
+    for (var entry : map.entrySet()) {
+      String childPointer = pointer + "/" + entry.getKey();
+      Schema propSchema = s.properties().get(entry.getKey());
+      if (propSchema != null) {
+        validate(entry.getValue(), propSchema, childPointer);
+      } else {
+        switch (s.additionalProperties()) {
+          case AdditionalProperties.Allowed a -> {}
+          case AdditionalProperties.Forbidden f ->
+              fail(
+                  childPointer,
+                  "additionalProperties",
+                  "additional property not allowed",
+                  entry.getKey());
+          case AdditionalProperties.SchemaConstraint sc ->
+              validate(entry.getValue(), sc.schema(), childPointer);
+        }
+      }
+    }
   }
 
   private void validateArray(Object value, ArraySchema s, String pointer) {
