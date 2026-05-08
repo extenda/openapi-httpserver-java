@@ -33,6 +33,9 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 
 public final class DefaultValidator implements Validator {
+
+  private static final String FORMAT_KEYWORD = "format";
+
   private final Function<String, Schema> refResolver;
 
   public DefaultValidator(Function<String, Schema> refResolver) {
@@ -46,7 +49,7 @@ public final class DefaultValidator implements Validator {
     }
 
     switch (schema) {
-      case RefSchema r -> validate(value, refResolver.apply(r.pointer()), pointer);
+      case RefSchema(String ref) -> validate(value, refResolver.apply(ref), pointer);
       case BooleanSchema _ -> validateBoolean(value, pointer);
       case NullSchema _ -> require(value == null, pointer, "type", "expected null");
       case StringSchema s -> validateString(value, s, pointer);
@@ -95,21 +98,21 @@ public final class DefaultValidator implements Validator {
         try {
           UUID.fromString(str);
         } catch (IllegalArgumentException _) {
-          fail(pointer, "format", "not a valid uuid", str);
+          fail(pointer, FORMAT_KEYWORD, "not a valid uuid", str);
         }
       }
       case "date" -> {
         try {
           LocalDate.parse(str);
         } catch (DateTimeParseException _) {
-          fail(pointer, "format", "not a valid date", str);
+          fail(pointer, FORMAT_KEYWORD, "not a valid date", str);
         }
       }
       case "date-time" -> {
         try {
           OffsetDateTime.parse(str);
         } catch (DateTimeParseException _) {
-          fail(pointer, "format", "not a valid date-time", str);
+          fail(pointer, FORMAT_KEYWORD, "not a valid date-time", str);
         }
       }
       default -> {
@@ -226,15 +229,17 @@ public final class DefaultValidator implements Validator {
         validate(entry.getValue(), propSchema, childPointer);
       } else {
         switch (s.additionalProperties()) {
-          case AdditionalProperties.Allowed _ -> {}
+          case AdditionalProperties.Allowed _ -> {
+            /* no-op: additional properties are permitted by default */
+          }
           case AdditionalProperties.Forbidden _ ->
               fail(
                   childPointer,
                   "additionalProperties",
                   "additional property not allowed",
                   entry.getKey());
-          case AdditionalProperties.SchemaConstraint sc ->
-              validate(entry.getValue(), sc.schema(), childPointer);
+          case AdditionalProperties.SchemaConstraint(Schema constraint) ->
+              validate(entry.getValue(), constraint, childPointer);
         }
       }
     }
