@@ -237,8 +237,8 @@ class SchemaParserTest {
 
   @Test
   void parsesEmptySchemaAsPermissiveObject() {
-    // {} accepts anything that's an object; this is the JSON Schema 3.1 default
-    // and a behaviour change from the previous parser, which returned NullSchema.
+    // {} emits no type assertion (permissive ObjectSchema); JSON Schema 3.1 default.
+    // Behaviour change from the previous parser, which returned NullSchema.
     Schema s = SchemaParser.parse(Map.of());
     assertThat(s).isInstanceOf(ObjectSchema.class);
     ObjectSchema obj = (ObjectSchema) s;

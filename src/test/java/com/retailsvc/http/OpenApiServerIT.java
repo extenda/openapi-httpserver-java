@@ -489,4 +489,113 @@ class OpenApiServerIT extends ServerBaseTest {
       }
     }
   }
+
+  @Nested
+  class Filters {
+
+    String path = "/filters";
+
+    @Test
+    void postFilter_validStringValueReturns200() {
+      try (var server = newServer(Map.of("post-filter", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"value\":\"abcd\"}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postFilter_validIntegerValueReturns200() {
+      try (var server = newServer(Map.of("post-filter", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"value\":42}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postFilter_shortStringMatchesNoBranchReturns400() {
+      // "ab" has length < 3 (string branch fails) and is not an integer (integer branch fails).
+      try (var server = newServer(Map.of("post-filter", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"value\":\"ab\"}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.headers().firstValue("Content-Type").orElse(""))
+            .contains("application/problem+json");
+        assertThat(response.body()).contains("anyOf");
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+  }
+
+  @Nested
+  class Blocked {
+
+    String path = "/blocked";
+
+    @Test
+    void postBlocked_acceptedTokenReturns200() {
+      try (var server = newServer(Map.of("post-blocked", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"token\":\"allowed\"}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postBlocked_forbiddenTokenReturns400() {
+      try (var server = newServer(Map.of("post-blocked", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"token\":\"forbidden\"}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.headers().firstValue("Content-Type").orElse(""))
+            .contains("application/problem+json");
+        assertThat(response.body()).contains("not");
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+  }
 }
