@@ -16,7 +16,7 @@ public class PostListObjectsHandler implements HttpHandler {
   public void handle(HttpExchange exchange) throws IOException {
     LOG.debug("POST /list/objects");
 
-    byte[] bytes = Request.bytes(exchange);
+    byte[] bytes = Request.bytes();
 
     if (bytes.length == 0) {
       LOG.debug("No bytes available to read from the request body");

@@ -16,7 +16,7 @@ public final class DispatchHandler implements HttpHandler {
 
   @Override
   public void handle(HttpExchange exchange) throws IOException {
-    String opId = Request.operationId(exchange);
+    String opId = Request.operationId();
     HttpHandler h = handlers.get(opId);
     if (h == null) {
       throw new MissingOperationHandlerException(opId);

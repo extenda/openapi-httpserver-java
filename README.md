@@ -124,13 +124,13 @@ Schemas are located under test resources folder.
 
 The library wraps the JDK's bundled `com.sun.net.httpserver.HttpServer` and uses a virtual-thread-per-request executor. On a developer laptop (Apple Silicon, single instance, default JVM flags) it sustains roughly:
 
-- **20k–35k requests/second** for small JSON GETs and POSTs (~300 byte bodies), measured both via parallelised `curl` (no connection reuse) and via `k6` at moderate VU counts.
-- The HTTP layer reports **0% request failures** even when sustained at 30 concurrent virtual users for 45 seconds (~1.5M requests).
+- **~32k requests/second** for small JSON GETs and POSTs (~300 byte bodies), measured via `k6` at 30 sustained VUs over 45 seconds (1.4M requests, **100% of checks passing**, 0% HTTP failures).
 
-That said, the underlying JDK HttpServer is documented as a low-throughput / dev-test server, and a few caveats are worth knowing:
+A few things to know:
 
-- **Keep-alive reuse at high concurrency.** k6 and other clients that aggressively reuse HTTP/1.1 connections will occasionally observe empty response bodies (with the correct `Content-Length` header) when running tens of VUs against this server. Curl-style clients that open a fresh connection per request do not see this. If you need consistent throughput above a few thousand RPS with keep-alive clients, consider deploying behind a real HTTP server (Jetty, Helidon Níma, Netty) — this library's filter/validator stack is independent of the underlying server and could be ported.
 - **Single-process model.** No horizontal scaling primitives are bundled; run multiple instances behind a load balancer for production scale.
-- **`HttpExchange.sendResponseHeaders(rCode, length)` semantics.** When a handler has no response body, pass `-1` (no body, `Content-Length: 0`); passing `0` produces a chunked response with zero chunks, which is technically non-conformant.
+- **JDK HttpServer is the throughput ceiling.** It's documented as a low-throughput / dev-test server. If you need to go materially above the rates above, deploy the same filter/validator/router stack on Jetty, Helidon Níma, or Netty — the spec and validation code is server-agnostic.
+- **Per-request state uses `ScopedValue`** (Java 25, JEP 506), not `HttpExchange.setAttribute`. This matters if a handler offloads work to an executor that's not a `StructuredTaskScope`-managed child thread: the `ScopedValue` is not visible there, so the handler must capture the values it needs (e.g. `byte[] body = Request.bytes();`) before submitting.
+- **`HttpExchange.sendResponseHeaders(rCode, length)` gotcha.** When a handler has no response body, pass `-1` (`Content-Length: 0`, no body); passing `0` produces a chunked response with zero chunks, which is technically non-conformant.
 
 ## Known limitations or missing features

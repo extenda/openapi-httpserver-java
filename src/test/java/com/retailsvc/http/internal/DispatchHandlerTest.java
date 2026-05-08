@@ -11,23 +11,42 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 class DispatchHandlerTest {
-  private HttpExchange exchange(String operationId) {
-    HttpExchange ex = Mockito.mock(HttpExchange.class);
-    Mockito.when(ex.getAttribute(Request.OPERATION_ID)).thenReturn(operationId);
-    return ex;
+
+  private static void withOperationId(
+      String operationId, ScopedValue.CallableOp<Void, Exception> body) throws Exception {
+    RequestContext ctx = new RequestContext(new byte[0], null, operationId, Map.of());
+    ScopedValue.where(Request.CONTEXT, ctx).call(body);
   }
 
   @Test
   void invokesRegisteredHandler() throws Exception {
     HttpHandler handler = Mockito.mock(HttpHandler.class);
-    new DispatchHandler(Map.of("get-x", handler)).handle(exchange("get-x"));
+    HttpExchange ex = Mockito.mock(HttpExchange.class);
+
+    withOperationId(
+        "get-x",
+        () -> {
+          new DispatchHandler(Map.of("get-x", handler)).handle(ex);
+          return null;
+        });
+    // bound op-id is "get-x"; DispatchHandler should look up the registered HttpHandler.
+
     Mockito.verify(handler).handle(Mockito.any());
   }
 
   @Test
   void throwsWhenHandlerMissing() {
     DispatchHandler d = new DispatchHandler(Map.of());
-    HttpExchange ex = exchange("ghost");
-    assertThatThrownBy(() -> d.handle(ex)).isInstanceOf(MissingOperationHandlerException.class);
+    HttpExchange ex = Mockito.mock(HttpExchange.class);
+
+    assertThatThrownBy(
+            () ->
+                withOperationId(
+                    "ghost",
+                    () -> {
+                      d.handle(ex);
+                      return null;
+                    }))
+        .isInstanceOf(MissingOperationHandlerException.class);
   }
 }

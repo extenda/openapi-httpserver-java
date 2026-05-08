@@ -23,16 +23,15 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayInputStream;
 import java.net.URI;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 class RequestPreparationFilterTest {
-  private final HashMap<String, Object> attrs = new HashMap<>();
 
   private HttpExchange exchange(String method, String path, byte[] body) {
     HttpExchange ex = Mockito.mock(HttpExchange.class);
@@ -40,11 +39,6 @@ class RequestPreparationFilterTest {
     Mockito.when(ex.getRequestURI()).thenReturn(URI.create(path));
     Mockito.when(ex.getRequestHeaders()).thenReturn(new Headers());
     Mockito.when(ex.getRequestBody()).thenReturn(new ByteArrayInputStream(body));
-    Mockito.doAnswer(inv -> attrs.put(inv.getArgument(0), inv.getArgument(1)))
-        .when(ex)
-        .setAttribute(Mockito.anyString(), Mockito.any());
-    Mockito.when(ex.getAttribute(Mockito.anyString()))
-        .thenAnswer(inv -> attrs.get((String) inv.getArgument(0)));
     return ex;
   }
 
@@ -53,8 +47,14 @@ class RequestPreparationFilterTest {
         "3.1.0", new Info("t", "1"), List.of(new Server("/")), List.of(ops), Map.of(), Map.of());
   }
 
+  private Filter newFilter(Spec spec) {
+    JsonMapper m = String::new;
+    return new RequestPreparationFilter(
+        spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), m);
+  }
+
   @Test
-  void successPathSetsAttributes() throws Exception {
+  void successPathBindsRequestContextDuringChain() throws Exception {
     var op =
         new Operation(
             "get-user",
@@ -64,18 +64,26 @@ class RequestPreparationFilterTest {
             List.of(),
             Map.of());
     Spec spec = specWith(op);
-    JsonMapper m = String::new;
-    Filter f =
-        new RequestPreparationFilter(
-            spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), m);
-
+    Filter f = newFilter(spec);
     HttpExchange ex = exchange("GET", "/users/42", new byte[0]);
+
+    AtomicReference<String> seenOpId = new AtomicReference<>();
+    AtomicReference<Map<String, String>> seenPathParams = new AtomicReference<>();
+
     Filter.Chain chain = Mockito.mock(Filter.Chain.class);
+    Mockito.doAnswer(
+            inv -> {
+              seenOpId.set(Request.operationId());
+              seenPathParams.set(Request.pathParams());
+              return null;
+            })
+        .when(chain)
+        .doFilter(Mockito.any());
 
     f.doFilter(ex, chain);
 
-    assertThat(Request.operationId(ex)).isEqualTo("get-user");
-    assertThat(Request.pathParams(ex)).containsEntry("id", "42");
+    assertThat(seenOpId.get()).isEqualTo("get-user");
+    assertThat(seenPathParams.get()).containsEntry("id", "42");
     Mockito.verify(chain).doFilter(ex);
   }
 
@@ -90,10 +98,7 @@ class RequestPreparationFilterTest {
                 Optional.empty(),
                 List.of(),
                 Map.of()));
-    JsonMapper m = String::new;
-    Filter f =
-        new RequestPreparationFilter(
-            spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), m);
+    Filter f = newFilter(spec);
 
     HttpExchange ex = exchange("GET", "/missing", new byte[0]);
     assertThatThrownBy(() -> f.doFilter(ex, Mockito.mock(Filter.Chain.class)))
@@ -111,10 +116,7 @@ class RequestPreparationFilterTest {
                 Optional.empty(),
                 List.of(),
                 Map.of()));
-    JsonMapper m = String::new;
-    Filter f =
-        new RequestPreparationFilter(
-            spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), m);
+    Filter f = newFilter(spec);
 
     HttpExchange ex = exchange("POST", "/x", new byte[0]);
     assertThatThrownBy(() -> f.doFilter(ex, Mockito.mock(Filter.Chain.class)))
@@ -133,10 +135,7 @@ class RequestPreparationFilterTest {
             List.of(new Parameter("q", Parameter.Location.QUERY, true, stringSchema)),
             Map.of());
     Spec spec = specWith(op);
-    JsonMapper m = String::new;
-    Filter f =
-        new RequestPreparationFilter(
-            spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), m);
+    Filter f = newFilter(spec);
 
     HttpExchange ex = exchange("GET", "/x?q=ab", new byte[0]);
     assertThatThrownBy(() -> f.doFilter(ex, Mockito.mock(Filter.Chain.class)))

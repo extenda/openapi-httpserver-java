@@ -15,7 +15,7 @@ public class EchoHandler implements HttpHandler {
 
   @Override
   public void handle(HttpExchange exchange) throws IOException {
-    byte[] bytes = Request.bytes(exchange);
+    byte[] bytes = Request.bytes();
 
     if (bytes.length == 0) {
       LOG.debug("No bytes available to read from the request body");

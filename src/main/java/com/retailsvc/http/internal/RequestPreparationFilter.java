@@ -1,13 +1,9 @@
 package com.retailsvc.http.internal;
 
-import static com.retailsvc.http.Request.BODY;
-import static com.retailsvc.http.Request.OPERATION_ID;
-import static com.retailsvc.http.Request.PARSED_BODY;
-import static com.retailsvc.http.Request.PATH_PARAMETERS;
-
 import com.retailsvc.http.JsonMapper;
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
+import com.retailsvc.http.Request;
 import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.HttpMethod;
 import com.retailsvc.http.spec.MediaType;
@@ -48,7 +44,6 @@ public final class RequestPreparationFilter extends Filter {
   @Override
   public void doFilter(HttpExchange exchange, Chain chain) throws IOException {
     byte[] body = exchange.getRequestBody().readAllBytes();
-    exchange.setAttribute(BODY, body);
 
     HttpMethod method = HttpMethod.parse(exchange.getRequestMethod());
     String path = stripBasePath(exchange.getRequestURI().getPath());
@@ -64,13 +59,35 @@ public final class RequestPreparationFilter extends Filter {
     Router.Match match = matchOpt.get();
 
     Operation op = match.operation();
-    exchange.setAttribute(OPERATION_ID, op.operationId());
-    exchange.setAttribute(PATH_PARAMETERS, match.pathParameters());
-
     validateParameters(exchange, op, match.pathParameters());
-    validateBody(exchange, op, body);
+    Object parsedBody = validateAndParseBody(exchange, op, body);
 
-    chain.doFilter(exchange);
+    RequestContext ctx =
+        new RequestContext(body, parsedBody, op.operationId(), match.pathParameters());
+
+    runWithRequestContext(ctx, () -> chain.doFilter(exchange));
+  }
+
+  private static void runWithRequestContext(RequestContext ctx, IORunnable work)
+      throws IOException {
+    try {
+      ScopedValue.where(Request.CONTEXT, ctx)
+          .call(
+              () -> {
+                work.run();
+                return null;
+              });
+    } catch (IOException | RuntimeException e) {
+      throw e;
+    } catch (Exception e) {
+      // Callable.call() throws Exception; nothing else can actually be thrown by the chain.
+      throw new IOException(e);
+    }
+  }
+
+  @FunctionalInterface
+  private interface IORunnable {
+    void run() throws IOException;
   }
 
   private String stripBasePath(String path) {
@@ -108,17 +125,17 @@ public final class RequestPreparationFilter extends Filter {
     }
   }
 
-  private void validateBody(HttpExchange exchange, Operation op, byte[] body) {
+  private Object validateAndParseBody(HttpExchange exchange, Operation op, byte[] body) {
     Optional<RequestBody> rb = op.requestBody();
     if (rb.isEmpty()) {
-      return;
+      return null;
     }
     if (body.length == 0) {
       if (rb.get().required()) {
         throw new ValidationException(
             new ValidationError("/body", "required", "request body is required", null));
       }
-      return;
+      return null;
     }
     String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
     if (contentType == null) {
@@ -132,8 +149,8 @@ public final class RequestPreparationFilter extends Filter {
               "/body", "content-type", "unsupported content type: " + contentType, null));
     }
     Object parsed = jsonMapper.mapFrom(body);
-    exchange.setAttribute(PARSED_BODY, parsed);
     validator.validate(parsed, mt.schema(), "");
+    return parsed;
   }
 
   private static Map<String, String> parseQuery(String query) {
