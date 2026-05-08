@@ -64,10 +64,14 @@ public final class DefaultValidator implements Validator {
           require(values.contains(value), pointer, "enum", "value not in enum");
       case ConstSchema(Object expected) ->
           require(Objects.equals(expected, value), pointer, "const", "value does not equal const");
-      case OneOfSchema _ -> throw new UnsupportedOperationException("oneOf not yet supported");
-      case AnyOfSchema _ -> throw new UnsupportedOperationException("anyOf not yet supported");
-      case AllOfSchema _ -> throw new UnsupportedOperationException("allOf not yet supported");
-      case NotSchema _ -> throw new UnsupportedOperationException("not not yet supported");
+      case AllOfSchema(List<Schema> parts) -> {
+        for (Schema p : parts) {
+          validate(value, p, pointer);
+        }
+      }
+      case AnyOfSchema(List<Schema> options) -> validateAnyOf(value, options, pointer);
+      case OneOfSchema(List<Schema> options) -> validateOneOf(value, options, pointer);
+      case NotSchema(Schema inner) -> validateNot(value, inner, pointer);
     }
   }
 
@@ -289,5 +293,45 @@ public final class DefaultValidator implements Validator {
     if (!condition) {
       throw new ValidationException(new ValidationError(pointer, keyword, message, null));
     }
+  }
+
+  private void validateAnyOf(Object value, List<Schema> options, String pointer) {
+    for (Schema o : options) {
+      try {
+        validate(value, o, pointer);
+        return;
+      } catch (ValidationException ignored) {
+        // try next branch
+      }
+    }
+    fail(pointer, "anyOf", "did not match any anyOf branch", value);
+  }
+
+  private void validateOneOf(Object value, List<Schema> options, String pointer) {
+    int matched = 0;
+    for (Schema o : options) {
+      try {
+        validate(value, o, pointer);
+        matched++;
+      } catch (ValidationException ignored) {
+        // count misses
+      }
+    }
+    if (matched != 1) {
+      fail(
+          pointer,
+          "oneOf",
+          "matched " + matched + " of " + options.size() + " oneOf branches",
+          value);
+    }
+  }
+
+  private void validateNot(Object value, Schema inner, String pointer) {
+    try {
+      validate(value, inner, pointer);
+    } catch (ValidationException expected) {
+      return;
+    }
+    fail(pointer, "not", "value matched 'not' schema", value);
   }
 }
