@@ -19,7 +19,7 @@ It is designed to be simple to use while providing the essential features needed
 ## Getting Started
 
 ### Prerequisites
-- Java SDK 21 or later
+- Java SDK 25 or later
 - A serialization library, e.g. Gson or Jackson
 - OpenAPI specification file in JSON format (`openapi.json`)
 
@@ -29,63 +29,71 @@ It is designed to be simple to use while providing the essential features needed
 2. Define your HTTP handlers by implementing the `HttpHandler` interface:
 ``` java
 public class GetDataHandler implements HttpHandler {
-  // Implement your POST endpoint logic
+  @Override
+  public void handle(HttpExchange exchange) throws IOException {
+    try (exchange) {
+      byte[] bytes = """
+      {
+        "id": "some-id"
+      }""".getBytes();
 
-  // Example
-  try (exchange) {
-    byte[] bytes = """
-    {
-      "id": "some-id"
-    }""".getBytes();
-
-    try (var os = exchange.getResponseBody()) {
       var responseHeaders = exchange.getResponseHeaders();
       responseHeaders.add("content-type", "application/json");
 
       exchange.sendResponseHeaders(HTTP_OK, bytes.length);
 
-      os.write(bytes);
+      try (var os = exchange.getResponseBody()) {
+        os.write(bytes);
+      }
     }
   }
 }
 
-public class PostDataHandler implements HttpHandler, GetRequestBody {
-  // Implement your POST endpoint logic
+public class PostDataHandler implements HttpHandler {
+  @Override
+  public void handle(HttpExchange exchange) throws IOException {
+    try (exchange) {
+      // Access the raw request body bytes.
+      byte[] body = Request.bytes(exchange);
+      // Or get the already-parsed object (Map or List) produced by your JsonMapper.
+      Object parsed = Request.parsed(exchange);
+
+      exchange.sendResponseHeaders(HTTP_OK, -1);
+    }
+  }
 }
 ```
 
-1. Initialize the server (using Gson in this example):
+3. Initialize the server (using Gson in this example):
 ``` java
 public class YourServerLauncher {
   public static void main(String[] args) throws Exception {
-    final Gson gson = new Gson();
+    Gson gson = new Gson();
 
-    // Parse OpenAPI specification (or build your instance of OpenApi manually)
-    var specification = parseSpecification("openapi.json",  s -> gson.fromJson(s, OpenApi.class));
+    // Parse spec to a generic Map (works for JSON; for YAML use SnakeYAML).
+    String text = Files.readString(Path.of("openapi.json"));
+    Map<String, Object> raw = (Map<String, Object>) gson.fromJson(text, Map.class);
+    Spec spec = Spec.from(raw);
 
-    // Register your handlers (operation-id -> handler)
+    // Body parser. Returns a Map for objects, List for arrays.
+    JsonMapper mapper = body -> gson.fromJson(new String(body), Object.class);
+
+    // Handlers by operationId.
     Map<String, HttpHandler> handlers = new HashMap<>();
     handlers.put("get-data", new GetDataHandler());
     handlers.put("post-data", new PostDataHandler());
 
-    // Create JSON mapper (supports both arrays and objects)
-    JsonMapper mapper = new JsonMapper() {
-        @Override
-        public <T> T mapFrom(byte[] body) {
-          if (body.length > 0 && body[0] == '[') {
-            return (T) gson.fromJson(new String(body), List.class);
-          }
-          return (T) gson.fromJson(new String(body), Map.class);
-        }
-    };
-
-    ExceptionHandler exceptionHandler = Handlers.defaultExceptionHandler();
-
-    // Start the server
-    new OpenApiServer(specification, mapper, handlers, exceptionHandler);
+    new OpenApiServer(spec, mapper, handlers, Handlers.defaultExceptionHandler());
   }
 }
 ```
+
+### YAML specifications
+For YAML, replace the JSON parsing line with SnakeYAML:
+``` java
+Map<String, Object> raw = new Yaml().load(Files.newInputStream(Path.of("openapi.yaml")));
+```
+The rest is identical.
 
 ## Features
 - OpenAPI specification support
