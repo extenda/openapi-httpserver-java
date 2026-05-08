@@ -1,6 +1,6 @@
 # Combinators Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Implement runtime validation for OpenAPI 3.1 combinators (`allOf`, `anyOf`, `oneOf`, `not`) and let combinators co-exist with sibling base assertions (`type`, `properties`, etc.) per JSON Schema 2020-12.
 
@@ -22,7 +22,7 @@
 
 ### Step 1.1: Write failing validator tests
 
-- [ ] **Step 1: Add tests for combinator validation**
+- [x] **Step 1: Add tests for combinator validation**
 
 Replace the existing `combinatorThrowsUnsupported` test in `src/test/java/com/retailsvc/http/validate/DefaultValidatorDispatchTest.java` with the following block (delete the old test, append the new ones at the end of the class). Keep the existing imports and add: `AllOfSchema`, `AnyOfSchema`, `NotSchema`, `StringSchema`.
 
@@ -124,7 +124,7 @@ void notFailsWhenInnerPasses() {
 }
 ```
 
-- [ ] **Step 2: Run the failing tests**
+- [x] **Step 2: Run the failing tests**
 
 Run: `mvn -q test -Dtest=DefaultValidatorDispatchTest`
 
@@ -132,7 +132,7 @@ Expected: 9 new tests fail with `UnsupportedOperationException` (and the old `co
 
 ### Step 1.2: Replace the four UOE branches
 
-- [ ] **Step 3: Edit `DefaultValidator.validate(...)`**
+- [x] **Step 3: Edit `DefaultValidator.validate(...)`**
 
 Open `src/main/java/com/retailsvc/http/validate/DefaultValidator.java`. Replace these four lines:
 
@@ -200,19 +200,19 @@ private void validateNot(Object value, Schema inner, String pointer) {
 }
 ```
 
-- [ ] **Step 4: Run the unit tests**
+- [x] **Step 4: Run the unit tests**
 
 Run: `mvn -q test -Dtest=DefaultValidatorDispatchTest`
 
 Expected: all tests in the class pass (the original 4 + the 9 new ones).
 
-- [ ] **Step 5: Run the full unit test suite**
+- [x] **Step 5: Run the full unit test suite**
 
 Run: `mvn -q test`
 
 Expected: BUILD SUCCESS, 119 + 9 = 128 tests pass (or whatever count matches; no failures).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/validate/DefaultValidator.java \
@@ -241,7 +241,7 @@ EOF
 
 ### Step 2.1: Add failing parser tests
 
-- [ ] **Step 1: Add tests covering the composition path**
+- [x] **Step 1: Add tests covering the composition path**
 
 Append to `src/test/java/com/retailsvc/http/spec/schema/SchemaParserTest.java` (inside the class, before the final `}`):
 
@@ -354,7 +354,7 @@ void aloneCombinatorStillReturnsCombinatorRecord() {
 }
 ```
 
-- [ ] **Step 2: Run the new parser tests (expect failures)**
+- [x] **Step 2: Run the new parser tests (expect failures)**
 
 Run: `mvn -q test -Dtest=SchemaParserTest`
 
@@ -362,7 +362,7 @@ Expected: the 7 new tests fail. The composition tests fail because `parse(...)` 
 
 ### Step 2.2: Rewrite the parser dispatch
 
-- [ ] **Step 3: Replace the body of `SchemaParser.parse(Map<String, Object>)`**
+- [x] **Step 3: Replace the body of `SchemaParser.parse(Map<String, Object>)`**
 
 Open `src/main/java/com/retailsvc/http/spec/schema/SchemaParser.java`. Replace the entire `parse` method (currently lines 15–55) with:
 
@@ -467,19 +467,19 @@ The key behaviour changes:
 - The four combinator keywords are then each appended to the assertions list. `allOf` is flattened (its branches join the outer list directly), the others wrap.
 - A single assertion returns unwrapped; two or more wrap in `AllOfSchema`.
 
-- [ ] **Step 4: Run the parser tests**
+- [x] **Step 4: Run the parser tests**
 
 Run: `mvn -q test -Dtest=SchemaParserTest`
 
 Expected: all `SchemaParserTest` tests pass, including the 7 new ones.
 
-- [ ] **Step 5: Run the full unit suite**
+- [x] **Step 5: Run the full unit suite**
 
 Run: `mvn -q test`
 
 Expected: BUILD SUCCESS, no regressions in `ContainerSchemasTest`, `PrimitiveSchemasTest`, `CombinatorScaffoldTest`, etc.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/schema/SchemaParser.java \
@@ -515,7 +515,7 @@ EOF
 
 The fixture has stub `/anyOf` and `/allOf` paths with empty `post: {}`. Replace them with a real `/oneOf` route exercising a polymorphic body.
 
-- [ ] **Step 1: Replace the stub paths in `openapi.yaml`**
+- [x] **Step 1: Replace the stub paths in `openapi.yaml`**
 
 Open `src/test/resources/openapi.yaml`. Find the lines:
 
@@ -560,7 +560,7 @@ Replace with:
           description: OK
 ```
 
-- [ ] **Step 2: Mirror the change in `openapi.json`**
+- [x] **Step 2: Mirror the change in `openapi.json`**
 
 Open `src/test/resources/openapi.json`. Locate the `"/anyOf"` and `"/allOf"` keys (lines ~173 and ~178). Replace both blocks with a single `"/shapes"` entry equivalent to the YAML above. Use the existing JSON formatting (2-space indent, `application/json` media type). Worked example:
 
@@ -604,7 +604,7 @@ Make sure the trailing comma on the previous path entry (or this one) is correct
 
 ### Step 3.2: Add a test handler
 
-- [ ] **Step 3: Create `PolymorphicHandler.java`**
+- [x] **Step 3: Create `PolymorphicHandler.java`**
 
 Create `src/test/java/com/retailsvc/http/start/PolymorphicHandler.java`:
 
@@ -632,7 +632,7 @@ public class PolymorphicHandler implements HttpHandler {
 
 ### Step 3.3: Add the integration test
 
-- [ ] **Step 4: Add tests to `OpenApiServerIT.java`**
+- [x] **Step 4: Add tests to `OpenApiServerIT.java`**
 
 Open `src/test/java/com/retailsvc/http/OpenApiServerIT.java`. Add a new nested class at the bottom of the outer class (immediately before the final `}` of `OpenApiServerIT`):
 
@@ -724,7 +724,7 @@ class Shapes {
 
 The `ofString`, `BodyHandlers`, and `assertThat` imports are already present at the top of `OpenApiServerIT.java`; no new imports needed beyond `org.junit.jupiter.api.Nested` (also already present) and `java.io.IOException` (already imported).
 
-- [ ] **Step 5: Run the integration tests**
+- [x] **Step 5: Run the integration tests**
 
 Run: `mvn -q verify -DfailIfNoTests=false -Dtest='!*' -Dit.test=OpenApiServerIT`
 
@@ -732,13 +732,13 @@ Or simply: `mvn -q verify`
 
 Expected: BUILD SUCCESS. The four new IT cases all pass.
 
-- [ ] **Step 6: Run the full verify**
+- [x] **Step 6: Run the full verify**
 
 Run: `mvn -q verify`
 
 Expected: BUILD SUCCESS. All previous unit tests + the 9 new validator tests + the 7 new parser tests + the 4 new IT tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/test/resources/openapi.yaml src/test/resources/openapi.json \
@@ -762,9 +762,9 @@ EOF
 
 ## Final verification
 
-- [ ] Run `mvn -q verify` once more.
-- [ ] `git log --oneline master..HEAD` shows three new commits in this order: `feat: Implement combinator validation…`, `feat: Compose combinators with sibling…`, `test: Add polymorphic-body integration…`.
-- [ ] No new files exist outside the paths listed above.
+- [x] Run `mvn -q verify` once more.
+- [x] `git log --oneline master..HEAD` shows three new commits in this order: `feat: Implement combinator validation…`, `feat: Compose combinators with sibling…`, `test: Add polymorphic-body integration…`.
+- [x] No new files exist outside the paths listed above.
 
 ## Out of scope (do not do)
 
