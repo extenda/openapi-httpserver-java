@@ -109,11 +109,73 @@ paths:
         "200":
           description: OK
 
-  /anyOf:
-    post: {}
+  /shapes:
+    post:
+      operationId: post-shape
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [kind, radius]
+                  properties:
+                    kind:
+                      type: string
+                      enum: [circle]
+                    radius:
+                      type: number
+                - type: object
+                  required: [kind, side]
+                  properties:
+                    kind:
+                      type: string
+                      enum: [square]
+                    side:
+                      type: number
+      responses:
+        "200":
+          description: OK
 
-  /allOf:
-    post: {}
+  /filters:
+    post:
+      operationId: post-filter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  anyOf:
+                    - type: string
+                      minLength: 3
+                    - type: integer
+      responses:
+        "200":
+          description: OK
+
+  /blocked:
+    post:
+      operationId: post-blocked
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  not:
+                    enum: [forbidden]
+      responses:
+        "200":
+          description: OK
 
 components:
   parameters:

@@ -31,7 +31,7 @@ class OpenApiServerIT extends ServerBaseTest {
     String path = "/data";
 
     @Test
-    void getData_shouldReturnJsonBody() {
+    void getDataShouldReturnJsonBody() {
       try (var server = newServer(Map.of("get-data", new GetDataHandler()));
           var client = httpClient()) {
 
@@ -54,7 +54,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void getData_shouldReturnBadRequestOnInvalidXNameHeader() {
+    void getDataShouldReturnBadRequestOnInvalidXNameHeader() {
       try (var server = newServer(Map.of("get-data", new GetDataHandler()));
           var client = httpClient()) {
 
@@ -80,7 +80,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void postData_shouldReturnJsonBody() {
+    void postDataShouldReturnJsonBody() {
       try (var server = newServer(Map.of("post-data", new EchoHandler()));
           var client = httpClient()) {
 
@@ -129,7 +129,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void postData_shouldReturnBadRequestOnMissingRequiredProperties() {
+    void postDataShouldReturnBadRequestOnMissingRequiredProperties() {
       Map<String, HttpHandler> handlers = Map.of("post-data", new EchoHandler());
 
       try (var server = newServer(handlers);
@@ -187,7 +187,7 @@ class OpenApiServerIT extends ServerBaseTest {
     String path = "/list/objects";
 
     @Test
-    void listObjects_shouldReturnJsonBody() {
+    void listObjectsShouldReturnJsonBody() {
       try (var server = newServer(Map.of("post-list-objects", new EchoHandler()));
           var client = httpClient()) {
 
@@ -218,7 +218,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void listObjects_shouldReturnBadRequestOnPassingObjectInsteadOfArray() {
+    void listObjectsShouldReturnBadRequestOnPassingObjectInsteadOfArray() {
       try (var server = newServer(Map.of("post-list-objects", new EchoHandler()));
           var client = httpClient()) {
 
@@ -252,7 +252,7 @@ class OpenApiServerIT extends ServerBaseTest {
     String path = "/params/query";
 
     @Test
-    void getParamsQuery_shouldReturnOkOnValidQueryParams() {
+    void getParamsQueryShouldReturnOkOnValidQueryParams() {
       try (var server = newServer(Map.of("query-params", new EchoHandler()));
           var client = httpClient()) {
 
@@ -276,7 +276,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void paramsQuery_shouldReturnBadRequestOnMissingRequiredQueryParams() {
+    void paramsQueryShouldReturnBadRequestOnMissingRequiredQueryParams() {
       try (var server = newServer(Map.of("query-params", new EchoHandler()));
           var client = httpClient()) {
 
@@ -309,7 +309,7 @@ class OpenApiServerIT extends ServerBaseTest {
     String path = "/params/path";
 
     @Test
-    void getPathParams_shouldReturnOkOnValidPathParam() {
+    void getPathParamsShouldReturnOkOnValidPathParam() {
       try (var server = newServer(Map.of("path-params", new EchoHandler()));
           var client = httpClient()) {
 
@@ -332,7 +332,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void getPathParams_shouldReturnOkOnMultipleValidPathParams() {
+    void getPathParamsShouldReturnOkOnMultipleValidPathParams() {
       try (var server = newServer(Map.of("path-params-multi", new EchoHandler()));
           var client = httpClient()) {
 
@@ -355,7 +355,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void getPathParams_shouldReturnBadRequestOnBadFormatPathParam() {
+    void getPathParamsShouldReturnBadRequestOnBadFormatPathParam() {
       try (var server = newServer(Map.of("path-params-multi", new EchoHandler()));
           var client = httpClient()) {
 
@@ -382,7 +382,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void getPathParams_shouldReturnInternalErrorOnMissingHandler() {
+    void getPathParamsShouldReturnInternalErrorOnMissingHandler() {
       try (var server = newServer(Map.of("not-a-valid-operation-id", new EchoHandler()));
           var client = httpClient()) {
 
@@ -394,6 +394,202 @@ class OpenApiServerIT extends ServerBaseTest {
 
         assertThat(statusCode).isEqualTo(500);
 
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+  }
+
+  @Nested
+  class Shapes {
+
+    String path = "/shapes";
+
+    @Test
+    void postShapeValidCircleReturns200() {
+      try (var server = newServer(Map.of("post-shape", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"kind\":\"circle\",\"radius\":2.5}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).contains("\"kind\":\"circle\"");
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postShapeValidSquareReturns200() {
+      try (var server = newServer(Map.of("post-shape", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"kind\":\"square\",\"side\":3}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postShapeUnknownKindReturns400() {
+      // matches zero branches: "kind" is neither "circle" nor "square".
+      try (var server = newServer(Map.of("post-shape", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"kind\":\"triangle\",\"side\":3}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.headers().firstValue("Content-Type").orElse(""))
+            .contains("application/problem+json");
+        assertThat(response.body()).contains("oneOf");
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postShapeMissingDiscriminatorReturns400() {
+      // omitting "kind" makes both branches fail "required".
+      try (var server = newServer(Map.of("post-shape", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"radius\":2.5}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.headers().firstValue("Content-Type").orElse(""))
+            .contains("application/problem+json");
+        assertThat(response.body()).contains("oneOf");
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+  }
+
+  @Nested
+  class Filters {
+
+    String path = "/filters";
+
+    @Test
+    void postFilterValidStringValueReturns200() {
+      try (var server = newServer(Map.of("post-filter", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"value\":\"abcd\"}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postFilterValidIntegerValueReturns200() {
+      try (var server = newServer(Map.of("post-filter", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"value\":42}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postFilterShortStringMatchesNoBranchReturns400() {
+      // "ab" has length < 3 (string branch fails) and is not an integer (integer branch fails).
+      try (var server = newServer(Map.of("post-filter", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"value\":\"ab\"}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.headers().firstValue("Content-Type").orElse(""))
+            .contains("application/problem+json");
+        assertThat(response.body()).contains("anyOf");
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+  }
+
+  @Nested
+  class Blocked {
+
+    String path = "/blocked";
+
+    @Test
+    void postBlockedAcceptedTokenReturns200() {
+      try (var server = newServer(Map.of("post-blocked", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"token\":\"allowed\"}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postBlockedForbiddenTokenReturns400() {
+      try (var server = newServer(Map.of("post-blocked", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"token\":\"forbidden\"}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.headers().firstValue("Content-Type").orElse(""))
+            .contains("application/problem+json");
+        assertThat(response.body()).contains("not");
       } catch (IOException e) {
         fail(e);
       } catch (InterruptedException e) {
