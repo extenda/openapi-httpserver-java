@@ -188,6 +188,16 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void stringFormatRegex() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "regex", null);
+    assertThatCode(() -> v.validate("^[a-z]+$", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("\\d{3}-\\d{4}", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("[invalid", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
   void stringRejectsNonString() {
     StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, null, null);
     assertThatThrownBy(() -> v.validate(42, s, "/v"))

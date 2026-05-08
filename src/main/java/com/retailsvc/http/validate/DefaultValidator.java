@@ -38,6 +38,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public final class DefaultValidator implements Validator {
 
@@ -84,7 +85,8 @@ public final class DefaultValidator implements Validator {
               "hostname",
               new FormatCheck(s -> HOSTNAME.matcher(s).matches(), "not a valid hostname")),
           Map.entry("ipv4", new FormatCheck(s -> IPV4.matcher(s).matches(), "not a valid ipv4")),
-          Map.entry("ipv6", new FormatCheck(s -> IPV6.matcher(s).matches(), "not a valid ipv6")));
+          Map.entry("ipv6", new FormatCheck(s -> IPV6.matcher(s).matches(), "not a valid ipv6")),
+          Map.entry("regex", new FormatCheck(DefaultValidator::isRegex, "not a valid regex")));
 
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
@@ -196,6 +198,15 @@ public final class DefaultValidator implements Validator {
     try {
       return new URI(s).isAbsolute();
     } catch (URISyntaxException _) {
+      return false;
+    }
+  }
+
+  private static boolean isRegex(String s) {
+    try {
+      Pattern.compile(s);
+      return true;
+    } catch (PatternSyntaxException _) {
       return false;
     }
   }
