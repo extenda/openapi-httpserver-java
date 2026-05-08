@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -86,7 +87,8 @@ public final class DefaultValidator implements Validator {
               new FormatCheck(s -> HOSTNAME.matcher(s).matches(), "not a valid hostname")),
           Map.entry("ipv4", new FormatCheck(s -> IPV4.matcher(s).matches(), "not a valid ipv4")),
           Map.entry("ipv6", new FormatCheck(s -> IPV6.matcher(s).matches(), "not a valid ipv6")),
-          Map.entry("regex", new FormatCheck(DefaultValidator::isRegex, "not a valid regex")));
+          Map.entry("regex", new FormatCheck(DefaultValidator::isRegex, "not a valid regex")),
+          Map.entry("byte", new FormatCheck(DefaultValidator::isByte, "not valid base64")));
 
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
@@ -207,6 +209,15 @@ public final class DefaultValidator implements Validator {
       Pattern.compile(s);
       return true;
     } catch (PatternSyntaxException _) {
+      return false;
+    }
+  }
+
+  private static boolean isByte(String s) {
+    try {
+      Base64.getDecoder().decode(s);
+      return true;
+    } catch (IllegalArgumentException _) {
       return false;
     }
   }

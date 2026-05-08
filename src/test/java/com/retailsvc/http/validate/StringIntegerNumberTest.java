@@ -198,6 +198,19 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void stringFormatByte() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "byte", null);
+    assertThatCode(() -> v.validate("aGVsbG8=", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("not base64!!", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("a===", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
   void stringRejectsNonString() {
     StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, null, null);
     assertThatThrownBy(() -> v.validate(42, s, "/v"))
