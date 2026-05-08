@@ -1,22 +1,20 @@
 package com.retailsvc.http;
 
-import static com.retailsvc.http.Handlers.notFoundHandler;
 import static java.lang.Thread.ofVirtual;
-import static java.util.Objects.isNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
-import com.retailsvc.http.openapi.OpenApiValidationFilter;
-import com.retailsvc.http.openapi.RequestDispatchingHandler;
-import com.retailsvc.http.openapi.model.JsonMapper;
-import com.retailsvc.http.openapi.model.OpenApi;
-import com.sun.net.httpserver.Filter;
+import com.retailsvc.http.internal.DispatchHandler;
+import com.retailsvc.http.internal.ExceptionFilter;
+import com.retailsvc.http.internal.RequestPreparationFilter;
+import com.retailsvc.http.internal.Router;
+import com.retailsvc.http.spec.Spec;
+import com.retailsvc.http.validate.DefaultValidator;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -30,96 +28,76 @@ import org.slf4j.LoggerFactory;
 public class OpenApiServer implements AutoCloseable {
 
   private static final Logger LOG = LoggerFactory.getLogger(OpenApiServer.class);
-  private static final int PORT = 8080;
+  private static final int DEFAULT_PORT = 8080;
 
   private final HttpServer httpServer;
 
   /**
-   * @param specification The {@link OpenApi} specification
-   * @param requestHandlers The mappings between operationId and {@link HttpHandler}
-   * @param exceptionHandler Error handler receiving exception being thrown from a handler
-   * @throws IOException If an error occur during server start
+   * @param spec The parsed {@link Spec}
+   * @param jsonMapper Body deserializer
+   * @param handlers Mappings between operationId and {@link HttpHandler}
+   * @param exceptionHandler Error handler receiving exceptions thrown from a handler
+   * @throws IOException If an error occurs during server start
    */
   public OpenApiServer(
-      OpenApi specification,
+      Spec spec,
       JsonMapper jsonMapper,
-      Map<String, HttpHandler> requestHandlers,
+      Map<String, HttpHandler> handlers,
       ExceptionHandler exceptionHandler)
       throws IOException {
-    this(specification, jsonMapper, requestHandlers, exceptionHandler, PORT);
+    this(spec, jsonMapper, handlers, exceptionHandler, DEFAULT_PORT);
   }
 
   /**
-   * @param specification The {@link OpenApi} specification
-   * @param requestHandlers The mappings between operationId and {@link HttpHandler}
-   * @param exceptionHandler Error handler receiving exception being thrown from a handler
-   * @param httpPort The server port to use
-   * @throws IOException If an error occur during server start
+   * @param spec The parsed {@link Spec}
+   * @param jsonMapper Body deserializer
+   * @param handlers Mappings between operationId and {@link HttpHandler}
+   * @param exceptionHandler Error handler receiving exceptions thrown from a handler
+   * @param port The server port to use
+   * @throws IOException If an error occurs during server start
    */
   public OpenApiServer(
-      OpenApi specification,
+      Spec spec,
       JsonMapper jsonMapper,
-      Map<String, HttpHandler> requestHandlers,
+      Map<String, HttpHandler> handlers,
       ExceptionHandler exceptionHandler,
-      int httpPort)
+      int port)
       throws IOException {
 
-    long t0 = System.currentTimeMillis();
-    LOG.debug("Starting server...");
-
-    requireNonNull(specification, "OpenAPI specification must not be null");
-    requireNonNull(jsonMapper, "Request body mapper must not be null");
-    requireNonNull(requestHandlers, "Request handlers must not be null");
-
-    if (isNull(exceptionHandler)) {
-      LOG.warn("No exception handler set, using default.");
+    requireNonNull(spec, "Spec must not be null");
+    requireNonNull(jsonMapper, "JsonMapper must not be null");
+    requireNonNull(handlers, "handlers must not be null");
+    if (exceptionHandler == null) {
+      LOG.warn("No ExceptionHandler set, using default");
       exceptionHandler = Handlers.defaultExceptionHandler();
     }
 
-    httpServer =
-        initializeServer(
-            httpPort, specification, jsonMapper, requestHandlers, exceptionHandler, t0);
+    long t0 = System.currentTimeMillis();
+    Router router = new Router(spec.operations());
+    DefaultValidator validator = new DefaultValidator(spec::resolveSchema);
+
+    this.httpServer = HttpServer.create(new InetSocketAddress(port), 0);
+    httpServer.setExecutor(newThreadPerTaskExecutor(ofVirtual().name("http-", 0).factory()));
+
+    HttpContext ctx = httpServer.createContext(Optional.ofNullable(spec.basePath()).orElse("/"));
+    ctx.getFilters().add(new ExceptionFilter(exceptionHandler));
+    ctx.getFilters().add(new RequestPreparationFilter(spec, router, validator, jsonMapper));
+    ctx.setHandler(new DispatchHandler(handlers));
+
+    httpServer.createContext("/", Handlers.notFoundHandler());
+    httpServer.start();
+
+    LOG.info("Server started (port {}) in {}ms", port, System.currentTimeMillis() - t0);
   }
 
   public int listenPort() {
     return httpServer.getAddress().getPort();
   }
 
-  private HttpServer initializeServer(
-      int port,
-      OpenApi specification,
-      JsonMapper jsonMapper,
-      Map<String, HttpHandler> requestHandlers,
-      ExceptionHandler errorHandler,
-      long t0)
-      throws IOException {
-
-    HttpServer server = createHttpServer(port);
-    HttpContext context = server.createContext(specification.basePath());
-
-    List<Filter> filters = context.getFilters();
-    filters.add(new ExceptionHandlingFilter(errorHandler));
-    filters.add(new BodyHandler());
-    filters.add(new OpenApiValidationFilter(specification, jsonMapper));
-
-    context.setHandler(new RequestDispatchingHandler(requestHandlers));
-
-    server.createContext("/", notFoundHandler());
-    server.start();
-
-    LOG.info("Server started (port {}) in {}ms", PORT, System.currentTimeMillis() - t0);
-
-    return server;
-  }
-
   @Override
   public void close() {
-    Optional.ofNullable(httpServer).ifPresent(server -> server.stop(0));
-  }
-
-  private HttpServer createHttpServer(int port) throws IOException {
-    HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
-    server.setExecutor(newThreadPerTaskExecutor(ofVirtual().name("http-", 0).factory()));
-    return server;
+    if (httpServer != null) {
+      httpServer.stop(0);
+    }
   }
 }
