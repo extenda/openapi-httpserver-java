@@ -21,6 +21,8 @@ import com.retailsvc.http.spec.schema.Schema;
 import com.retailsvc.http.spec.schema.StringSchema;
 import com.retailsvc.http.spec.schema.TypeName;
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
@@ -46,11 +48,16 @@ public final class DefaultValidator implements Validator {
   private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
   private static final Map<String, FormatCheck> FORMAT_CHECKS =
-      Map.of(
-          "uuid", new FormatCheck(DefaultValidator::isUuid, "not a valid uuid"),
-          "date", new FormatCheck(DefaultValidator::isDate, "not a valid date"),
-          "date-time", new FormatCheck(DefaultValidator::isDateTime, "not a valid date-time"),
-          "email", new FormatCheck(s -> EMAIL.matcher(s).matches(), "not a valid email"));
+      Map.ofEntries(
+          Map.entry("uuid", new FormatCheck(DefaultValidator::isUuid, "not a valid uuid")),
+          Map.entry("date", new FormatCheck(DefaultValidator::isDate, "not a valid date")),
+          Map.entry(
+              "date-time", new FormatCheck(DefaultValidator::isDateTime, "not a valid date-time")),
+          Map.entry("email", new FormatCheck(s -> EMAIL.matcher(s).matches(), "not a valid email")),
+          Map.entry("uri", new FormatCheck(DefaultValidator::isUri, "not a valid uri")),
+          Map.entry(
+              "uri-reference",
+              new FormatCheck(DefaultValidator::isUriReference, "not a valid uri-reference")));
 
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
@@ -154,6 +161,23 @@ public final class DefaultValidator implements Validator {
       OffsetDateTime.parse(s);
       return true;
     } catch (DateTimeParseException _) {
+      return false;
+    }
+  }
+
+  private static boolean isUri(String s) {
+    try {
+      return new URI(s).isAbsolute();
+    } catch (URISyntaxException _) {
+      return false;
+    }
+  }
+
+  private static boolean isUriReference(String s) {
+    try {
+      new URI(s);
+      return true;
+    } catch (URISyntaxException _) {
       return false;
     }
   }

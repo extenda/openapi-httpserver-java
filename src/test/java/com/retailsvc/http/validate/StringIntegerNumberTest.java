@@ -80,6 +80,30 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void stringFormatUri() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "uri", null);
+    assertThatCode(() -> v.validate("https://example.com/path", s, "/v"))
+        .doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("/relative/path", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("not a uri at all", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
+  void stringFormatUriReference() {
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "uri-reference", null);
+    assertThatCode(() -> v.validate("https://example.com", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("/relative/path", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("ht tp://broken", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
   void integerWithMinMax() {
     IntegerSchema s =
         new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 10L, null, null, null, "int32");
