@@ -29,7 +29,7 @@ public final class Handlers {
             exchange.sendResponseHeaders(HTTP_BAD_REQUEST, body.length);
             exchange.getResponseBody().write(body);
           }
-          case NotFoundException nf -> exchange.sendResponseHeaders(HTTP_NOT_FOUND, 0);
+          case NotFoundException _ -> exchange.sendResponseHeaders(HTTP_NOT_FOUND, 0);
           case MethodNotAllowedException mna -> {
             String allow = mna.allowed().stream().map(Enum::name).collect(Collectors.joining(", "));
             exchange.getResponseHeaders().add("Allow", allow);

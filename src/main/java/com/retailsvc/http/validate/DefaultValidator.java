@@ -21,6 +21,7 @@ import com.retailsvc.http.spec.schema.TypeName;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -46,21 +47,21 @@ public final class DefaultValidator implements Validator {
 
     switch (schema) {
       case RefSchema r -> validate(value, refResolver.apply(r.pointer()), pointer);
-      case BooleanSchema b -> validateBoolean(value, pointer);
-      case NullSchema n -> require(value == null, pointer, "type", "expected null");
+      case BooleanSchema _ -> validateBoolean(value, pointer);
+      case NullSchema _ -> require(value == null, pointer, "type", "expected null");
       case StringSchema s -> validateString(value, s, pointer);
       case IntegerSchema i -> validateInteger(value, i, pointer);
       case NumberSchema n -> validateNumber(value, n, pointer);
       case ObjectSchema o -> validateObject(value, o, pointer);
       case ArraySchema a -> validateArray(value, a, pointer);
-      case EnumSchema e ->
-          require(e.values().contains(value), pointer, "enum", "value not in enum");
-      case ConstSchema c ->
-          require(Objects.equals(c.value(), value), pointer, "const", "value does not equal const");
-      case OneOfSchema o -> throw new UnsupportedOperationException("oneOf not yet supported");
-      case AnyOfSchema a -> throw new UnsupportedOperationException("anyOf not yet supported");
-      case AllOfSchema a -> throw new UnsupportedOperationException("allOf not yet supported");
-      case NotSchema n -> throw new UnsupportedOperationException("not not yet supported");
+      case EnumSchema(List<Object> values) ->
+          require(values.contains(value), pointer, "enum", "value not in enum");
+      case ConstSchema(Object expected) ->
+          require(Objects.equals(expected, value), pointer, "const", "value does not equal const");
+      case OneOfSchema _ -> throw new UnsupportedOperationException("oneOf not yet supported");
+      case AnyOfSchema _ -> throw new UnsupportedOperationException("anyOf not yet supported");
+      case AllOfSchema _ -> throw new UnsupportedOperationException("allOf not yet supported");
+      case NotSchema _ -> throw new UnsupportedOperationException("not not yet supported");
     }
   }
 
@@ -93,42 +94,46 @@ public final class DefaultValidator implements Validator {
       case "uuid" -> {
         try {
           UUID.fromString(str);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
           fail(pointer, "format", "not a valid uuid", str);
         }
       }
       case "date" -> {
         try {
           LocalDate.parse(str);
-        } catch (Exception e) {
+        } catch (DateTimeParseException _) {
           fail(pointer, "format", "not a valid date", str);
         }
       }
       case "date-time" -> {
         try {
           OffsetDateTime.parse(str);
-        } catch (Exception e) {
+        } catch (DateTimeParseException _) {
           fail(pointer, "format", "not a valid date-time", str);
         }
       }
-      default -> {}
+      default -> {
+        /* unknown format ignored — handled in 3.1 follow-up */
+      }
     }
   }
 
   private void validateInteger(Object value, IntegerSchema s, String pointer) {
     long n;
-    if (value instanceof Number num) {
-      n = num.longValue();
-    } else if (value instanceof String str) {
-      try {
-        n = Long.parseLong(str);
-      } catch (NumberFormatException e) {
+    switch (value) {
+      case Number num -> n = num.longValue();
+      case String str -> {
+        try {
+          n = Long.parseLong(str);
+        } catch (NumberFormatException _) {
+          fail(pointer, "type", "expected integer", value);
+          return;
+        }
+      }
+      case null, default -> {
         fail(pointer, "type", "expected integer", value);
         return;
       }
-    } else {
-      fail(pointer, "type", "expected integer", value);
-      return;
     }
 
     if (s.minimum() != null && n < s.minimum()) {
@@ -150,18 +155,20 @@ public final class DefaultValidator implements Validator {
 
   private void validateNumber(Object value, NumberSchema s, String pointer) {
     double n;
-    if (value instanceof Number num) {
-      n = num.doubleValue();
-    } else if (value instanceof String str) {
-      try {
-        n = Double.parseDouble(str);
-      } catch (NumberFormatException e) {
+    switch (value) {
+      case Number num -> n = num.doubleValue();
+      case String str -> {
+        try {
+          n = Double.parseDouble(str);
+        } catch (NumberFormatException _) {
+          fail(pointer, "type", "expected number", value);
+          return;
+        }
+      }
+      case null, default -> {
         fail(pointer, "type", "expected number", value);
         return;
       }
-    } else {
-      fail(pointer, "type", "expected number", value);
-      return;
     }
 
     if (s.minimum() != null && n < s.minimum().doubleValue()) {
@@ -219,8 +226,8 @@ public final class DefaultValidator implements Validator {
         validate(entry.getValue(), propSchema, childPointer);
       } else {
         switch (s.additionalProperties()) {
-          case AdditionalProperties.Allowed a -> {}
-          case AdditionalProperties.Forbidden f ->
+          case AdditionalProperties.Allowed _ -> {}
+          case AdditionalProperties.Forbidden _ ->
               fail(
                   childPointer,
                   "additionalProperties",

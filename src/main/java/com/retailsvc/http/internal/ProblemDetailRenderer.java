@@ -14,13 +14,16 @@ public final class ProblemDetailRenderer {
   private static final String PROBLEM_TITLE = "Bad Request";
   private static final int PROBLEM_STATUS = 400;
 
+  /** Initial capacity of the JSON buffer; sized for a typical problem-detail document. */
+  private static final int INITIAL_BUFFER_CAPACITY = 128;
+
   /** Codepoints below this value are control characters and must be unicode-escaped in JSON. */
   private static final int FIRST_PRINTABLE_ASCII = 0x20;
 
   private ProblemDetailRenderer() {}
 
   public static String render(ValidationError error) {
-    StringBuilder out = new StringBuilder(128);
+    StringBuilder out = new StringBuilder(INITIAL_BUFFER_CAPACITY);
     out.append('{');
     appendStringField(out, "type", PROBLEM_TYPE);
     out.append(',');

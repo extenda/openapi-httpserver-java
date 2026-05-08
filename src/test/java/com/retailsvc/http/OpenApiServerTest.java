@@ -25,7 +25,7 @@ class OpenApiServerTest {
 
     assertDoesNotThrow(
         () -> {
-          try (var ignore = new OpenApiServer(validSpec, jsonMapper, handlers, onError, 0)) {
+          try (var _ = new OpenApiServer(validSpec, jsonMapper, handlers, onError, 0)) {
             // also close on exit
           }
         });

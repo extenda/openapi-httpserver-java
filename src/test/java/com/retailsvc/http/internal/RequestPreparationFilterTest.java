@@ -64,7 +64,7 @@ class RequestPreparationFilterTest {
             List.of(),
             Map.of());
     Spec spec = specWith(op);
-    JsonMapper m = body -> new String(body);
+    JsonMapper m = String::new;
     Filter f =
         new RequestPreparationFilter(
             spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), m);
@@ -90,7 +90,7 @@ class RequestPreparationFilterTest {
                 Optional.empty(),
                 List.of(),
                 Map.of()));
-    JsonMapper m = body -> new String(body);
+    JsonMapper m = String::new;
     Filter f =
         new RequestPreparationFilter(
             spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), m);
@@ -111,7 +111,7 @@ class RequestPreparationFilterTest {
                 Optional.empty(),
                 List.of(),
                 Map.of()));
-    JsonMapper m = body -> new String(body);
+    JsonMapper m = String::new;
     Filter f =
         new RequestPreparationFilter(
             spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), m);
@@ -133,7 +133,7 @@ class RequestPreparationFilterTest {
             List.of(new Parameter("q", Parameter.Location.QUERY, true, stringSchema)),
             Map.of());
     Spec spec = specWith(op);
-    JsonMapper m = body -> new String(body);
+    JsonMapper m = String::new;
     Filter f =
         new RequestPreparationFilter(
             spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), m);

@@ -3,7 +3,7 @@ package com.retailsvc.http;
 import com.retailsvc.http.validate.ValidationError;
 
 public final class ValidationException extends RuntimeException {
-  private final ValidationError error;
+  private final transient ValidationError error;
 
   public ValidationException(ValidationError error) {
     super(error.pointer() + " [" + error.keyword() + "] " + error.message());

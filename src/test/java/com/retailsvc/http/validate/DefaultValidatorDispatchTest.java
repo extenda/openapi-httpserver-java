@@ -25,7 +25,8 @@ class DefaultValidatorDispatchTest {
 
   @Test
   void nullSchemaRejectsNonNull() {
-    assertThatThrownBy(() -> v.validate("x", new NullSchema(), "/v"))
+    var schema = new NullSchema();
+    assertThatThrownBy(() -> v.validate("x", schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("type");
@@ -38,13 +39,14 @@ class DefaultValidatorDispatchTest {
 
   @Test
   void booleanSchemaRejectsString() {
-    assertThatThrownBy(() -> v.validate("x", new BooleanSchema(Set.of(TypeName.BOOLEAN)), "/v"))
-        .isInstanceOf(ValidationException.class);
+    var schema = new BooleanSchema(Set.of(TypeName.BOOLEAN));
+    assertThatThrownBy(() -> v.validate("x", schema, "/v")).isInstanceOf(ValidationException.class);
   }
 
   @Test
   void combinatorThrowsUnsupported() {
-    assertThatThrownBy(() -> v.validate("x", new OneOfSchema(List.of()), "/v"))
+    var schema = new OneOfSchema(List.of());
+    assertThatThrownBy(() -> v.validate("x", schema, "/v"))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 }

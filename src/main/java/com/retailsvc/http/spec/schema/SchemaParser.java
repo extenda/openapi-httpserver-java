@@ -10,6 +10,8 @@ import java.util.Set;
 public final class SchemaParser {
   private SchemaParser() {}
 
+  private static final String FORMAT_KEY = "format";
+
   @SuppressWarnings("unchecked")
   public static Schema parse(Map<String, Object> raw) {
     if (raw.containsKey("$ref")) {
@@ -75,7 +77,7 @@ public final class SchemaParser {
         (String) raw.get("pattern"),
         toIntOrNull(raw.get("minLength")),
         toIntOrNull(raw.get("maxLength")),
-        (String) raw.get("format"),
+        (String) raw.get(FORMAT_KEY),
         (List<String>) raw.get("enum"));
   }
 
@@ -87,7 +89,7 @@ public final class SchemaParser {
         toLongOrNull(raw.get("exclusiveMinimum")),
         toLongOrNull(raw.get("exclusiveMaximum")),
         toLongOrNull(raw.get("multipleOf")),
-        (String) raw.get("format"));
+        (String) raw.get(FORMAT_KEY));
   }
 
   private static NumberSchema parseNumber(Map<String, Object> raw, Set<TypeName> types) {
@@ -98,7 +100,7 @@ public final class SchemaParser {
         (Number) raw.get("exclusiveMinimum"),
         (Number) raw.get("exclusiveMaximum"),
         (Number) raw.get("multipleOf"),
-        (String) raw.get("format"));
+        (String) raw.get(FORMAT_KEY));
   }
 
   @SuppressWarnings("unchecked")
@@ -121,13 +123,12 @@ public final class SchemaParser {
 
   @SuppressWarnings("unchecked")
   private static AdditionalProperties parseAdditionalProperties(Object value) {
-    if (value == null || Boolean.TRUE.equals(value)) {
-      return new AdditionalProperties.Allowed();
-    }
-    if (Boolean.FALSE.equals(value)) {
-      return new AdditionalProperties.Forbidden();
-    }
-    return new AdditionalProperties.SchemaConstraint(parse((Map<String, Object>) value));
+    return switch (value) {
+      case null -> new AdditionalProperties.Allowed();
+      case Boolean b when b -> new AdditionalProperties.Allowed();
+      case Boolean b -> new AdditionalProperties.Forbidden();
+      default -> new AdditionalProperties.SchemaConstraint(parse((Map<String, Object>) value));
+    };
   }
 
   @SuppressWarnings("unchecked")

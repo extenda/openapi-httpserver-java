@@ -21,7 +21,7 @@ class SchemaParserTest {
     Schema s = SchemaParser.parse(Map.of("type", "integer", "format", "int64", "minimum", 0));
     assertThat(s).isInstanceOf(IntegerSchema.class);
     assertThat(((IntegerSchema) s).format()).isEqualTo("int64");
-    assertThat(((IntegerSchema) s).minimum()).isEqualTo(0L);
+    assertThat(((IntegerSchema) s).minimum().longValue()).isZero();
   }
 
   @Test

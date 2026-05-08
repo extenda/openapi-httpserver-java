@@ -33,7 +33,8 @@ class ObjectValidationTest {
             Map.of("name", new StringSchema(Set.of(TypeName.STRING), null, null, null, null, null)),
             List.of("name"),
             new AdditionalProperties.Allowed());
-    assertThatThrownBy(() -> v.validate(Map.of(), s, ""))
+    var emptyMap = Map.<String, Object>of();
+    assertThatThrownBy(() -> v.validate(emptyMap, s, ""))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("required");

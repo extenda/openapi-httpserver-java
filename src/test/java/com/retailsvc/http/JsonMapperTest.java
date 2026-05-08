@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 class JsonMapperTest {
   @Test
   void usableAsLambda() {
-    JsonMapper m = body -> new String(body);
+    JsonMapper m = String::new;
     assertThat(m.mapFrom("hello".getBytes())).isEqualTo("hello");
   }
 }

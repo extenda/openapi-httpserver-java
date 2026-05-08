@@ -6,14 +6,11 @@ import com.retailsvc.http.MissingOperationHandlerException;
 import com.retailsvc.http.Request;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 class DispatchHandlerTest {
-  private final Map<String, Object> attrs = new HashMap<>();
-
   private HttpExchange exchange(String operationId) {
     HttpExchange ex = Mockito.mock(HttpExchange.class);
     Mockito.when(ex.getAttribute(Request.OPERATION_ID)).thenReturn(operationId);
@@ -30,7 +27,7 @@ class DispatchHandlerTest {
   @Test
   void throwsWhenHandlerMissing() {
     DispatchHandler d = new DispatchHandler(Map.of());
-    assertThatThrownBy(() -> d.handle(exchange("ghost")))
-        .isInstanceOf(MissingOperationHandlerException.class);
+    HttpExchange ex = exchange("ghost");
+    assertThatThrownBy(() -> d.handle(ex)).isInstanceOf(MissingOperationHandlerException.class);
   }
 }

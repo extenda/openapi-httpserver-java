@@ -21,7 +21,7 @@ class PrimitiveSchemasTest {
   @Test
   void numberSchemaCarriesAllNumericConstraints() {
     NumberSchema n = new NumberSchema(Set.of(TypeName.NUMBER), 0, 100, null, 100, 5, "double");
-    assertThat(n.minimum()).isEqualTo(0);
+    assertThat(n.minimum().intValue()).isZero();
     assertThat(n.maximum()).isEqualTo(100);
     assertThat(n.exclusiveMaximum()).isEqualTo(100);
     assertThat(n.multipleOf()).isEqualTo(5);
