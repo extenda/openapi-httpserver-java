@@ -230,4 +230,12 @@ class StringIntegerNumberTest {
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("type");
   }
+
+  @Test
+  void stringFormatUnknownIsIgnored() {
+    StringSchema s =
+        new StringSchema(
+            Set.of(TypeName.STRING), null, null, null, "definitely-not-a-format", null);
+    assertThatCode(() -> v.validate("anything", s, "/v")).doesNotThrowAnyException();
+  }
 }
