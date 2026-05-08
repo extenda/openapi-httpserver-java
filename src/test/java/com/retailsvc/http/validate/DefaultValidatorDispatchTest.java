@@ -204,10 +204,13 @@ class DefaultValidatorDispatchTest {
             t -> {
               var err = ((ValidationException) t).error();
               assertThat(err.keyword()).isEqualTo("false");
-              assertThat(err.message()).contains("rejects all values");
+              assertThat(err.message()).isEqualTo("schema rejects all values");
+              assertThat(err.pointer()).isEqualTo("/v");
+              assertThat(err.rejectedValue()).isEqualTo("anything");
             });
   }
 
+  // Full ValidationError surface is verified by neverSchemaRejectsString; these cover keyword only.
   @Test
   void neverSchemaRejectsInteger() {
     assertThatThrownBy(() -> v.validate(42, new NeverSchema(), "/v"))
