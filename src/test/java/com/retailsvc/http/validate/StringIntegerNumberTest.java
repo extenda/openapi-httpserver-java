@@ -104,6 +104,19 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void stringFormatHostname() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "hostname", null);
+    assertThatCode(() -> v.validate("example.com", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("a.b.c.example", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("-leading-hyphen.com", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("invalid host name", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
   void integerWithMinMax() {
     IntegerSchema s =
         new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 10L, null, null, null, "int32");
