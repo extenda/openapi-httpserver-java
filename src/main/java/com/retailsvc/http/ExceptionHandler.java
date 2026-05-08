@@ -13,8 +13,4 @@ import java.io.IOException;
 public interface ExceptionHandler {
 
   void handle(HttpExchange exchange, Throwable t) throws IOException;
-
-  default void handleException(HttpExchange exchange, Exception e) throws IOException {
-    handle(exchange, e);
-  }
 }
