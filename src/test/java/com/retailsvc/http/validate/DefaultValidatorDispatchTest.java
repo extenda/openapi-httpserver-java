@@ -1,5 +1,6 @@
 package com.retailsvc.http.validate;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.retailsvc.http.ValidationException;
@@ -96,8 +97,8 @@ class DefaultValidatorDispatchTest {
         .satisfies(
             t -> {
               var err = ((ValidationException) t).error();
-              org.assertj.core.api.Assertions.assertThat(err.keyword()).isEqualTo("oneOf");
-              org.assertj.core.api.Assertions.assertThat(err.message()).contains("matched 0 of 2");
+              assertThat(err.keyword()).isEqualTo("oneOf");
+              assertThat(err.message()).contains("matched 0 of 2");
             });
   }
 
@@ -110,8 +111,8 @@ class DefaultValidatorDispatchTest {
         .satisfies(
             t -> {
               var err = ((ValidationException) t).error();
-              org.assertj.core.api.Assertions.assertThat(err.keyword()).isEqualTo("oneOf");
-              org.assertj.core.api.Assertions.assertThat(err.message()).contains("matched 2 of 2");
+              assertThat(err.keyword()).isEqualTo("oneOf");
+              assertThat(err.message()).contains("matched 2 of 2");
             });
   }
 
@@ -128,5 +129,47 @@ class DefaultValidatorDispatchTest {
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("not");
+  }
+
+  @Test
+  void allOfWithEmptyPartsAlwaysPasses() {
+    // Empty allOf is vacuously true per JSON Schema 2020-12.
+    v.validate("anything", new AllOfSchema(List.of()), "/v");
+  }
+
+  @Test
+  void anyOfWithEmptyOptionsAlwaysFails() {
+    assertThatThrownBy(() -> v.validate("anything", new AnyOfSchema(List.of()), "/v"))
+        .isInstanceOf(ValidationException.class)
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("anyOf");
+  }
+
+  @Test
+  void oneOfWithEmptyOptionsAlwaysFails() {
+    assertThatThrownBy(() -> v.validate("anything", new OneOfSchema(List.of()), "/v"))
+        .isInstanceOf(ValidationException.class)
+        .satisfies(
+            t -> {
+              var err = ((ValidationException) t).error();
+              assertThat(err.keyword()).isEqualTo("oneOf");
+              assertThat(err.message()).contains("matched 0 of 0");
+            });
+  }
+
+  @Test
+  void notWithNullSchemaRejectsNull() {
+    // not(NullSchema) — inner accepts null, outer must reject.
+    assertThatThrownBy(() -> v.validate(null, new NotSchema(new NullSchema()), "/v"))
+        .isInstanceOf(ValidationException.class)
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("not");
+  }
+
+  @Test
+  void anyOfMatchesNullViaNullSchema() {
+    // anyOf containing a NullSchema branch must pass for a null value.
+    var schema = new AnyOfSchema(List.of(stringSchema(1, null), new NullSchema()));
+    v.validate(null, schema, "/v");
   }
 }

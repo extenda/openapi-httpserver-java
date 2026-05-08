@@ -314,7 +314,7 @@ public final class DefaultValidator implements Validator {
         validate(value, o, pointer);
         matched++;
       } catch (ValidationException ignored) {
-        // count misses
+        // branch did not match; continue
       }
     }
     if (matched != 1) {
