@@ -26,7 +26,7 @@
 
 ### Step 1.1: Add the schema records and extend `permits`
 
-- [ ] **Step 1: Create `AlwaysSchema.java`**
+- [x] **Step 1: Create `AlwaysSchema.java`**
 
 Write this file at `src/main/java/com/retailsvc/http/spec/schema/AlwaysSchema.java`:
 
@@ -43,7 +43,7 @@ public record AlwaysSchema() implements Schema {
 }
 ```
 
-- [ ] **Step 2: Create `NeverSchema.java`**
+- [x] **Step 2: Create `NeverSchema.java`**
 
 Write this file at `src/main/java/com/retailsvc/http/spec/schema/NeverSchema.java`:
 
@@ -60,7 +60,7 @@ public record NeverSchema() implements Schema {
 }
 ```
 
-- [ ] **Step 3: Extend `Schema.java` permits clause**
+- [x] **Step 3: Extend `Schema.java` permits clause**
 
 Open `src/main/java/com/retailsvc/http/spec/schema/Schema.java`. Add `AlwaysSchema` and `NeverSchema` to the `permits` list. The full list becomes (alphabetized as in the existing file):
 
@@ -88,7 +88,7 @@ public sealed interface Schema
 
 ### Step 1.2: Add failing parser tests
 
-- [ ] **Step 4: Append parser tests**
+- [x] **Step 4: Append parser tests**
 
 Append to `src/test/java/com/retailsvc/http/spec/schema/SchemaParserTest.java` (inside the class, before the final `}`):
 
@@ -133,7 +133,7 @@ void parsesArrayWithBooleanItemsSchema() {
 
 The `assertThatThrownBy` static is not yet imported — leave the fully-qualified call in place; it lives only in this single test and matches the pattern used elsewhere in the codebase before that import was added in `feat/combinators`.
 
-- [ ] **Step 5: Run the failing tests**
+- [x] **Step 5: Run the failing tests**
 
 Run: `mvn -q test -Dtest=SchemaParserTest`
 
@@ -143,7 +143,7 @@ Expected: the build fails to compile. The new tests call `SchemaParser.parse(Boo
 
 ### Step 1.3: Change the parser entry to accept `Object`
 
-- [ ] **Step 6: Rewrite `SchemaParser.parse(...)` entry**
+- [x] **Step 6: Rewrite `SchemaParser.parse(...)` entry**
 
 Open `src/main/java/com/retailsvc/http/spec/schema/SchemaParser.java`. Replace the public `parse(Map<String, Object>)` method with a new `parse(Object)` entry, and rename the original body to a private `parseMap(...)`. Concretely:
 
@@ -233,7 +233,7 @@ private static List<Schema> parseList(Map<String, Object> raw, String key) {
 
 ### Step 1.4: Drop `Map` casts on external `parse` callers in `Spec.java`
 
-- [ ] **Step 7: Edit `Spec.java`**
+- [x] **Step 7: Edit `Spec.java`**
 
 Open `src/main/java/com/retailsvc/http/spec/Spec.java`. Drop the `(Map<String, Object>)` cast on the four direct `SchemaParser.parse(...)` callers. The lines (in current commit):
 
@@ -253,19 +253,19 @@ The four `@SuppressWarnings("unchecked")` annotations on the surrounding methods
 
 ### Step 1.5: Verify and commit
 
-- [ ] **Step 8: Run the parser tests**
+- [x] **Step 8: Run the parser tests**
 
 Run: `mvn -q test -Dtest=SchemaParserTest`
 
 Expected: all parser tests pass (existing + the 5 new).
 
-- [ ] **Step 9: Run the full unit suite**
+- [x] **Step 9: Run the full unit suite**
 
 Run: `mvn -q test`
 
 Expected: BUILD SUCCESS. No regressions in `Spec`-driven tests, validator tests, or container tests.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/schema/AlwaysSchema.java \
@@ -302,7 +302,7 @@ Pre-commit hook (Google Java Formatter, commitlint, editorconfig) may reformat �
 
 ### Step 2.1: Add failing validator tests
 
-- [ ] **Step 1: Append validator tests**
+- [x] **Step 1: Append validator tests**
 
 Append to `src/test/java/com/retailsvc/http/validate/DefaultValidatorDispatchTest.java` (inside the class, before the final `}`):
 
@@ -365,7 +365,7 @@ import com.retailsvc.http.spec.schema.NeverSchema;
 
 If `Map` isn't already imported (it likely is for surrounding tests), add `import java.util.Map;` next to other `java.util.*` imports.
 
-- [ ] **Step 2: Run the failing tests**
+- [x] **Step 2: Run the failing tests**
 
 Run: `mvn -q test -Dtest=DefaultValidatorDispatchTest`
 
@@ -373,7 +373,7 @@ Expected: 7 new tests fail. The validator currently has no case for `AlwaysSchem
 
 ### Step 2.2: Add the validator branches
 
-- [ ] **Step 3: Edit `DefaultValidator.validate(...)`**
+- [x] **Step 3: Edit `DefaultValidator.validate(...)`**
 
 Open `src/main/java/com/retailsvc/http/validate/DefaultValidator.java`. Inside the `switch (schema)` block in `validate(...)`, add two new cases. Place them adjacent to the other "trivial" cases (after `BooleanSchema`/`NullSchema`, before the primitive cases — the exact ordering doesn't matter, but stay consistent with the file's existing case order):
 
@@ -389,19 +389,19 @@ import com.retailsvc.http.spec.schema.AlwaysSchema;
 import com.retailsvc.http.spec.schema.NeverSchema;
 ```
 
-- [ ] **Step 4: Run the validator tests**
+- [x] **Step 4: Run the validator tests**
 
 Run: `mvn -q test -Dtest=DefaultValidatorDispatchTest`
 
 Expected: BUILD SUCCESS. All existing tests + the 7 new ones pass.
 
-- [ ] **Step 5: Run the full unit suite**
+- [x] **Step 5: Run the full unit suite**
 
 Run: `mvn -q test`
 
 Expected: BUILD SUCCESS, no regressions.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/validate/DefaultValidator.java \
@@ -432,7 +432,7 @@ Pre-commit hook may reformat — re-stage / re-run as needed.
 
 ### Step 3.1: Extend the OpenAPI fixture
 
-- [ ] **Step 1: Add `/gates` to `openapi.yaml`**
+- [x] **Step 1: Add `/gates` to `openapi.yaml`**
 
 Open `src/test/resources/openapi.yaml`. After the existing `/blocked` (or `/shapes` if `/blocked` doesn't exist on this branch — see note below) endpoint, add:
 
@@ -457,7 +457,7 @@ Open `src/test/resources/openapi.yaml`. After the existing `/blocked` (or `/shap
 
 **Note about base branch.** This branch (`feat/schema-booleans`) is cut from `master`, which does NOT have `/shapes`, `/filters`, or `/blocked` (those live on `feat/combinators`). The fixture on this branch instead has stub `/anyOf` and `/allOf` paths with `post: {}`. Add `/gates` after `/anyOf` and `/allOf` to keep the surrounding ordering predictable. Do NOT remove the `/anyOf` / `/allOf` stubs — that cleanup is owned by `feat/combinators`.
 
-- [ ] **Step 2: Mirror in `openapi.json`**
+- [x] **Step 2: Mirror in `openapi.json`**
 
 Open `src/test/resources/openapi.json`. Find the `"/anyOf"` and `"/allOf"` keys. Add `"/gates"` immediately after them. The block:
 
@@ -489,7 +489,7 @@ Mind the trailing commas: the previous path entry needs a trailing comma if it d
 
 ### Step 3.2: Add the integration tests
 
-- [ ] **Step 3: Add `Gates` nested class to `OpenApiServerIT.java`**
+- [x] **Step 3: Add `Gates` nested class to `OpenApiServerIT.java`**
 
 Open `src/test/java/com/retailsvc/http/OpenApiServerIT.java`. Add a new nested class at the bottom of the outer class (immediately before its final `}`). All test method names are pure camelCase per the project convention:
 
@@ -546,13 +546,13 @@ class Gates {
 
 ### Step 3.3: Verify and commit
 
-- [ ] **Step 4: Run the verify build**
+- [x] **Step 4: Run the verify build**
 
 Run: `mvn -q verify`
 
 Expected: BUILD SUCCESS. The two new IT methods pass alongside everything else.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/test/resources/openapi.yaml src/test/resources/openapi.json \
@@ -577,9 +577,9 @@ Pre-commit hook may reformat YAML / Java — re-stage / re-run as needed.
 
 ## Final verification
 
-- [ ] Run `mvn -q verify` once more.
-- [ ] `git log --oneline master..HEAD` shows the spec commit followed by three feature commits in this order: `feat: Parse boolean schemas…`, `feat: Validate AlwaysSchema and NeverSchema…`, `test: Add integration coverage for boolean schemas…`.
-- [ ] `grep -rEn "void [a-zA-Z][a-zA-Z0-9]*_[a-zA-Z]" src/test/java/` returns nothing — confirms test method names follow the pure-camelCase convention.
+- [x] Run `mvn -q verify` once more.
+- [x] `git log --oneline master..HEAD` shows the spec commit followed by three feature commits in this order: `feat: Parse boolean schemas…`, `feat: Validate AlwaysSchema and NeverSchema…`, `test: Add integration coverage for boolean schemas…`.
+- [x] `grep -rEn "void [a-zA-Z][a-zA-Z0-9]*_[a-zA-Z]" src/test/java/` returns nothing — confirms test method names follow the pure-camelCase convention.
 
 ## Out of scope
 
