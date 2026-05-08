@@ -34,11 +34,20 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 public final class DefaultValidator implements Validator {
 
   private static final String FORMAT_KEYWORD = "format";
+
+  private record FormatCheck(Predicate<String> isValid, String message) {}
+
+  private static final Map<String, FormatCheck> FORMAT_CHECKS =
+      Map.of(
+          "uuid", new FormatCheck(DefaultValidator::isUuid, "not a valid uuid"),
+          "date", new FormatCheck(DefaultValidator::isDate, "not a valid date"),
+          "date-time", new FormatCheck(DefaultValidator::isDateTime, "not a valid date-time"));
 
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
@@ -110,31 +119,39 @@ public final class DefaultValidator implements Validator {
   }
 
   private void validateStringFormat(String str, String format, String pointer) {
-    switch (format) {
-      case "uuid" -> {
-        try {
-          UUID.fromString(str);
-        } catch (IllegalArgumentException _) {
-          fail(pointer, FORMAT_KEYWORD, "not a valid uuid", str);
-        }
-      }
-      case "date" -> {
-        try {
-          LocalDate.parse(str);
-        } catch (DateTimeParseException _) {
-          fail(pointer, FORMAT_KEYWORD, "not a valid date", str);
-        }
-      }
-      case "date-time" -> {
-        try {
-          OffsetDateTime.parse(str);
-        } catch (DateTimeParseException _) {
-          fail(pointer, FORMAT_KEYWORD, "not a valid date-time", str);
-        }
-      }
-      default -> {
-        /* unknown format ignored — handled in 3.1 follow-up */
-      }
+    FormatCheck check = FORMAT_CHECKS.get(format);
+    if (check == null) {
+      return;
+    }
+    if (!check.isValid().test(str)) {
+      fail(pointer, FORMAT_KEYWORD, check.message(), str);
+    }
+  }
+
+  private static boolean isUuid(String s) {
+    try {
+      UUID.fromString(s);
+      return true;
+    } catch (IllegalArgumentException _) {
+      return false;
+    }
+  }
+
+  private static boolean isDate(String s) {
+    try {
+      LocalDate.parse(s);
+      return true;
+    } catch (DateTimeParseException _) {
+      return false;
+    }
+  }
+
+  private static boolean isDateTime(String s) {
+    try {
+      OffsetDateTime.parse(s);
+      return true;
+    } catch (DateTimeParseException _) {
+      return false;
     }
   }
 
