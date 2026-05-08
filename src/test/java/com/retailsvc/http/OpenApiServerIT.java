@@ -84,6 +84,7 @@ class OpenApiServerIT extends ServerBaseTest {
       try (var server = newServer(Map.of("post-data", new EchoHandler()));
           var client = httpClient()) {
 
+        // language=JSON
         var body =
             """
             {
@@ -134,6 +135,7 @@ class OpenApiServerIT extends ServerBaseTest {
       try (var server = newServer(handlers);
           var client = httpClient()) {
 
+        // language=JSON
         var body =
             """
             {
@@ -189,6 +191,7 @@ class OpenApiServerIT extends ServerBaseTest {
       try (var server = newServer(Map.of("post-list-objects", new EchoHandler()));
           var client = httpClient()) {
 
+        // language=JSON
         var body =
             """
             [
@@ -219,6 +222,7 @@ class OpenApiServerIT extends ServerBaseTest {
       try (var server = newServer(Map.of("post-list-objects", new EchoHandler()));
           var client = httpClient()) {
 
+        // language=JSON
         var body = "{\"value\":42}";
         var headers = Map.of("correlation-id", UUID.randomUUID().toString());
         var request = newRequest(server, path, "POST", ofString(body), headers);
