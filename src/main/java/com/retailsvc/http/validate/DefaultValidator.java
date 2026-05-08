@@ -18,6 +18,7 @@ import com.retailsvc.http.spec.schema.RefSchema;
 import com.retailsvc.http.spec.schema.Schema;
 import com.retailsvc.http.spec.schema.StringSchema;
 import com.retailsvc.http.spec.schema.TypeName;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -175,9 +176,20 @@ public final class DefaultValidator implements Validator {
     if (s.exclusiveMaximum() != null && n >= s.exclusiveMaximum().doubleValue()) {
       fail(pointer, "exclusiveMaximum", "number not less than " + s.exclusiveMaximum(), n);
     }
-    if (s.multipleOf() != null && (n / s.multipleOf().doubleValue()) % 1 != 0) {
+    if (s.multipleOf() != null && !isMultipleOf(n, s.multipleOf().doubleValue())) {
       fail(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
     }
+  }
+
+  /**
+   * Returns whether {@code value} is an exact multiple of {@code divisor}, using {@link BigDecimal}
+   * to avoid floating-point rounding artifacts that {@code (value / divisor) % 1 == 0} would
+   * produce (e.g., {@code 0.3 / 0.1} is not exactly {@code 3.0} as a double).
+   */
+  private static boolean isMultipleOf(double value, double divisor) {
+    BigDecimal v = BigDecimal.valueOf(value);
+    BigDecimal d = BigDecimal.valueOf(divisor);
+    return v.remainder(d).compareTo(BigDecimal.ZERO) == 0;
   }
 
   @SuppressWarnings("unchecked")
