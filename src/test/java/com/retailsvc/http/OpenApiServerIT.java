@@ -409,7 +409,7 @@ class OpenApiServerIT extends ServerBaseTest {
     String path = "/shapes";
 
     @Test
-    void postShape_validCircleReturns200() {
+    void postShapeValidCircleReturns200() {
       try (var server = newServer(Map.of("post-shape", new EchoHandler()));
           var client = httpClient()) {
         var body = "{\"kind\":\"circle\",\"radius\":2.5}";
@@ -428,7 +428,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void postShape_validSquareReturns200() {
+    void postShapeValidSquareReturns200() {
       try (var server = newServer(Map.of("post-shape", new EchoHandler()));
           var client = httpClient()) {
         var body = "{\"kind\":\"square\",\"side\":3}";
@@ -446,7 +446,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void postShape_unknownKindReturns400() {
+    void postShapeUnknownKindReturns400() {
       // matches zero branches: "kind" is neither "circle" nor "square".
       try (var server = newServer(Map.of("post-shape", new EchoHandler()));
           var client = httpClient()) {
@@ -468,7 +468,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void postShape_missingDiscriminatorReturns400() {
+    void postShapeMissingDiscriminatorReturns400() {
       // omitting "kind" makes both branches fail "required".
       try (var server = newServer(Map.of("post-shape", new EchoHandler()));
           var client = httpClient()) {
@@ -496,7 +496,7 @@ class OpenApiServerIT extends ServerBaseTest {
     String path = "/filters";
 
     @Test
-    void postFilter_validStringValueReturns200() {
+    void postFilterValidStringValueReturns200() {
       try (var server = newServer(Map.of("post-filter", new EchoHandler()));
           var client = httpClient()) {
         var body = "{\"value\":\"abcd\"}";
@@ -514,7 +514,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void postFilter_validIntegerValueReturns200() {
+    void postFilterValidIntegerValueReturns200() {
       try (var server = newServer(Map.of("post-filter", new EchoHandler()));
           var client = httpClient()) {
         var body = "{\"value\":42}";
@@ -532,7 +532,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void postFilter_shortStringMatchesNoBranchReturns400() {
+    void postFilterShortStringMatchesNoBranchReturns400() {
       // "ab" has length < 3 (string branch fails) and is not an integer (integer branch fails).
       try (var server = newServer(Map.of("post-filter", new EchoHandler()));
           var client = httpClient()) {
@@ -560,7 +560,7 @@ class OpenApiServerIT extends ServerBaseTest {
     String path = "/blocked";
 
     @Test
-    void postBlocked_acceptedTokenReturns200() {
+    void postBlockedAcceptedTokenReturns200() {
       try (var server = newServer(Map.of("post-blocked", new EchoHandler()));
           var client = httpClient()) {
         var body = "{\"token\":\"allowed\"}";
@@ -578,7 +578,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void postBlocked_forbiddenTokenReturns400() {
+    void postBlockedForbiddenTokenReturns400() {
       try (var server = newServer(Map.of("post-blocked", new EchoHandler()));
           var client = httpClient()) {
         var body = "{\"token\":\"forbidden\"}";
