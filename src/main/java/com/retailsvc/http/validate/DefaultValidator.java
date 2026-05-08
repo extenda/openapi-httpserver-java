@@ -39,7 +39,9 @@ public final class DefaultValidator implements Validator {
 
   @Override
   public void validate(Object value, Schema schema, String pointer) {
-    if (value == null && schema.types().contains(TypeName.NULL)) return;
+    if (value == null && schema.types().contains(TypeName.NULL)) {
+      return;
+    }
 
     switch (schema) {
       case RefSchema r -> validate(value, refResolver.apply(r.pointer()), pointer);
@@ -68,15 +70,21 @@ public final class DefaultValidator implements Validator {
   private void validateString(Object value, StringSchema s, String pointer) {
     require(value instanceof String, pointer, "type", "expected string");
     String str = (String) value;
-    if (s.minLength() != null && str.length() < s.minLength())
+    if (s.minLength() != null && str.length() < s.minLength()) {
       fail(pointer, "minLength", "string shorter than " + s.minLength(), str);
-    if (s.maxLength() != null && str.length() > s.maxLength())
+    }
+    if (s.maxLength() != null && str.length() > s.maxLength()) {
       fail(pointer, "maxLength", "string longer than " + s.maxLength(), str);
-    if (s.pattern() != null && !Pattern.compile(s.pattern()).matcher(str).matches())
+    }
+    if (s.pattern() != null && !Pattern.compile(s.pattern()).matcher(str).matches()) {
       fail(pointer, "pattern", "does not match pattern " + s.pattern(), str);
-    if (s.enumValues() != null && !s.enumValues().contains(str))
+    }
+    if (s.enumValues() != null && !s.enumValues().contains(str)) {
       fail(pointer, "enum", "value not in enum", str);
-    if (s.format() != null) validateStringFormat(str, s.format(), pointer);
+    }
+    if (s.format() != null) {
+      validateStringFormat(str, s.format(), pointer);
+    }
   }
 
   private void validateStringFormat(String str, String format, String pointer) {
@@ -108,8 +116,9 @@ public final class DefaultValidator implements Validator {
 
   private void validateInteger(Object value, IntegerSchema s, String pointer) {
     long n;
-    if (value instanceof Number num) n = num.longValue();
-    else if (value instanceof String str) {
+    if (value instanceof Number num) {
+      n = num.longValue();
+    } else if (value instanceof String str) {
       try {
         n = Long.parseLong(str);
       } catch (NumberFormatException e) {
@@ -121,22 +130,28 @@ public final class DefaultValidator implements Validator {
       return;
     }
 
-    if (s.minimum() != null && n < s.minimum())
+    if (s.minimum() != null && n < s.minimum()) {
       fail(pointer, "minimum", "integer below minimum " + s.minimum(), n);
-    if (s.maximum() != null && n > s.maximum())
+    }
+    if (s.maximum() != null && n > s.maximum()) {
       fail(pointer, "maximum", "integer above maximum " + s.maximum(), n);
-    if (s.exclusiveMinimum() != null && n <= s.exclusiveMinimum())
+    }
+    if (s.exclusiveMinimum() != null && n <= s.exclusiveMinimum()) {
       fail(pointer, "exclusiveMinimum", "integer not greater than " + s.exclusiveMinimum(), n);
-    if (s.exclusiveMaximum() != null && n >= s.exclusiveMaximum())
+    }
+    if (s.exclusiveMaximum() != null && n >= s.exclusiveMaximum()) {
       fail(pointer, "exclusiveMaximum", "integer not less than " + s.exclusiveMaximum(), n);
-    if (s.multipleOf() != null && n % s.multipleOf() != 0)
+    }
+    if (s.multipleOf() != null && n % s.multipleOf() != 0) {
       fail(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
+    }
   }
 
   private void validateNumber(Object value, NumberSchema s, String pointer) {
     double n;
-    if (value instanceof Number num) n = num.doubleValue();
-    else if (value instanceof String str) {
+    if (value instanceof Number num) {
+      n = num.doubleValue();
+    } else if (value instanceof String str) {
       try {
         n = Double.parseDouble(str);
       } catch (NumberFormatException e) {
@@ -148,16 +163,21 @@ public final class DefaultValidator implements Validator {
       return;
     }
 
-    if (s.minimum() != null && n < s.minimum().doubleValue())
+    if (s.minimum() != null && n < s.minimum().doubleValue()) {
       fail(pointer, "minimum", "number below minimum " + s.minimum(), n);
-    if (s.maximum() != null && n > s.maximum().doubleValue())
+    }
+    if (s.maximum() != null && n > s.maximum().doubleValue()) {
       fail(pointer, "maximum", "number above maximum " + s.maximum(), n);
-    if (s.exclusiveMinimum() != null && n <= s.exclusiveMinimum().doubleValue())
+    }
+    if (s.exclusiveMinimum() != null && n <= s.exclusiveMinimum().doubleValue()) {
       fail(pointer, "exclusiveMinimum", "number not greater than " + s.exclusiveMinimum(), n);
-    if (s.exclusiveMaximum() != null && n >= s.exclusiveMaximum().doubleValue())
+    }
+    if (s.exclusiveMaximum() != null && n >= s.exclusiveMaximum().doubleValue()) {
       fail(pointer, "exclusiveMaximum", "number not less than " + s.exclusiveMaximum(), n);
-    if (s.multipleOf() != null && (n / s.multipleOf().doubleValue()) % 1 != 0)
+    }
+    if (s.multipleOf() != null && (n / s.multipleOf().doubleValue()) % 1 != 0) {
       fail(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -173,10 +193,12 @@ public final class DefaultValidator implements Validator {
           "required property missing");
     }
 
-    if (s.minProperties() != null && map.size() < s.minProperties())
+    if (s.minProperties() != null && map.size() < s.minProperties()) {
       fail(pointer, "minProperties", "fewer than " + s.minProperties() + " properties", map.size());
-    if (s.maxProperties() != null && map.size() > s.maxProperties())
+    }
+    if (s.maxProperties() != null && map.size() > s.maxProperties()) {
       fail(pointer, "maxProperties", "more than " + s.maxProperties() + " properties", map.size());
+    }
 
     for (var entry : map.entrySet()) {
       String childPointer = pointer + "/" + entry.getKey();
@@ -203,17 +225,23 @@ public final class DefaultValidator implements Validator {
     require(value instanceof Iterable, pointer, "type", "expected array");
     Iterable<?> it = (Iterable<?>) value;
     List<Object> elements = new ArrayList<>();
-    for (Object o : it) elements.add(o);
+    for (Object o : it) {
+      elements.add(o);
+    }
 
-    if (s.minItems() != null && elements.size() < s.minItems())
+    if (s.minItems() != null && elements.size() < s.minItems()) {
       fail(pointer, "minItems", "fewer than " + s.minItems() + " items", elements.size());
-    if (s.maxItems() != null && elements.size() > s.maxItems())
+    }
+    if (s.maxItems() != null && elements.size() > s.maxItems()) {
       fail(pointer, "maxItems", "more than " + s.maxItems() + " items", elements.size());
+    }
 
     if (s.uniqueItems()) {
       Set<Object> seen = new HashSet<>();
       for (Object e : elements) {
-        if (!seen.add(e)) fail(pointer, "uniqueItems", "duplicate item", e);
+        if (!seen.add(e)) {
+          fail(pointer, "uniqueItems", "duplicate item", e);
+        }
       }
     }
 

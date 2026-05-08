@@ -30,7 +30,9 @@ public record PathTemplate(String raw, Pattern compiled, List<String> parameterN
 
   public Optional<Map<String, String>> match(String path) {
     Matcher m = compiled.matcher(path);
-    if (!m.matches()) return Optional.empty();
+    if (!m.matches()) {
+      return Optional.empty();
+    }
     Map<String, String> out = new LinkedHashMap<>();
     for (int i = 0; i < parameterNames.size(); i++) {
       out.put(parameterNames.get(i), m.group(i + 1));

@@ -34,10 +34,14 @@ public final class Router {
 
   public Optional<Match> match(HttpMethod method, String path) {
     Operation hit = exact.get(method).get(path);
-    if (hit != null) return Optional.of(new Match(hit, Map.of()));
+    if (hit != null) {
+      return Optional.of(new Match(hit, Map.of()));
+    }
     for (Operation op : templated.get(method)) {
       Optional<Map<String, String>> params = op.path().match(path);
-      if (params.isPresent()) return Optional.of(new Match(op, params.get()));
+      if (params.isPresent()) {
+        return Optional.of(new Match(op, params.get()));
+      }
     }
     return Optional.empty();
   }

@@ -43,14 +43,18 @@ public record Spec(
   public Schema resolveSchema(String ref) {
     String name = stripPrefix(ref, "#/components/schemas/");
     Schema s = componentSchemas.get(name);
-    if (s == null) throw new IllegalArgumentException("unknown schema ref: " + ref);
+    if (s == null) {
+      throw new IllegalArgumentException("unknown schema ref: " + ref);
+    }
     return s;
   }
 
   public Parameter resolveParameter(String ref) {
     String name = stripPrefix(ref, "#/components/parameters/");
     Parameter p = componentParameters.get(name);
-    if (p == null) throw new IllegalArgumentException("unknown parameter ref: " + ref);
+    if (p == null) {
+      throw new IllegalArgumentException("unknown parameter ref: " + ref);
+    }
     return p;
   }
 
@@ -66,7 +70,9 @@ public record Spec(
   }
 
   private static List<Server> parseServers(List<Map<String, Object>> raw) {
-    if (raw == null || raw.isEmpty()) return List.of();
+    if (raw == null || raw.isEmpty()) {
+      return List.of();
+    }
     return raw.stream().map(m -> new Server((String) m.get("url"))).toList();
   }
 
@@ -150,7 +156,9 @@ public record Spec(
     if (ref != null) {
       String name = stripPrefix(ref, "#/components/parameters/");
       Parameter p = componentParameters.get(name);
-      if (p == null) throw new IllegalArgumentException("unknown parameter ref: " + ref);
+      if (p == null) {
+        throw new IllegalArgumentException("unknown parameter ref: " + ref);
+      }
       return p;
     }
     return parseParameter(raw);

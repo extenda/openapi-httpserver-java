@@ -16,11 +16,21 @@ public final class SchemaParser {
       return new RefSchema((String) raw.get("$ref"));
     }
 
-    if (raw.containsKey("oneOf")) return new OneOfSchema(parseList(raw, "oneOf"));
-    if (raw.containsKey("anyOf")) return new AnyOfSchema(parseList(raw, "anyOf"));
-    if (raw.containsKey("allOf")) return new AllOfSchema(parseList(raw, "allOf"));
-    if (raw.containsKey("not")) return new NotSchema(parse((Map<String, Object>) raw.get("not")));
-    if (raw.containsKey("const")) return new ConstSchema(raw.get("const"));
+    if (raw.containsKey("oneOf")) {
+      return new OneOfSchema(parseList(raw, "oneOf"));
+    }
+    if (raw.containsKey("anyOf")) {
+      return new AnyOfSchema(parseList(raw, "anyOf"));
+    }
+    if (raw.containsKey("allOf")) {
+      return new AllOfSchema(parseList(raw, "allOf"));
+    }
+    if (raw.containsKey("not")) {
+      return new NotSchema(parse((Map<String, Object>) raw.get("not")));
+    }
+    if (raw.containsKey("const")) {
+      return new ConstSchema(raw.get("const"));
+    }
     if (raw.containsKey("enum") && !raw.containsKey("type")) {
       return new EnumSchema(List.copyOf((List<Object>) raw.get("enum")));
     }
@@ -136,7 +146,9 @@ public final class SchemaParser {
   private static List<Schema> parseList(Map<String, Object> raw, String key) {
     List<Map<String, Object>> raws = (List<Map<String, Object>>) raw.get(key);
     List<Schema> out = new ArrayList<>(raws.size());
-    for (Map<String, Object> r : raws) out.add(parse(r));
+    for (Map<String, Object> r : raws) {
+      out.add(parse(r));
+    }
     return List.copyOf(out);
   }
 
