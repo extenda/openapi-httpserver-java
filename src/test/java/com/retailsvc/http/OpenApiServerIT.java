@@ -600,6 +600,110 @@ class OpenApiServerIT extends ServerBaseTest {
   }
 
   @Nested
+  class FormatEmail {
+
+    String path = "/format/email";
+
+    @Test
+    void formatEmailShouldReturnBadRequestOnInvalidEmail() {
+      try (var server =
+              newServer(Map.of("format-email", exchange -> exchange.sendResponseHeaders(200, -1)));
+          var client = httpClient()) {
+
+        var request = newRequest(server, path + "?addr=not-an-email", "GET", noBody());
+
+        var response = client.send(request, BodyHandlers.ofString());
+        var statusCode = response.statusCode();
+        var contentType = response.headers().firstValue("Content-Type").orElse("");
+        var responseBody = response.body();
+
+        assertThat(statusCode).isEqualTo(400);
+        assertThat(contentType).contains("application/problem+json");
+        assertThat(responseBody).contains("\"format\"");
+
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void formatEmailShouldReturnOkOnValidEmail() {
+      try (var server =
+              newServer(Map.of("format-email", exchange -> exchange.sendResponseHeaders(200, -1)));
+          var client = httpClient()) {
+
+        var request = newRequest(server, path + "?addr=user%40example.com", "GET", noBody());
+
+        var response = client.send(request, BodyHandlers.ofString());
+        var statusCode = response.statusCode();
+
+        assertThat(statusCode).isEqualTo(200);
+
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+  }
+
+  @Nested
+  class FormatByte {
+
+    String path = "/format/byte";
+
+    @Test
+    void formatByteShouldReturnBadRequestOnInvalidBase64() {
+      try (var server =
+              newServer(Map.of("format-byte", exchange -> exchange.sendResponseHeaders(200, -1)));
+          var client = httpClient()) {
+
+        var request = newRequest(server, path + "?data=not%20base64!!", "GET", noBody());
+
+        var response = client.send(request, BodyHandlers.ofString());
+        var statusCode = response.statusCode();
+        var contentType = response.headers().firstValue("Content-Type").orElse("");
+        var responseBody = response.body();
+
+        assertThat(statusCode).isEqualTo(400);
+        assertThat(contentType).contains("application/problem+json");
+        assertThat(responseBody).contains("\"format\"");
+
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void formatByteShouldReturnOkOnValidBase64() {
+      try (var server =
+              newServer(Map.of("format-byte", exchange -> exchange.sendResponseHeaders(200, -1)));
+          var client = httpClient()) {
+
+        var request = newRequest(server, path + "?data=aGVsbG8%3D", "GET", noBody());
+
+        var response = client.send(request, BodyHandlers.ofString());
+        var statusCode = response.statusCode();
+
+        assertThat(statusCode).isEqualTo(200);
+
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+  }
+
+  @Nested
   class Gates {
 
     String path = "/gates";
