@@ -410,8 +410,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void postShape_validCircleReturns200() {
-      try (var server =
-              newServer(Map.of("post-shape", new com.retailsvc.http.start.PolymorphicHandler()));
+      try (var server = newServer(Map.of("post-shape", new EchoHandler()));
           var client = httpClient()) {
         var body = "{\"kind\":\"circle\",\"radius\":2.5}";
         var request = newRequest(server, path, "POST", ofString(body));
@@ -419,7 +418,7 @@ class OpenApiServerIT extends ServerBaseTest {
         var response = client.send(request, BodyHandlers.ofString());
 
         assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.body()).contains("\"ok\":true");
+        assertThat(response.body()).contains("\"kind\":\"circle\"");
       } catch (IOException e) {
         fail(e);
       } catch (InterruptedException e) {
@@ -430,8 +429,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void postShape_validSquareReturns200() {
-      try (var server =
-              newServer(Map.of("post-shape", new com.retailsvc.http.start.PolymorphicHandler()));
+      try (var server = newServer(Map.of("post-shape", new EchoHandler()));
           var client = httpClient()) {
         var body = "{\"kind\":\"square\",\"side\":3}";
         var request = newRequest(server, path, "POST", ofString(body));
@@ -450,8 +448,7 @@ class OpenApiServerIT extends ServerBaseTest {
     @Test
     void postShape_unknownKindReturns400() {
       // matches zero branches: "kind" is neither "circle" nor "square".
-      try (var server =
-              newServer(Map.of("post-shape", new com.retailsvc.http.start.PolymorphicHandler()));
+      try (var server = newServer(Map.of("post-shape", new EchoHandler()));
           var client = httpClient()) {
         var body = "{\"kind\":\"triangle\",\"side\":3}";
         var request = newRequest(server, path, "POST", ofString(body));
@@ -473,8 +470,7 @@ class OpenApiServerIT extends ServerBaseTest {
     @Test
     void postShape_missingDiscriminatorReturns400() {
       // omitting "kind" makes both branches fail "required".
-      try (var server =
-              newServer(Map.of("post-shape", new com.retailsvc.http.start.PolymorphicHandler()));
+      try (var server = newServer(Map.of("post-shape", new EchoHandler()));
           var client = httpClient()) {
         var body = "{\"radius\":2.5}";
         var request = newRequest(server, path, "POST", ofString(body));
@@ -482,6 +478,9 @@ class OpenApiServerIT extends ServerBaseTest {
         var response = client.send(request, BodyHandlers.ofString());
 
         assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.headers().firstValue("Content-Type").orElse(""))
+            .contains("application/problem+json");
+        assertThat(response.body()).contains("oneOf");
       } catch (IOException e) {
         fail(e);
       } catch (InterruptedException e) {
