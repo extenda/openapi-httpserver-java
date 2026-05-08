@@ -169,6 +169,16 @@
           }
         }
       }
+    },
+    "/anyOf": {
+      "post": {
+
+      }
+    },
+    "/allOf": {
+      "post": {
+
+      }
     }
   },
   "components": {

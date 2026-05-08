@@ -1,0 +1,17 @@
+extends: relaxed
+rules:
+  colons:
+    max-spaces-before: 0
+    max-spaces-after: -1
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+  line-length:
+    max: 150
+    allow-non-breakable-words: true
+    level: error
+  new-line-at-end-of-file: enable
+  new-lines:
+    type: unix
+  trailing-spaces: {}

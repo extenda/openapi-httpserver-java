@@ -31,7 +31,7 @@ public abstract class ServerBaseTest {
 
   @BeforeEach
   void setUp() {
-    specification = parseSpecification("openapi.json", s -> gson.fromJson(s, OpenApi.class));
+    specification = parseSpecification("openapi.json", s -> gson.fromJson(s, OpenApi.class), null);
   }
 
   @AfterEach

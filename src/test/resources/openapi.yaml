@@ -1,0 +1,850 @@
+openapi: 3.1.0
+
+info:
+  title: "Fiscal Signing API for Germany"
+  version: "${project.version}"
+  license:
+    name: Commercial
+    url: https://www.extendaretail.com
+
+servers:
+  - url: https://fiscal-signing-de.retailsvc.com/api/v1
+
+security:
+  - iam: [ ]
+  - ocms: [ ]
+  - wid: [ ]
+
+paths:
+  /initialize:
+    post:
+      summary: Register a new client and TSS
+      operationId: initialize-workstation
+      x-permissions: [ fsc.signature.admin ]
+      description: |
+        Register a new client, and accompanying TSS.\
+        This is a requirement to be able to sign transactions.
+      parameters:
+        - $ref: '#/components/parameters/Accept-Language-Header'
+        - $ref: '#/components/parameters/Correlation-Id-Header'
+        - $ref: '#/components/parameters/Tenant-Id-Header'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: Existing ids of client and TSS to use if automatic initialization could not be completed.
+              allOf:
+                - $ref: '#/components/schemas/Client-Tss-Ids'
+                - required:
+                    - businessUnitId
+                    - workstationId
+                  properties:
+                    businessUnitId:
+                      $ref: '#/components/schemas/Business-Unit-Id'
+                    workstationId:
+                      $ref: '#/components/schemas/Workstation-Id'
+
+      responses:
+        "200":
+          description: |
+            No new registration was needed.\
+            Found a registered client that uses an initialized TSS for the workstation.
+          $ref: '#/components/responses/Initialize-Workstation-Response-Body'
+        "202":
+          description: |
+            Started registration of a new client and TSS.\
+            Status of the creation can be viewed via 'check-prerequisites' endpoint.
+          $ref: '#/components/responses/Initialize-Workstation-Response-Body'
+        "400":
+          description: Bad Request
+          $ref: '#/components/responses/Error-Response-Body'
+        "422":
+          description: The service has discovered a internal semantic issue that prevents a client/TSS to be registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Multiple-Configurations'
+        "500":
+          description: |
+            **Internal Server Error**\
+            This is returned if e.g. the service has an internal issue, such as e.g.
+            database connectivity error.
+          $ref: '#/components/responses/Error-Response-Body'
+
+  /signatures/check-prerequisites:
+    post:
+      summary: Check prerequisites
+      operationId: check-prerequisites
+      x-permissions: [ fsc.signature.sign ]
+      description: |
+        Prerequisites for a specific workstation. Determines if the workstation
+        has the necessary setup for a successful signing of a transaction.\
+        Such setup involves verifying the existence of an active TSS for the
+        workstation, and a configured client.\
+        If no client or TSS is found, you need to initialize the workstation.
+      parameters:
+        - $ref: '#/components/parameters/Accept-Language-Header'
+        - $ref: '#/components/parameters/Correlation-Id-Header'
+        - $ref: '#/components/parameters/Tenant-Id-Header'
+      requestBody:
+        $ref: '#/components/requestBodies/Check-Prerequisites-Request-Body'
+      responses:
+        "200":
+          description: |
+            OK\
+            Response body containing the outcome of a *positive* prerequisites check.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Check-Prerequisites-Response'
+        "400":
+          description: Bad Request
+          $ref: '#/components/responses/Error-Response-Body'
+        "422":
+          description: |
+            Response body containing the outcome of a *negative* prerequisites check.\
+            It might also contain tss and client id if error is tightly coupled to the
+            specific combination of tss and client.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Localized-Message'
+                  - $ref: '#/components/schemas/Check-Prerequisites-Response'
+        "500":
+          $ref: '#/components/responses/Error-Response-Body'
+
+  /signatures/start:
+    post:
+      summary: Start a new transaction
+      description: |
+        Some providers might require a scope for a transaction, and such a scope will need
+        to be started before it can be put to use.\
+        This endpoint will register and initialize all required entities within the system,
+        including all necessary third party registrations before returning.
+      operationId: 'start-transaction'
+      x-permissions: [ fsc.signature.sign ]
+      parameters:
+        - $ref: '#/components/parameters/Accept-Language-Header'
+        - $ref: '#/components/parameters/Tenant-Id-Header'
+        - $ref: '#/components/parameters/Correlation-Id-Header'
+      requestBody:
+        $ref: '#/components/requestBodies/Start-Transaction-Request-Body'
+      responses:
+        "201":
+          description: Created
+          $ref: '#/components/responses/Start-Transaction-Response-Body'
+        "400":
+          description: Bad request
+          $ref: '#/components/responses/Error-Response-Body'
+        "422":
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Localized-Message'
+        "500":
+          description: |
+            Internal Server Error\
+            Returned if the service has an internal issue, such as e.g. database connectivity error.
+          $ref: '#/components/responses/Error-Response-Body'
+
+  /signatures/sign:
+    post:
+      summary: Sign the ongoing transaction
+      description: |
+        To 'sign the transaction' involves making it part of the tamper-free chain of transactions for the current workstation.\
+        This is required for fiscal compliance.
+      operationId: 'sign-transaction'
+      x-permissions: [ fsc.signature.sign ]
+      parameters:
+        - $ref: '#/components/parameters/Accept-Language-Header'
+        - $ref: '#/components/parameters/Tenant-Id-Header'
+        - $ref: '#/components/parameters/Correlation-Id-Header'
+      requestBody:
+        $ref: '#/components/requestBodies/Sign-Transaction-Request-Body'
+      responses:
+        "200":
+          $ref: '#/components/responses/Sign-Transaction-Response-Body'
+        "400":
+          description: Bad request
+          $ref: '#/components/responses/Error-Response-Body'
+        "422":
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Localized-Message'
+        "500":
+          description: |
+            **Internal Server Error**\
+            This is returned if e.g. the service has an internal issue, such as e.g.
+            database connectivity error.
+          $ref: '#/components/responses/Error-Response-Body'
+
+  /signatures/cancel:
+    post:
+      summary: Cancel the ongoing transaction
+      description: |
+        Reports a cancelled transaction.\
+        Necessary to call, to trigger actions at possible third-party integrations.
+      operationId: 'cancel-transaction'
+      x-permissions: [ fsc.signature.sign ]
+      parameters:
+        - $ref: '#/components/parameters/Accept-Language-Header'
+        - $ref: '#/components/parameters/Tenant-Id-Header'
+        - $ref: '#/components/parameters/Correlation-Id-Header'
+      requestBody:
+        $ref: '#/components/requestBodies/Cancel-Transaction-Request-Body'
+      responses:
+        "200":
+          $ref: '#/components/responses/Cancel-Transaction-Response-Body'
+        "400":
+          description: Bad request
+          $ref: '#/components/responses/Error-Response-Body'
+        "404":
+          description: |
+            Not Found\
+            The transaction could not be found.
+        "422":
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Localized-Message'
+        "500":
+          description: |
+            **Internal Server Error**\
+            This is returned if e.g. the service has an internal issue, such as e.g.
+            database connectivity error.
+          $ref: '#/components/responses/Error-Response-Body'
+
+components:
+  parameters:
+    Accept-Language-Header:
+      description: |
+        The preferred language of responses to the client. Formatted according to **ISO 639 alpha-1** language codes.\
+        Default 'en' for English will be used if not specified.
+      in: header
+      name: Accept-Language
+      required: false
+      schema:
+        description: Formatted according to **ISO 639 alpha-1** standard language codes.
+        type: string
+        pattern: '^[A-Za-z]{2}$'
+        example: 'de'
+
+    Correlation-Id-Header:
+      description: |
+        Unique identifier for the current request.
+        If not supplied, one will be generated by the system.\
+        Mainly used for tracing requests via logs.
+      in: header
+      name: Correlation-Id
+      required: false
+      schema:
+        type: string
+        format: uuid
+        example: 'b4d0556c-da0c-4866-b442-f7a472d0ffb3'
+
+    Tenant-Id-Header:
+      description: |
+        Represents the tenant for the current request.\
+        A tenant can be seen as a unique consumer, a company or a user.
+      in: header
+      name: Tenant-Id
+      required: true
+      schema:
+        type: string
+        example: 'CIR7nQwtS0rA6t0S6ejd'
+
+  requestBodies:
+    Cancel-Transaction-Request-Body:
+      description: The JSON body schema for *cancel transaction* request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Cancel-Transaction-Request'
+
+    Check-Prerequisites-Request-Body:
+      description: Request body containing the supported properties to request a prerequisites check against the system.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Check-Prerequisites-Request'
+
+    Sign-Transaction-Request-Body:
+      description: The JSON body schema for *sign transaction* request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Sign-Transaction-Request'
+
+    Start-Transaction-Request-Body:
+      description: The JSON body schema for *start transaction* request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Start-Transaction-Request'
+
+  responses:
+    Cancel-Transaction-Response-Body:
+      description: The JSON response body schema for cancelling a transaction.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Cancel-Transaction-Response'
+
+    Initialize-Workstation-Response-Body:
+      description: The JSON response body schema for registering a new TSS.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Client-Tss-Ids'
+
+    Sign-Transaction-Response-Body:
+      description: The JSON response body schema for signing a transaction.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Sign-Transaction-Response'
+
+    Start-Transaction-Response-Body:
+      description: The JSON response body schema for retrieving an entity.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Start-Transaction-Response'
+
+    Error-Response-Body:
+      description: An error response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error-Response'
+
+  schemas:
+    Business-Unit-Id:
+      description: Represents the store for the current request.
+      type: string
+      example: 'SE-001'
+
+    Cancel-Transaction-Request:
+      description: Request to cancel the transaction.
+      type: object
+      required:
+        - businessUnitId
+        - referenceId
+        - documentType
+        - operatingMode
+        - workstationId
+      properties:
+        businessUnitId:
+          $ref: '#/components/schemas/Business-Unit-Id'
+        referenceId:
+          $ref: '#/components/schemas/Reference-Id'
+        documentType:
+          $ref: '#/components/schemas/Document-Type'
+        operatingMode:
+          $ref: '#/components/schemas/Operating-Mode'
+        workstationId:
+          $ref: '#/components/schemas/Workstation-Id'
+
+    Cancel-Transaction-Response:
+      description: Response after cancelling the transaction.
+      type: object
+      properties:
+        clientSerialNumber:
+          type: string
+          example: '001-01'
+        endTime:
+          description: The timestamp after the transaction was signed.
+          type: string
+          example: '1566656122'
+        fiscalDocumentId:
+          description: The internal unique reference to the transaction signature.
+          $ref: '#/components/schemas/Reference-Id'
+        hash:
+          $ref: '#/components/schemas/Hash-Data'
+        offline:
+          description: |
+            In the case a third-party failed to be reached, this property will provide\
+            a reason for the failure.
+          type: string
+          example: 'TSE war nicht erreichbar'
+        qrCodeData:
+          $ref: '#/components/schemas/QR-Code'
+        receiptType:
+          description: The "BON_TYP" property of the DSFinV-K report.
+          type: string
+          enum:
+            - AVBelegabbruch
+          example: 'AVBelegabbruch'
+        startTime:
+          description: The timestamp when the transaction was first registered.
+          type: string
+          example: '1566656122'
+        timeFormat:
+          type: string
+          example: 'unixTime'
+        transactionNumber:
+          $ref: '#/components/schemas/Transaction-Number'
+        tssId:
+          type: string
+          example: 'd7b86279-4e81-4f59-b98e-6cfe7aafe2bc'
+        tssCertificate:
+          type: string
+          example: 'MIID0zCCA1mgAwIBAgIRAOqvkj8rcaGqJUibjPF8nrwwCgYIKoZIzj0EAwMwVTELMAkGA1UEBhMCQVQxFTATBgNVBAoTDGZpc2thbHkgR21iSDEjMCEGA1UEAxMaVEVTVC1GSVNLQUxZLVRTRS1TVUItQ0EtMDExCjAIBgNVBAUTATEwHhcNMjQxMjE3MTA1NjU0WhcNMzIxMjE3MjM1OTU5WjCB2TELMAkGA1UEBhMCQVQxFTATBgNVBAoTDGZpc2thbHkgR21iSDFOMEwGA1UEAwxFVEVTVC1CU0ktRFNaLUNDLTExNTNfQlNJLURTWi1DQy0xMTMwXzEyMzU0NjVGODM0QzRFRDBCNzc3QTM0OTIwOTgzQ0I1MUkwRwYDVQQFE0BjNDNkZDBmMDEwNTc4ZDc2OWNhYmZjNWFlYWEzYmJjZmU4Zjc4YTI1OTQyM2E2MThkYzk5NDQ3NDMyY2RlZmE2MRgwFgYDVQQuEw9CU0ktRFNaLUNDLTExNTMwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATk8L+45WkFISYI3boMhqRO0C+QTVDqCprxarI7/BIEv7zgUJhE8YOZ1VXBCzkFWJ7XR+2JHqdCOOXmOqJhMs+ao4IBgzCCAX8wDgYDVR0PAQH/BAQDAgeAMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAU4lSqfYaZDlZy+rtN24iJKVDaxzYwRAYIKwYBBQUHAQEEODA2MDQGCCsGAQUFBzAChihodHRwczovL2thc3NlbnNpY2h2LXRlc3QtcGtpLmZpc2thbHkuY29tMF4GA1UdHwRXMFUwU6BRoE+GTWh0dHA6Ly9rYXNzZW5zaWNodi10ZXN0LXBraS5maXNrYWx5LmNvbS9jcmw/aXNzdWVyPVRFU1QtRklTS0FMWS1UU0UtU1VCLUNBLTAxMEcGA1UdEgRAMD6BEm9mZmljZUBmaXNrYWx5LmNvbYYoaHR0cHM6Ly9rYXNzZW5zaWNodi10ZXN0LXBraS5maXNrYWx5LmNvbTBPBgNVHSAESDBGMEQGCisGAQQBg7YgAQMwNjA0BggrBgEFBQcCARYoaHR0cHM6Ly9rYXNzZW5zaWNodi10ZXN0LXBraS5maXNrYWx5LmNvbTAKBggqhkjOPQQDAwNoADBlAjAMDdsEb5AzCmNFsg2j5cSH/dLQix6f6Vc7FVD/25Z0zrwFNFZdE02G6j43sMNnAsgCMQCCRgXb8IF65XiQg6lUEtMFGMEuJeq7XluaO5zY5nFzKbWL7voTu3qKhhw7JFdT/o8='
+        tssPublicKey:
+          type: string
+          example: 'BOTwv7jlaQUhJgjdugyGpE7QL5BNUOoKmvFqsjv8EgS/vOBQmETxg5nVVcELOQVYntdH7Ykep0I45eY6omEyz5o='
+        tssSignatureAlgorithm:
+          type: string
+          example: 'ecdsa-plain-SHA256'
+        tssSignatureCounter:
+          type: integer
+          format: int64
+          example: 42
+
+    Check-Prerequisites-Request:
+      description: Request to check workstation prerequisites.
+      type: object
+      required:
+        - businessUnitId
+        - workstationId
+      properties:
+        businessUnitId:
+          $ref: '#/components/schemas/Business-Unit-Id'
+        workstationId:
+          $ref: '#/components/schemas/Workstation-Id'
+
+    Check-Prerequisites-Response:
+      description: |
+        Response to the check prerequisites request.\
+        The TSS might not be reported if no such TSS can be found.\
+        Likewise, the client might not be reported if no such client has been registered
+        for the TSS yet.
+      type: object
+      properties:
+        tss:
+          $ref: '#/components/schemas/TSS-State'
+        client:
+          $ref: '#/components/schemas/Client-State'
+
+    Client-Id:
+      description: The id of a client.
+      type: string
+      format: uuid
+      example: 'e5c5eef7-31e2-45cd-9814-02c5af2f97f9'
+
+    Client-State:
+      description: The state representation of a client.
+      required:
+        - id
+        - state
+      properties:
+        id:
+          $ref: '#/components/schemas/Client-Id'
+        state:
+          type: string
+          example: 'active'
+
+    Client-Tss-Ids:
+      description: Client and TSS ids
+      type: object
+      properties:
+        clientId:
+          $ref: '#/components/schemas/Client-Id'
+        tssId:
+          $ref: '#/components/schemas/TSS-Id'
+
+    Document-Type:
+      description: |
+        Transactions have a specific type.
+        * RECEIPT - To be used for all retail transactions like sale, refunds and mix of sale.
+        * OTHER - Cash movements like Increase/Decrease Petty Cash, Paid-In or Paid-Out operations.
+      type: string
+      enum:
+        - RECEIPT
+        - OTHER
+      default: RECEIPT
+
+    Error-Code:
+      description: |
+        Numeric code representing a warning or error in the system.
+
+        | Code     | Description                                        |
+        | -------- | -------------------------------------------------- |"The request is missing or has an invalid API Key."
+        | **2001** | No active TSS.                                     |
+        | **2002** | No active client.                                  |
+        | **2003** | Timed out when calling third party.                |
+        | **2004** | Invalid third party API credentials.               |
+      type: integer
+      format: integer
+      minimum: 1000
+      maximum: 2999
+      example: 1001
+
+    Error-Response:
+      description: |
+        An error represents an issue from within the service, and prevents the
+        service from fulfilling the request.
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          description: Contains (limited) information about the issue.
+          type: string
+          example: 'The server timed out.'
+
+    Global-Transaction-Id:
+      description: |
+        An id that uniquely identifies a transaction.\
+        E.g. resend of a transaction must use the same id and must not be altered.
+      type: string
+      maxLength: 100
+      example: '7158db17-fca2-4c88-a153-806635ae69a8'
+
+    Hash-Data:
+      description: The hash signature from successfully signing the transaction data.
+      type: string
+
+    Localized-Message:
+      description: Template for localized messages.
+      type: object
+      required:
+        - code
+        - text
+        - localizedText
+      properties:
+        code:
+          $ref: '#/components/schemas/Error-Code'
+        localizedText:
+          description: |
+            Localized message according to the **Accept-Language** request header.\
+            If no header was found, the text will appear in the default system language.
+          type: string
+          example: 'A dependency service was not reachable'
+        text:
+          description: Message in the default system language (English).
+          type: string
+          example: 'A dependency service was not reachable'
+
+    Multiple-Configurations:
+      description: |
+        Represents multiple combinations of client and TSS ids are found to exist.
+      allOf:
+        - $ref: '#/components/schemas/Localized-Message'
+        - properties:
+            configurations:
+              description: |
+                The list of discovered combinations that causes ambiguity.\
+                One of the returned combinations must be resent to the service endpoint for 'initialize workstation'.
+              type: array
+              items:
+                properties:
+                  clientId:
+                    $ref: '#/components/schemas/Client-Id'
+                  tssId:
+                    $ref: '#/components/schemas/TSS-Id'
+
+    Operating-Mode:
+      description: |
+        The current mode under which the transaction is processed.
+      type: string
+      enum:
+        - NORMAL
+        - TRAINING
+      default: 'NORMAL'
+
+    Currency-Type:
+      description: |
+        The currency code, according to [ISO 4217](https://www.iso.org/iso-4217-currency-codes.html)
+      type: string
+      pattern: '^[a-zA-Z]{3}$'
+      example: 'EUR'
+
+    Payment:
+      description: |
+        Summation of a specific currency used during payment.
+      type: object
+      required:
+        - totalAmount
+        - method
+      properties:
+        totalAmount:
+          description: |
+            The amount should be the consolidated amount for the specific method.\
+            Example:\
+            Transaction amount 22.00\
+            Payment with Voucher = 5.00\
+            Payment with EFT = 10.00\
+            Payment with cash = 10.00\
+            Cashback = 3.00\
+            \
+            The amount to be sent are:\
+            NON_CASH = 15.00\
+            CASH = 7.00
+          type: number
+          format: double
+          example: 20.14
+        currency:
+          default: 'EUR'
+          $ref: '#/components/schemas/Currency-Type'
+        method:
+          description: The payment method used for this currency
+          type: string
+          enum:
+            - CASH
+            - NON_CASH
+          example: 'CASH'
+
+    Sign-Transaction-Request:
+      description: Request to sign the transaction.
+      type: object
+      required:
+        - businessUnitId
+        - globalTransactionId
+        - referenceId
+        - payments
+        - vatSummary
+        - workstationId
+      properties:
+        businessUnitId:
+          $ref: '#/components/schemas/Business-Unit-Id'
+        documentType:
+          $ref: '#/components/schemas/Document-Type'
+        globalTransactionId:
+          $ref: '#/components/schemas/Global-Transaction-Id'
+        operatingMode:
+          $ref: '#/components/schemas/Operating-Mode'
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payment'
+        referenceId:
+          $ref: '#/components/schemas/Reference-Id'
+        vatSummary:
+          $ref: '#/components/schemas/VAT-Summary'
+        workstationId:
+          $ref: '#/components/schemas/Workstation-Id'
+
+    Sign-Transaction-Response:
+      description: Response after signing the transaction.
+      type: object
+      properties:
+        clientSerialNumber:
+          type: string
+          example: '001-01'
+        endTime:
+          description: The timestamp after the transaction was signed.
+          type: string
+          example: '1566656122'
+        fiscalDocumentId:
+          description: The internal unique reference to the transaction signature.
+          $ref: '#/components/schemas/Reference-Id'
+        hash:
+          $ref: '#/components/schemas/Hash-Data'
+        offline:
+          description: |
+            In the case a third-party failed to be reached, this property will provide\
+            a reason for the failure.
+          type: string
+          example: 'TSE war nicht erreichbar'
+        qrCodeData:
+          $ref: '#/components/schemas/QR-Code'
+        receiptType:
+          description: The "BON_TYP" property of the DSFinV-K report.
+          type: string
+          enum:
+            - Beleg
+            - AVTraining
+            - AVTransfer
+            - AVBestellung
+            - AVBelegabbruch
+            - AVSachbezug
+            - AVRechnung
+            - AVSonstige
+            - AVBelegstorno
+        startTime:
+          description: The timestamp when the transaction was first registered.
+          type: string
+          example: '1566656122'
+        timeFormat:
+          type: string
+          example: 'unixTime'
+        transactionNumber:
+          $ref: '#/components/schemas/Transaction-Number'
+        tssId:
+          type: string
+          example: 'd7b86279-4e81-4f59-b98e-6cfe7aafe2bc'
+        tssCertificate:
+          type: string
+          example: 'MIID0zCCA1mgAwIBAgIRAOqvkj8rcaGqJUibjPF8nrwwCgYIKoZIzj0EAwMwVTELMAkGA1UEBhMCQVQxFTATBgNVBAoTDGZpc2thbHkgR21iSDEjMCEGA1UEAxMaVEVTVC1GSVNLQUxZLVRTRS1TVUItQ0EtMDExCjAIBgNVBAUTATEwHhcNMjQxMjE3MTA1NjU0WhcNMzIxMjE3MjM1OTU5WjCB2TELMAkGA1UEBhMCQVQxFTATBgNVBAoTDGZpc2thbHkgR21iSDFOMEwGA1UEAwxFVEVTVC1CU0ktRFNaLUNDLTExNTNfQlNJLURTWi1DQy0xMTMwXzEyMzU0NjVGODM0QzRFRDBCNzc3QTM0OTIwOTgzQ0I1MUkwRwYDVQQFE0BjNDNkZDBmMDEwNTc4ZDc2OWNhYmZjNWFlYWEzYmJjZmU4Zjc4YTI1OTQyM2E2MThkYzk5NDQ3NDMyY2RlZmE2MRgwFgYDVQQuEw9CU0ktRFNaLUNDLTExNTMwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATk8L+45WkFISYI3boMhqRO0C+QTVDqCprxarI7/BIEv7zgUJhE8YOZ1VXBCzkFWJ7XR+2JHqdCOOXmOqJhMs+ao4IBgzCCAX8wDgYDVR0PAQH/BAQDAgeAMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAU4lSqfYaZDlZy+rtN24iJKVDaxzYwRAYIKwYBBQUHAQEEODA2MDQGCCsGAQUFBzAChihodHRwczovL2thc3NlbnNpY2h2LXRlc3QtcGtpLmZpc2thbHkuY29tMF4GA1UdHwRXMFUwU6BRoE+GTWh0dHA6Ly9rYXNzZW5zaWNodi10ZXN0LXBraS5maXNrYWx5LmNvbS9jcmw/aXNzdWVyPVRFU1QtRklTS0FMWS1UU0UtU1VCLUNBLTAxMEcGA1UdEgRAMD6BEm9mZmljZUBmaXNrYWx5LmNvbYYoaHR0cHM6Ly9rYXNzZW5zaWNodi10ZXN0LXBraS5maXNrYWx5LmNvbTBPBgNVHSAESDBGMEQGCisGAQQBg7YgAQMwNjA0BggrBgEFBQcCARYoaHR0cHM6Ly9rYXNzZW5zaWNodi10ZXN0LXBraS5maXNrYWx5LmNvbTAKBggqhkjOPQQDAwNoADBlAjAMDdsEb5AzCmNFsg2j5cSH/dLQix6f6Vc7FVD/25Z0zrwFNFZdE02G6j43sMNnAsgCMQCCRgXb8IF65XiQg6lUEtMFGMEuJeq7XluaO5zY5nFzKbWL7voTu3qKhhw7JFdT/o8='
+        tssPublicKey:
+          type: string
+          example: 'BOTwv7jlaQUhJgjdugyGpE7QL5BNUOoKmvFqsjv8EgS/vOBQmETxg5nVVcELOQVYntdH7Ykep0I45eY6omEyz5o='
+        tssSignatureAlgorithm:
+          type: string
+          example: 'ecdsa-plain-SHA256'
+        tssSignatureCounter:
+          type: integer
+          format: int64
+          example: 42
+
+    Start-Transaction-Request:
+      description: Request to start the transaction.
+      type: object
+      required:
+        - businessUnitId
+        - workstationId
+      properties:
+        businessUnitId:
+          $ref: '#/components/schemas/Business-Unit-Id'
+        workstationId:
+          $ref: '#/components/schemas/Workstation-Id'
+
+    Start-Transaction-Response:
+      description: Response after starting the transaction.
+      type: object
+      required:
+        - referenceId
+      properties:
+        referenceId:
+          description: |
+            Internal reference that needs to be sent back when signing or cancelling the transaction.
+          $ref: '#/components/schemas/Reference-Id'
+
+    QR-Code:
+      description: |
+        The QR code that the system generated based on the input.\
+        The format of the contents will change depending on country requirements.
+      type: string
+      example: 'V0;955002-00;Kassenbeleg-V1;Beleg^0.00_2.55_0.00_0.00_0.00^2.55:Bar;18;112;2019-08-24T14:15:22.000Z;2019-08-24T14:15:22.000Z;ecdsa-plain-SHA256;unixTime;MEQCIAy4P9k+7x9saDO0uRZ4El8QwN+qTgYiv1DIaJIMWRiuAiAt+saFDGjK2Yi5Cxgy7PprXQ5O0seRgx4ltdpW9REvwA==;BHhWOeisRpPBTGQ1W4VUH95TXx2GARf8e2NYZXJoInjtGqnxJ8sZ3CQpYgjI+LYEmW5A37sLWHsyU7nSJUBemyU='
+
+    Reference-Id:
+      description: Identifies a transaction internally. *This is not the 'global transaction id'*.
+      type: string
+      format: uuid
+      example: 'b85d18e3-5084-4c8b-b24e-3c8c7d583966'
+
+    TSS-Id:
+      description: The id of a TSS.
+      type: string
+      format: uuid
+      example: '7d73312c-a8a9-47d3-a176-3eba8bb78334'
+
+    TSS-State:
+      description: The state representation of a TSS.
+      type: object
+      required:
+        - id
+        - state
+      properties:
+        id:
+          $ref: '#/components/schemas/TSS-Id'
+        state:
+          type: string
+          example: 'active'
+
+    Transaction-Number:
+      description: Number of transactions made on a workstation
+      type: integer
+      format: int64
+      example: 42
+
+    VAT-Summary:
+      description: Summary of the different totals and rates within this transaction.
+      type: object
+      required:
+        - taxTotal
+        - netTotal
+        - grossTotal
+        - perRate
+      properties:
+        taxTotal:
+          description: The total amount of VAT (all rates) in this transaction.
+          type: number
+          format: double
+          minimum: 0.00
+          example: 12.50
+        netTotal:
+          description: |
+            The total amount excluding VAT in this transaction.
+          type: number
+          format: double
+          minimum: 0.00
+          example: 12.50
+        grossTotal:
+          description: The total amount including VAT in this transaction.
+          type: number
+          format: double
+          minimum: 0.00
+          example: 12.50
+        perRate:
+          description: The list of rates used in this transaction.
+          type: array
+          items:
+            $ref: '#/components/schemas/Vat-Summary-Per-Rate'
+
+    Vat-Summary-Per-Rate:
+      description: Details of this specific rate.
+      type: object
+      required:
+        - rate
+        - basePrice
+        - vatAmount
+      properties:
+        rate:
+          description: The available VAT rates
+          type: string
+          enum:
+            - STANDARD
+            - REDUCED
+            - ZERO
+            - SPECIAL_RATE_1
+            - SPECIAL_RATE_2
+        basePrice:
+          description: The amount excluding VAT for this rate.
+          type: number
+          format: double
+          minimum: 0.00
+        vatAmount:
+          description: The VAT amount for this rate.
+          type: number
+          format: double
+          minimum: 0.00
+
+    Workstation-Id:
+      description: Represents the physical hardware, where the transaction is taking place.
+      type: string
+      example: 'WS-001'
+
+  securitySchemes:
+    iam:
+      description: >
+        Hii Retail IAM user token.
+      type: http
+      x-permissions-auth: iam
+      scheme: bearer
+      bearerFormat: JWT
+    ocms:
+      description: >
+        Machine authentication with Hii Retail OCMS.
+      type: oauth2
+      x-permissions-auth: ocms
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.retailsvc.com/oauth2/token
+          scopes: { }
+    wid:
+      description: |
+        Workload Identity for GCP. This is used internally within GCP to authenticate
+        services. You MUST provide the Tenant-Id header with the tenant ID for this
+        type of authorization, with every request.
+      type: http
+      x-permissions-auth: wid
+      scheme: bearer
+      bearerFormat: JWT
