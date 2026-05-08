@@ -21,6 +21,15 @@ public final class Request {
 
   private Request() {}
 
+  /**
+   * Returns the full per-request context. Use this when a handler reads more than one field — every
+   * call to {@link #bytes()}, {@link #parsed()}, {@link #operationId()}, or {@link #pathParams()}
+   * walks the JDK's scope chain independently, so reading via {@code current()} once is cheaper.
+   */
+  public static RequestContext current() {
+    return CONTEXT.get();
+  }
+
   public static byte[] bytes() {
     return CONTEXT.get().body();
   }

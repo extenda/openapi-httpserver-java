@@ -1,6 +1,6 @@
 # OpenAPI Refactor Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Restructure the library along the design in `docs/superpowers/specs/2026-05-07-openapi-refactor-design.md` so OpenAPI 3.1 keyword gaps become mechanical to fill, and ship Java 25 build + the typed-record-derived "free" 3.1 keywords (`minLength`/`maxLength`/`minItems`/`maxItems`/`uniqueItems`/`multipleOf`/`exclusiveMin/Max`/`type:["string","null"]`).
 
@@ -34,13 +34,13 @@ All concrete record/interface shapes live in the design doc at `docs/superpowers
 - Modify: `pom.xml` (line ~197: `<release>21</release>`)
 - Modify: `Dockerfile` (line 1: base image)
 
-- [ ] **Step 1: Update `.java-version`**
+- [x] **Step 1: Update `.java-version`**
 
 ```
 25
 ```
 
-- [ ] **Step 2: Update `pom.xml` compiler release**
+- [x] **Step 2: Update `pom.xml` compiler release**
 
 In `pom.xml` find the `maven-compiler-plugin` block:
 
@@ -50,20 +50,20 @@ In `pom.xml` find the `maven-compiler-plugin` block:
 </configuration>
 ```
 
-- [ ] **Step 3: Update Dockerfile base image**
+- [x] **Step 3: Update Dockerfile base image**
 
 ```dockerfile
 FROM eclipse-temurin:25-jre-alpine
 ```
 
-- [ ] **Step 4: Verify build works**
+- [x] **Step 4: Verify build works**
 
 Run: `mvn -q test`
 Expected: BUILD SUCCESS, all 122 tests pass.
 
 If `mvn` picks an older JDK, ensure JAVA_HOME points at a 25 install or use `mvn -Dmaven.compiler.release=25 ...` once to confirm.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .java-version pom.xml Dockerfile
@@ -82,7 +82,7 @@ These tasks build the new `com.retailsvc.http.spec.schema` package alongside the
 - Create: `src/main/java/com/retailsvc/http/spec/schema/TypeName.java`
 - Test: `src/test/java/com/retailsvc/http/spec/schema/TypeNameTest.java`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```java
 package com.retailsvc.http.spec.schema;
@@ -111,12 +111,12 @@ class TypeNameTest {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `mvn -q test -Dtest=TypeNameTest`
 Expected: compilation failure, `TypeName` does not exist.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```java
 package com.retailsvc.http.spec.schema;
@@ -139,12 +139,12 @@ public enum TypeName {
 }
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `mvn -q test -Dtest=TypeNameTest`
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/schema/TypeName.java \
@@ -160,7 +160,7 @@ git commit -m "feat(schema): add TypeName enum"
 - Create: `src/main/java/com/retailsvc/http/spec/schema/AdditionalProperties.java`
 - Test: `src/test/java/com/retailsvc/http/spec/schema/AdditionalPropertiesTest.java`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```java
 package com.retailsvc.http.spec.schema;
@@ -192,12 +192,12 @@ class AdditionalPropertiesTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails, no Schema or BooleanSchema yet**
+- [x] **Step 2: Run — fails, no Schema or BooleanSchema yet**
 
 Run: `mvn -q test -Dtest=AdditionalPropertiesTest`
 Expected: compilation failure.
 
-- [ ] **Step 3: Stub `Schema` and `BooleanSchema` (full hierarchy comes in B3)**
+- [x] **Step 3: Stub `Schema` and `BooleanSchema` (full hierarchy comes in B3)**
 
 Create `src/main/java/com/retailsvc/http/spec/schema/Schema.java`:
 
@@ -233,12 +233,12 @@ public sealed interface AdditionalProperties {
 }
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `mvn -q test -Dtest=AdditionalPropertiesTest`
 Expected: PASS (3 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/schema/ \
@@ -259,7 +259,7 @@ git commit -m "feat(schema): add Schema sealed interface, BooleanSchema, Additio
 - Modify: `src/main/java/com/retailsvc/http/spec/schema/Schema.java` (extend `permits`)
 - Test: `src/test/java/com/retailsvc/http/spec/schema/PrimitiveSchemasTest.java`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```java
 package com.retailsvc.http.spec.schema;
@@ -313,12 +313,12 @@ class PrimitiveSchemasTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
 Run: `mvn -q test -Dtest=PrimitiveSchemasTest`
 Expected: compilation failure.
 
-- [ ] **Step 3: Implement records**
+- [x] **Step 3: Implement records**
 
 `StringSchema.java`:
 
@@ -411,13 +411,13 @@ public sealed interface Schema
 }
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `mvn -q test -Dtest=PrimitiveSchemasTest`
 Expected: PASS (5 tests).
 Then: `mvn -q test` (full suite still green — old code unaffected).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/schema/ \
@@ -435,7 +435,7 @@ git commit -m "feat(schema): add primitive Schema records"
 - Modify: `src/main/java/com/retailsvc/http/spec/schema/Schema.java` (extend `permits`)
 - Test: `src/test/java/com/retailsvc/http/spec/schema/ContainerSchemasTest.java`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```java
 package com.retailsvc.http.spec.schema;
@@ -473,12 +473,12 @@ class ContainerSchemasTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
 Run: `mvn -q test -Dtest=ContainerSchemasTest`
 Expected: compilation failure.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `ObjectSchema.java`:
 
@@ -523,12 +523,12 @@ public sealed interface Schema
 }
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `mvn -q test -Dtest=ContainerSchemasTest`
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/schema/ \
@@ -550,7 +550,7 @@ git commit -m "feat(schema): add ObjectSchema and ArraySchema records"
 - Modify: `src/main/java/com/retailsvc/http/spec/schema/Schema.java`
 - Test: `src/test/java/com/retailsvc/http/spec/schema/CombinatorScaffoldTest.java`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```java
 package com.retailsvc.http.spec.schema;
@@ -576,12 +576,12 @@ class CombinatorScaffoldTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
 Run: `mvn -q test -Dtest=CombinatorScaffoldTest`
 Expected: compilation failure.
 
-- [ ] **Step 3: Implement records**
+- [x] **Step 3: Implement records**
 
 `OneOfSchema.java`:
 
@@ -677,12 +677,12 @@ public sealed interface Schema
 }
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `mvn -q test -Dtest=CombinatorScaffoldTest`
 Expected: PASS (7 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/schema/ \
@@ -700,7 +700,7 @@ git commit -m "feat(schema): scaffold combinator records (oneOf/anyOf/allOf/not/
 - Create: `src/main/java/com/retailsvc/http/spec/schema/SchemaParser.java`
 - Test: `src/test/java/com/retailsvc/http/spec/schema/SchemaParserTest.java`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```java
 package com.retailsvc.http.spec.schema;
@@ -767,12 +767,12 @@ class SchemaParserTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
 Run: `mvn -q test -Dtest=SchemaParserTest`
 Expected: compilation failure.
 
-- [ ] **Step 3: Implement primitive parser**
+- [x] **Step 3: Implement primitive parser**
 
 ```java
 package com.retailsvc.http.spec.schema;
@@ -865,12 +865,12 @@ public final class SchemaParser {
 }
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `mvn -q test -Dtest=SchemaParserTest`
 Expected: 8 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/schema/SchemaParser.java \
@@ -886,7 +886,7 @@ git commit -m "feat(schema): SchemaParser handles primitives, refs, nullable for
 - Modify: `src/main/java/com/retailsvc/http/spec/schema/SchemaParser.java`
 - Modify: `src/test/java/com/retailsvc/http/spec/schema/SchemaParserTest.java`
 
-- [ ] **Step 1: Add tests**
+- [x] **Step 1: Add tests**
 
 Append to `SchemaParserTest.java`:
 
@@ -934,12 +934,12 @@ Append to `SchemaParserTest.java`:
   }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
 Run: `mvn -q test -Dtest=SchemaParserTest`
 Expected: 4 new tests fail with `UnsupportedOperationException`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Add the import to `SchemaParser`:
 
@@ -999,12 +999,12 @@ Add private methods:
   }
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `mvn -q test -Dtest=SchemaParserTest`
 Expected: 12 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/schema/SchemaParser.java \
@@ -1019,7 +1019,7 @@ git commit -m "feat(schema): SchemaParser handles objects (with additionalProper
 **Files:**
 - Modify: `SchemaParser.java`, `SchemaParserTest.java`
 
-- [ ] **Step 1: Add tests**
+- [x] **Step 1: Add tests**
 
 ```java
   @Test
@@ -1059,12 +1059,12 @@ git commit -m "feat(schema): SchemaParser handles objects (with additionalProper
   }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
 Run: `mvn -q test -Dtest=SchemaParserTest`
 Expected: 5 new tests fail.
 
-- [ ] **Step 3: Add dispatch at top of `SchemaParser.parse`**
+- [x] **Step 3: Add dispatch at top of `SchemaParser.parse`**
 
 Insert these checks just after the `$ref` check, in this order:
 
@@ -1091,12 +1091,12 @@ Helper:
   }
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `mvn -q test -Dtest=SchemaParserTest`
 Expected: all 17 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/schema/SchemaParser.java \
@@ -1114,7 +1114,7 @@ git commit -m "feat(schema): SchemaParser handles combinators, const, top-level 
 - Create: `src/main/java/com/retailsvc/http/spec/HttpMethod.java`
 - Test: `src/test/java/com/retailsvc/http/spec/HttpMethodTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http.spec;
@@ -1132,10 +1132,10 @@ class HttpMethodTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails (compile)**
+- [x] **Step 2: Run — fails (compile)**
 Run: `mvn -q test -Dtest=HttpMethodTest`
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```java
 package com.retailsvc.http.spec;
@@ -1151,10 +1151,10 @@ public enum HttpMethod {
 }
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 Run: `mvn -q test -Dtest=HttpMethodTest` — 4 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/HttpMethod.java \
@@ -1170,7 +1170,7 @@ git commit -m "feat(spec): add HttpMethod enum"
 - Create: `src/main/java/com/retailsvc/http/spec/PathTemplate.java`
 - Test: `src/test/java/com/retailsvc/http/spec/PathTemplateTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http.spec;
@@ -1217,9 +1217,9 @@ class PathTemplateTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```java
 package com.retailsvc.http.spec;
@@ -1264,9 +1264,9 @@ public record PathTemplate(String raw, Pattern compiled, List<String> parameterN
 }
 ```
 
-- [ ] **Step 4: Verify** — 6 PASS.
+- [x] **Step 4: Verify** — 6 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/PathTemplate.java \
@@ -1287,7 +1287,7 @@ git commit -m "feat(spec): add PathTemplate value object with regex extraction"
 - Create: `src/main/java/com/retailsvc/http/spec/Info.java`
 - Test: `src/test/java/com/retailsvc/http/spec/SpecRecordsTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http.spec;
@@ -1327,9 +1327,9 @@ class SpecRecordsTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `Parameter.java`:
 
@@ -1395,9 +1395,9 @@ package com.retailsvc.http.spec;
 public record Info(String title, String version) {}
 ```
 
-- [ ] **Step 4: Verify** — 4 PASS.
+- [x] **Step 4: Verify** — 4 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/ \
@@ -1413,7 +1413,7 @@ git commit -m "feat(spec): add Parameter, RequestBody, MediaType, Response, Serv
 - Create: `src/main/java/com/retailsvc/http/spec/Operation.java`
 - Test: `src/test/java/com/retailsvc/http/spec/OperationTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http.spec;
@@ -1443,9 +1443,9 @@ class OperationTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```java
 package com.retailsvc.http.spec;
@@ -1463,9 +1463,9 @@ public record Operation(
     Map<String, Response> responses) {}
 ```
 
-- [ ] **Step 4: Verify** — 1 PASS.
+- [x] **Step 4: Verify** — 1 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/Operation.java \
@@ -1483,7 +1483,7 @@ git commit -m "feat(spec): add Operation record"
 - Test: `src/test/java/com/retailsvc/http/spec/SpecTest.java`
 - Resource: existing `src/test/resources/openapi.json` is reused as the canonical fixture.
 
-- [ ] **Step 1: Test against the existing fixture**
+- [x] **Step 1: Test against the existing fixture**
 
 ```java
 package com.retailsvc.http.spec;
@@ -1558,9 +1558,9 @@ class SpecTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement Spec + parser**
+- [x] **Step 3: Implement Spec + parser**
 
 `Spec.java`:
 
@@ -1726,11 +1726,11 @@ public record Spec(
 }
 ```
 
-- [ ] **Step 4: Verify** — 4 PASS, full suite still green.
+- [x] **Step 4: Verify** — 4 PASS, full suite still green.
 
 Run: `mvn -q test`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/spec/Spec.java \
@@ -1750,7 +1750,7 @@ git commit -m "feat(spec): add Spec.from(Map) walker for the full document"
 - Create: `src/main/java/com/retailsvc/http/ValidationException.java`
 - Test: `src/test/java/com/retailsvc/http/ValidationExceptionTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http;
@@ -1770,9 +1770,9 @@ class ValidationExceptionTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `ValidationError.java`:
 
@@ -1814,9 +1814,9 @@ public final class ValidationException extends RuntimeException {
 }
 ```
 
-- [ ] **Step 4: Verify** — 1 PASS.
+- [x] **Step 4: Verify** — 1 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/validate/ \
@@ -1833,7 +1833,7 @@ git commit -m "feat(validate): add ValidationError, ValidationException, Validat
 - Create: `src/main/java/com/retailsvc/http/validate/DefaultValidator.java`
 - Test: `src/test/java/com/retailsvc/http/validate/DefaultValidatorDispatchTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http.validate;
@@ -1885,9 +1885,9 @@ class DefaultValidatorDispatchTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement skeleton**
+- [x] **Step 3: Implement skeleton**
 
 ```java
 package com.retailsvc.http.validate;
@@ -1983,11 +1983,11 @@ public final class DefaultValidator implements Validator {
 }
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `mvn -q test -Dtest=DefaultValidatorDispatchTest` — 5 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/validate/DefaultValidator.java \
@@ -2003,7 +2003,7 @@ git commit -m "feat(validate): DefaultValidator skeleton with dispatch + boolean
 - Modify: `DefaultValidator.java`
 - Create: `src/test/java/com/retailsvc/http/validate/StringIntegerNumberTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http.validate;
@@ -2109,9 +2109,9 @@ class StringIntegerNumberTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Replace stub bodies**
+- [x] **Step 3: Replace stub bodies**
 
 ```java
   private void validateString(Object value, StringSchema s, String pointer) {
@@ -2195,11 +2195,11 @@ class StringIntegerNumberTest {
 
 (Remove `private void validateString/Integer/Number` UnsupportedOperationException stubs.)
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `mvn -q test -Dtest=StringIntegerNumberTest` — 10 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/validate/DefaultValidator.java \
@@ -2215,7 +2215,7 @@ git commit -m "feat(validate): string/integer/number validation with full 3.1 nu
 - Modify: `DefaultValidator.java`
 - Create: `src/test/java/com/retailsvc/http/validate/ObjectValidationTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http.validate;
@@ -2280,9 +2280,9 @@ class ObjectValidationTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Replace stub:
 
@@ -2319,9 +2319,9 @@ Replace stub:
   }
 ```
 
-- [ ] **Step 4: Verify** — 5 PASS.
+- [x] **Step 4: Verify** — 5 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/validate/DefaultValidator.java \
@@ -2337,7 +2337,7 @@ git commit -m "feat(validate): object validation with required/properties/additi
 - Modify: `DefaultValidator.java`
 - Create: `src/test/java/com/retailsvc/http/validate/ArrayValidationTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http.validate;
@@ -2402,9 +2402,9 @@ class ArrayValidationTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```java
   private void validateArray(Object value, ArraySchema s, String pointer) {
@@ -2431,9 +2431,9 @@ class ArrayValidationTest {
   }
 ```
 
-- [ ] **Step 4: Verify** — 5 PASS, full suite green.
+- [x] **Step 4: Verify** — 5 PASS, full suite green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/validate/DefaultValidator.java \
@@ -2451,7 +2451,7 @@ git commit -m "feat(validate): array validation with items/minItems/maxItems/uni
 - Create: `src/main/java/com/retailsvc/http/internal/Router.java`
 - Test: `src/test/java/com/retailsvc/http/internal/RouterTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http.internal;
@@ -2502,9 +2502,9 @@ class RouterTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```java
 package com.retailsvc.http.internal;
@@ -2564,9 +2564,9 @@ public final class Router {
 }
 ```
 
-- [ ] **Step 4: Verify** — 4 PASS.
+- [x] **Step 4: Verify** — 4 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/internal/Router.java \
@@ -2585,7 +2585,7 @@ git commit -m "feat(internal): Router with exact and templated indexes plus allo
 - Create: `src/main/java/com/retailsvc/http/MethodNotAllowedException.java`
 - Test: `src/test/java/com/retailsvc/http/HttpExceptionsTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http;
@@ -2608,9 +2608,9 @@ class HttpExceptionsTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```java
 package com.retailsvc.http;
@@ -2636,9 +2636,9 @@ public final class MethodNotAllowedException extends RuntimeException {
 }
 ```
 
-- [ ] **Step 4: Verify** — 2 PASS.
+- [x] **Step 4: Verify** — 2 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/NotFoundException.java \
@@ -2655,7 +2655,7 @@ git commit -m "feat(http): add NotFoundException and MethodNotAllowedException"
 - Create: `src/main/java/com/retailsvc/http/Request.java`
 - Test: `src/test/java/com/retailsvc/http/RequestTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http;
@@ -2683,9 +2683,9 @@ class RequestTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```java
 package com.retailsvc.http;
@@ -2711,9 +2711,9 @@ public final class Request {
 }
 ```
 
-- [ ] **Step 4: Verify** — 1 PASS.
+- [x] **Step 4: Verify** — 1 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/Request.java \
@@ -2732,7 +2732,7 @@ git commit -m "feat(http): add Request static accessors for exchange attributes"
 
 The old `JsonMapper` lives at `com.retailsvc.http.openapi.model.JsonMapper` with a generic single method `<T> T mapFrom(byte[] body)`. We add the new shape in the public package now; the old one stays until Phase K deletes it.
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http;
@@ -2749,9 +2749,9 @@ class JsonMapperTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```java
 package com.retailsvc.http;
@@ -2762,9 +2762,9 @@ public interface JsonMapper {
 }
 ```
 
-- [ ] **Step 4: Verify** — 1 PASS.
+- [x] **Step 4: Verify** — 1 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/JsonMapper.java \
@@ -2782,7 +2782,7 @@ git commit -m "feat(http): JsonMapper SAM in public package (no generic)"
 - Test: `src/test/java/com/retailsvc/http/internal/ProblemDetailRendererTest.java`
 - Test: `src/test/java/com/retailsvc/http/HandlersDefaultExceptionTest.java`
 
-- [ ] **Step 1: Test renderer**
+- [x] **Step 1: Test renderer**
 
 ```java
 package com.retailsvc.http.internal;
@@ -2814,9 +2814,9 @@ class ProblemDetailRendererTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement renderer**
+- [x] **Step 3: Implement renderer**
 
 ```java
 package com.retailsvc.http.internal;
@@ -2858,9 +2858,9 @@ public final class ProblemDetailRenderer {
 }
 ```
 
-- [ ] **Step 4: Verify renderer** — 2 PASS.
+- [x] **Step 4: Verify renderer** — 2 PASS.
 
-- [ ] **Step 5: Test default exception handler**
+- [x] **Step 5: Test default exception handler**
 
 ```java
 package com.retailsvc.http;
@@ -2915,9 +2915,9 @@ class HandlersDefaultExceptionTest {
 }
 ```
 
-- [ ] **Step 6: Run — fails (default handler not yet handling new types)**
+- [x] **Step 6: Run — fails (default handler not yet handling new types)**
 
-- [ ] **Step 7: Implement** in `Handlers.java`
+- [x] **Step 7: Implement** in `Handlers.java`
 
 Replace the existing `Handlers.java` body. Keep `notFoundHandler()` unchanged. Update `defaultExceptionHandler()` to:
 
@@ -2983,11 +2983,11 @@ public final class Handlers {
 
 `ExceptionHandler` interface stays where it is today (`com.retailsvc.http.ExceptionHandler`); no change needed.
 
-- [ ] **Step 8: Verify**
+- [x] **Step 8: Verify**
 
 Run: `mvn -q test -Dtest=HandlersDefaultExceptionTest,ProblemDetailRendererTest` — 5 PASS.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/internal/ProblemDetailRenderer.java \
@@ -3007,7 +3007,7 @@ git commit -m "feat(http): RFC 7807 problem+json renderer + default handler cove
 - Create: `src/main/java/com/retailsvc/http/internal/ExceptionFilter.java`
 - Test: `src/test/java/com/retailsvc/http/internal/ExceptionFilterTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http.internal;
@@ -3044,9 +3044,9 @@ class ExceptionFilterTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```java
 package com.retailsvc.http.internal;
@@ -3077,9 +3077,9 @@ public final class ExceptionFilter extends Filter {
 }
 ```
 
-- [ ] **Step 4: Verify** — 2 PASS.
+- [x] **Step 4: Verify** — 2 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/internal/ExceptionFilter.java \
@@ -3095,7 +3095,7 @@ git commit -m "feat(internal): ExceptionFilter delegates to consumer ExceptionHa
 - Create: `src/main/java/com/retailsvc/http/internal/RequestPreparationFilter.java`
 - Test: `src/test/java/com/retailsvc/http/internal/RequestPreparationFilterTest.java`
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http.internal;
@@ -3218,9 +3218,9 @@ class RequestPreparationFilterTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```java
 package com.retailsvc.http.internal;
@@ -3357,9 +3357,9 @@ public final class RequestPreparationFilter extends Filter {
 }
 ```
 
-- [ ] **Step 4: Verify** — 4 PASS.
+- [x] **Step 4: Verify** — 4 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/internal/RequestPreparationFilter.java \
@@ -3377,7 +3377,7 @@ git commit -m "feat(internal): RequestPreparationFilter combines body capture, r
 - (Old `MissingOperationHandlerException` lives in `com.retailsvc.http.openapi.exceptions`. Move to public package now and adjust import; old file deleted in Phase K.)
 - Modify: `src/main/java/com/retailsvc/http/MissingOperationHandlerException.java` (new — same name as old, public package)
 
-- [ ] **Step 1: Test**
+- [x] **Step 1: Test**
 
 ```java
 package com.retailsvc.http.internal;
@@ -3417,9 +3417,9 @@ class DispatchHandlerTest {
 }
 ```
 
-- [ ] **Step 2: Run — fails**
+- [x] **Step 2: Run — fails**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `MissingOperationHandlerException.java`:
 
@@ -3462,9 +3462,9 @@ public final class DispatchHandler implements HttpHandler {
 }
 ```
 
-- [ ] **Step 4: Verify** — 2 PASS.
+- [x] **Step 4: Verify** — 2 PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/MissingOperationHandlerException.java \
@@ -3485,13 +3485,13 @@ git commit -m "feat(internal): DispatchHandler dispatches to registered HttpHand
 
 The existing `OpenApiServer` references `com.retailsvc.http.openapi.model.OpenApi` and `com.retailsvc.http.openapi.model.JsonMapper`. We rewrite the file in place to use the new types.
 
-- [ ] **Step 1: Read existing tests to see what's being asserted**
+- [x] **Step 1: Read existing tests to see what's being asserted**
 
 Run: `grep -l "new OpenApiServer" src/test`
 
 Existing tests construct `OpenApiServer` with the old types. They will be migrated in Task I2; for this task we only need the production class to compile and be correct.
 
-- [ ] **Step 2: Rewrite the class**
+- [x] **Step 2: Rewrite the class**
 
 Replace the contents of `src/main/java/com/retailsvc/http/OpenApiServer.java`:
 
@@ -3578,9 +3578,9 @@ public class OpenApiServer implements AutoCloseable {
 }
 ```
 
-- [ ] **Step 3: Existing tests will fail to compile** — that's expected. Don't `mvn test` here yet; proceed to I2.
+- [x] **Step 3: Existing tests will fail to compile** — that's expected. Don't `mvn test` here yet; proceed to I2.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/OpenApiServer.java
@@ -3600,7 +3600,7 @@ git commit -m "refactor(http): rewrite OpenApiServer against new Spec/Validator/
 
 This task covers wiring all existing test code to the new API. The migration recipe is identical for each file.
 
-- [ ] **Step 1: Migrate `ServerLauncher.java`** (the example)
+- [x] **Step 1: Migrate `ServerLauncher.java`** (the example)
 
 Old code calls `parseSpecification("openapi.json", s -> gson.fromJson(s, OpenApi.class))` etc. Replace with:
 
@@ -3645,7 +3645,7 @@ public class ServerLauncher {
 }
 ```
 
-- [ ] **Step 2: Migrate `*Handler` test classes**
+- [x] **Step 2: Migrate `*Handler` test classes**
 
 Any handler that uses `getRequestBody(exchange)` from `GetRequestBody` should call `Request.bytes(exchange)` or `Request.parsed(exchange)` instead. Remove `implements GetRequestBody`.
 
@@ -3665,11 +3665,11 @@ public class EchoHandler implements HttpHandler {  // remove GetRequestBody
 }
 ```
 
-- [ ] **Step 3: Migrate `ServerBaseTest.java`**
+- [x] **Step 3: Migrate `ServerBaseTest.java`**
 
 Replace its `OpenApiServer` setup helper to construct via the new API exactly as in `ServerLauncher`. All subclasses (`OpenApiServerTest`, `OpenApiServerIT`) inherit.
 
-- [ ] **Step 4: Migrate test assertions for the new error format**
+- [x] **Step 4: Migrate test assertions for the new error format**
 
 The existing `OpenApiServerIT` likely asserts `400` with empty body for invalid input. Update to assert:
 - Status 400
@@ -3678,14 +3678,14 @@ The existing `OpenApiServerIT` likely asserts `400` with empty body for invalid 
 
 Where the test asserts `404`/`500` for unknown operation, change to assert `404` (now from `NotFoundException`).
 
-- [ ] **Step 5: Run full suite**
+- [x] **Step 5: Run full suite**
 
 Run: `mvn -q test`
 Expected: all green. If a test depends on `BodyHandler.RequestBodyWrapper` directly, swap to `Request.bytes(exchange)`.
 
 If anything fails because `OpenApiValidationFilter` test assertions don't apply anymore, those tests get deleted in Phase K — for now, mark them `@Disabled("removed in Phase K")` to keep the suite green.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/test/java/com/retailsvc/http/
@@ -3699,14 +3699,14 @@ git commit -m "refactor(test): migrate test launcher, handlers, and integration 
 **Files:**
 - Modify: `src/test/java/com/retailsvc/http/OpenApiServerIT.java` (already touched in I2; this task validates the spec fixture round-trips)
 
-- [ ] **Step 1: Run integration tests**
+- [x] **Step 1: Run integration tests**
 
 Run: `mvn -q verify`
 Expected: BUILD SUCCESS, all surefire + failsafe tests green.
 
 If the fixture exercises features not yet implemented (path matching, query params, body parsing) ensure they all pass with the new validator. If any specific case fails because the new validator is stricter than the old (e.g., an invalid spec that the old code accepted), fix the fixture and document it in the commit message.
 
-- [ ] **Step 2: Commit any fixture adjustments**
+- [x] **Step 2: Commit any fixture adjustments**
 
 ```bash
 git add src/test/resources/
@@ -3724,11 +3724,11 @@ git commit -m "test: align fixture with stricter new validator"
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Update Prerequisites**
+- [x] **Step 1: Update Prerequisites**
 
 Replace "Java SDK 21 or later" with "Java SDK 25 or later".
 
-- [ ] **Step 2: Replace the Basic Usage code blocks**
+- [x] **Step 2: Replace the Basic Usage code blocks**
 
 Replace the code that shows `parseSpecification(...)` and the verbose `JsonMapper` anonymous class with the new pattern:
 
@@ -3757,11 +3757,11 @@ public class YourServerLauncher {
 ```
 ````
 
-- [ ] **Step 3: Update Handler example**
+- [x] **Step 3: Update Handler example**
 
 Replace `implements HttpHandler, GetRequestBody` with `implements HttpHandler` and use `Request.bytes(exchange)` / `Request.parsed(exchange)` to access body data.
 
-- [ ] **Step 4: Add a "YAML" subsection**
+- [x] **Step 4: Add a "YAML" subsection**
 
 ```markdown
 ### YAML specifications
@@ -3772,7 +3772,7 @@ Map<String, Object> raw = new Yaml().load(Files.newInputStream(Path.of("openapi.
 The rest is identical.
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md
@@ -3786,18 +3786,18 @@ git commit -m "docs: update README for Java 25 and post-refactor public API"
 **Files:**
 - Modify: `CLAUDE.md`
 
-- [ ] **Step 1: Replace "Java 21" with "Java 25" in the Project paragraph**
+- [x] **Step 1: Replace "Java 21" with "Java 25" in the Project paragraph**
 
-- [ ] **Step 2: Replace the Architecture section**
+- [x] **Step 2: Replace the Architecture section**
 
 Replace the description of the request flow with the new pipeline (`ExceptionFilter` → `RequestPreparationFilter` → `DispatchHandler`). Replace the "Key abstractions" bullets with: sealed `Schema`, `Spec.from(Map<String,Object>)`, `Request` static helper, `DefaultValidator` with pattern-match dispatch, `Router` with exact + templated indexes.
 
-- [ ] **Step 3: Verify no stale references**
+- [x] **Step 3: Verify no stale references**
 
 Run: `grep -n "Java 21\|java-21\|release>21<\|version 21\|BodyHandler\|OpenApiValidationFilter\|GetRequestBody\|SpecificationLoader\|RequestDispatchingHandler\|ExceptionHandlingFilter\|com.retailsvc.http.openapi" CLAUDE.md README.md`
 Expected: no output (or only legitimate historical references — fix them).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add CLAUDE.md
@@ -3816,7 +3816,7 @@ git commit -m "docs(claude): refresh architecture section for refactor"
 - Delete: `src/main/java/com/retailsvc/http/ExceptionHandlingFilter.java`
 - Delete: any test files under `src/test/java/com/retailsvc/http/openapi/` that test the deleted code
 
-- [ ] **Step 1: Delete files**
+- [x] **Step 1: Delete files**
 
 ```bash
 git rm -r src/main/java/com/retailsvc/http/openapi/
@@ -3825,19 +3825,19 @@ git rm src/main/java/com/retailsvc/http/ExceptionHandlingFilter.java
 git rm -r src/test/java/com/retailsvc/http/openapi/
 ```
 
-- [ ] **Step 2: Find leftover references**
+- [x] **Step 2: Find leftover references**
 
 ```bash
 grep -rn "com.retailsvc.http.openapi\|BodyHandler\|ExceptionHandlingFilter\|GetRequestBody\|RequestDispatchingHandler\|OpenApiValidationFilter\|SpecificationLoader" src/
 ```
 Expected: no matches. Fix any that remain.
 
-- [ ] **Step 3: Run full suite**
+- [x] **Step 3: Run full suite**
 
 Run: `mvn -q verify`
 Expected: BUILD SUCCESS, all green.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -3853,26 +3853,26 @@ git commit -m "refactor: delete legacy openapi.* packages and old filter/wrapper
 **Files:**
 - (read-only verification)
 
-- [ ] **Step 1: Java version sweep**
+- [x] **Step 1: Java version sweep**
 
 ```bash
 grep -rn "Java 21\|java-21\|release>21<" --include="*.md" --include="*.java" --include="*.xml" --include="*.yaml" --include="*.yml" --include="Dockerfile" .
 ```
 Expected: no results (or only inside the spec doc historical context, which is fine).
 
-- [ ] **Step 2: Old API symbol sweep**
+- [x] **Step 2: Old API symbol sweep**
 
 ```bash
 grep -rn "OpenApi\.parse\|JsonMapper.*<.*>\|getRequestBody(exchange)\|BodyHandler\b\|operation-id" src/main/java
 ```
 Expected: no results in `src/main/java`.
 
-- [ ] **Step 3: Coverage**
+- [x] **Step 3: Coverage**
 
 Run: `mvn -q verify`
 Open `target/site/jacoco/index.html` and confirm `com.retailsvc.http.validate`, `com.retailsvc.http.spec`, `com.retailsvc.http.spec.schema`, and `com.retailsvc.http.internal` are at or above 80% line coverage.
 
-- [ ] **Step 4: Hand-test the example**
+- [x] **Step 4: Hand-test the example**
 
 Run: `mvn test-compile exec:java -Dexec.mainClass=com.retailsvc.http.start.ServerLauncher -Dexec.classpathScope=test`
 
@@ -3887,7 +3887,7 @@ curl -i -X POST http://localhost:8080/api/post-data -H 'content-type: applicatio
 
 Stop the server with Ctrl-C.
 
-- [ ] **Step 5: Push the branch (if user requests)**
+- [x] **Step 5: Push the branch (if user requests)**
 
 ```bash
 git push -u origin refactor/openapi-3.1-readiness
@@ -3901,14 +3901,14 @@ git push -u origin refactor/openapi-3.1-readiness
 
 Before declaring the refactor done, walk through these:
 
-- [ ] All 122 original tests have been migrated or deleted, with corresponding new coverage
-- [ ] `mvn -q verify` is green
-- [ ] No file under `src/main/java/com/retailsvc/http/openapi/` exists
-- [ ] `BodyHandler`, `ExceptionHandlingFilter`, `GetRequestBody`, `RequestDispatchingHandler`, `OpenApiValidationFilter`, `SpecificationLoader`, `OpenApi`, `Components`, `OpenApiConstants`, `PathItem`, the per-kind validator classes, and the seven old exception classes from `openapi.exceptions` are all gone
-- [ ] `Schema.minimum` / `maximum` defaulting to `Double.MIN_VALUE` / `Double.MAX_VALUE` (the bug) is gone — new model uses `null` for "unspecified"
-- [ ] Combinator records exist; `DefaultValidator` throws `UnsupportedOperationException` on them; parser produces them
-- [ ] `Spec.from(Map<String,Object>)` is the single entry point; no `Function<String, OpenApi>` or `Function<Object, String> toJson` callbacks remain
-- [ ] `JsonMapper` is `@FunctionalInterface` with `Object mapFrom(byte[])`
-- [ ] Default 400 response is `application/problem+json`
-- [ ] `Dockerfile`, `.java-version`, `pom.xml`, `README.md`, `CLAUDE.md` all reference Java 25
-- [ ] None of the in-scope "free" 3.1 keywords are missing: `minLength`, `maxLength`, `minItems`, `maxItems`, `uniqueItems`, `multipleOf`, `exclusiveMinimum`, `exclusiveMaximum`, `type:["string","null"]`
+- [x] All 122 original tests have been migrated or deleted, with corresponding new coverage
+- [x] `mvn -q verify` is green
+- [x] No file under `src/main/java/com/retailsvc/http/openapi/` exists
+- [x] `BodyHandler`, `ExceptionHandlingFilter`, `GetRequestBody`, `RequestDispatchingHandler`, `OpenApiValidationFilter`, `SpecificationLoader`, `OpenApi`, `Components`, `OpenApiConstants`, `PathItem`, the per-kind validator classes, and the seven old exception classes from `openapi.exceptions` are all gone
+- [x] `Schema.minimum` / `maximum` defaulting to `Double.MIN_VALUE` / `Double.MAX_VALUE` (the bug) is gone — new model uses `null` for "unspecified"
+- [x] Combinator records exist; `DefaultValidator` throws `UnsupportedOperationException` on them; parser produces them
+- [x] `Spec.from(Map<String,Object>)` is the single entry point; no `Function<String, OpenApi>` or `Function<Object, String> toJson` callbacks remain
+- [x] `JsonMapper` is `@FunctionalInterface` with `Object mapFrom(byte[])`
+- [x] Default 400 response is `application/problem+json`
+- [x] `Dockerfile`, `.java-version`, `pom.xml`, `README.md`, `CLAUDE.md` all reference Java 25
+- [x] None of the in-scope "free" 3.1 keywords are missing: `minLength`, `maxLength`, `minItems`, `maxItems`, `uniqueItems`, `multipleOf`, `exclusiveMinimum`, `exclusiveMaximum`, `type:["string","null"]`
