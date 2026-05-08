@@ -102,7 +102,7 @@ public final class RequestPreparationFilter extends Filter {
       HttpExchange exchange, Operation op, Map<String, String> pathParams) {
     Map<String, String> query = null;
     for (Parameter p : op.parameters()) {
-      String pointer = "/" + p.in().name().toLowerCase(Locale.ROOT) + "/" + p.name();
+      String pointer = p.pointer();
       if (p.in() == Parameter.Location.QUERY && query == null) {
         query = parseQuery(exchange.getRequestURI().getQuery());
       }
