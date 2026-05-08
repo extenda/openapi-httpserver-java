@@ -1,22 +1,19 @@
 package com.retailsvc.http.start;
 
-import static com.retailsvc.http.openapi.SpecificationLoader.parseSpecification;
-
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.retailsvc.http.ExceptionHandler;
 import com.retailsvc.http.Handlers;
+import com.retailsvc.http.JsonMapper;
 import com.retailsvc.http.OpenApiServer;
-import com.retailsvc.http.openapi.model.JsonMapper;
-import com.retailsvc.http.openapi.model.OpenApi;
+import com.retailsvc.http.spec.Spec;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
 
 public class ServerLauncher {
 
@@ -29,12 +26,13 @@ public class ServerLauncher {
   public ServerLauncher() throws IOException {
     long t0 = System.currentTimeMillis();
 
-    final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    final Gson gson = new Gson();
 
-    Function<String, OpenApi> jsonToSpec = contents -> gson.fromJson(contents, OpenApi.class);
-    Function<Object, String> toJson = gson::toJson;
-
-    var specification = parseSpecification("openapi.yaml", jsonToSpec, toJson);
+    Map<String, Object> raw;
+    try (InputStream in = ServerLauncher.class.getResourceAsStream("/openapi.yaml")) {
+      raw = new Yaml().load(in);
+    }
+    Spec spec = Spec.from(raw);
 
     Map<String, HttpHandler> handlers = new HashMap<>();
     handlers.put("get-data", new GetDataHandler());
@@ -44,20 +42,11 @@ public class ServerLauncher {
     handlers.put("path-params", new ParamHandler());
     handlers.put("path-params-multi", new ParamHandler());
 
-    JsonMapper mapper =
-        new JsonMapper() {
-          @Override
-          public <T> T mapFrom(byte[] body) {
-            if (body.length > 0 && body[0] == '[') {
-              return (T) gson.fromJson(new String(body), List.class);
-            }
-            return (T) gson.fromJson(new String(body), Map.class);
-          }
-        };
+    JsonMapper mapper = body -> gson.fromJson(new String(body), Object.class);
 
     ExceptionHandler exceptionHandler = Handlers.defaultExceptionHandler();
 
-    new OpenApiServer(specification, mapper, handlers, exceptionHandler);
+    new OpenApiServer(spec, mapper, handlers, exceptionHandler);
     LOG.info("Application started in {}ms", System.currentTimeMillis() - t0);
   }
 }

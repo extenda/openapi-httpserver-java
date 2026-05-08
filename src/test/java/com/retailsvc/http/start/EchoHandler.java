@@ -1,6 +1,6 @@
 package com.retailsvc.http.start;
 
-import com.retailsvc.http.openapi.model.GetRequestBody;
+import com.retailsvc.http.Request;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
@@ -9,13 +9,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Echoes back the request body as a response body */
-public class EchoHandler implements HttpHandler, GetRequestBody {
+public class EchoHandler implements HttpHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   @Override
   public void handle(HttpExchange exchange) throws IOException {
-    byte[] bytes = getRequestBody(exchange);
+    byte[] bytes = Request.bytes(exchange);
 
     if (bytes.length == 0) {
       LOG.debug("No bytes available to read from the request body");
