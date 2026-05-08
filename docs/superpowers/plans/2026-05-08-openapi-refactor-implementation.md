@@ -12,6 +12,10 @@
 
 All concrete record/interface shapes live in the design doc at `docs/superpowers/specs/2026-05-07-openapi-refactor-design.md` sections "Schema model", "Spec model", "Validation", "Default error rendering", "Server wiring & body capture", "Public API surface". Each task below references the relevant section by name.
 
+## Coding conventions
+
+**Always use explicit imports — never fully-qualified names in code bodies.** Every Java sample in this plan must declare the types it uses at the top of the file via `import` statements (or `import static` for static helpers), and reference them by simple name in the body. If a type is used once, it still gets an import. The Google Java Formatter (run by pre-commit) re-orders imports automatically; just write them.
+
 ## Branch + commit hygiene
 
 - Branch is `refactor/openapi-3.1-readiness`, already created off latest master.
@@ -84,6 +88,8 @@ These tasks build the new `com.retailsvc.http.spec.schema` package alongside the
 package com.retailsvc.http.spec.schema;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.junit.jupiter.api.Test;
 
 class TypeNameTest {
@@ -100,8 +106,7 @@ class TypeNameTest {
 
   @Test
   void unknownTypeNameThrows() {
-    org.junit.jupiter.api.Assertions.assertThrows(
-        IllegalArgumentException.class, () -> TypeName.fromJsonSchema("widget"));
+    assertThrows(IllegalArgumentException.class, () -> TypeName.fromJsonSchema("widget"));
   }
 }
 ```
@@ -161,6 +166,8 @@ git commit -m "feat(schema): add TypeName enum"
 package com.retailsvc.http.spec.schema;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class AdditionalPropertiesTest {
@@ -178,7 +185,7 @@ class AdditionalPropertiesTest {
 
   @Test
   void schemaConstraintCarriesSchema() {
-    Schema inner = new BooleanSchema(java.util.Set.of(TypeName.BOOLEAN));
+    Schema inner = new BooleanSchema(Set.of(TypeName.BOOLEAN));
     AdditionalProperties ap = new AdditionalProperties.SchemaConstraint(inner);
     assertThat(((AdditionalProperties.SchemaConstraint) ap).schema()).isSameAs(inner);
   }
@@ -934,6 +941,12 @@ Expected: 4 new tests fail with `UnsupportedOperationException`.
 
 - [ ] **Step 3: Implement**
 
+Add the import to `SchemaParser`:
+
+```java
+import java.util.LinkedHashMap;
+```
+
 In `SchemaParser`, replace the `OBJECT, ARRAY -> throw ...` branch:
 
 ```java
@@ -947,7 +960,7 @@ Add private methods:
   @SuppressWarnings("unchecked")
   private static ObjectSchema parseObject(Map<String, Object> raw, Set<TypeName> types) {
     Map<String, Object> rawProps = (Map<String, Object>) raw.getOrDefault("properties", Map.of());
-    Map<String, Schema> properties = new java.util.LinkedHashMap<>();
+    Map<String, Schema> properties = new LinkedHashMap<>();
     for (var e : rawProps.entrySet()) {
       properties.put(e.getKey(), parse((Map<String, Object>) e.getValue()));
     }
@@ -955,8 +968,8 @@ Add private methods:
     AdditionalProperties ap = parseAdditionalProperties(raw.get("additionalProperties"));
     return new ObjectSchema(
         types,
-        java.util.Map.copyOf(properties),
-        java.util.List.copyOf(required),
+        Map.copyOf(properties),
+        List.copyOf(required),
         ap,
         toIntOrNull(raw.get("minProperties")),
         toIntOrNull(raw.get("maxProperties")));
@@ -1062,7 +1075,7 @@ Insert these checks just after the `$ref` check, in this order:
     if (raw.containsKey("not"))   return new NotSchema(parse((Map<String, Object>) raw.get("not")));
     if (raw.containsKey("const")) return new ConstSchema(raw.get("const"));
     if (raw.containsKey("enum") && !raw.containsKey("type")) {
-      return new EnumSchema(java.util.List.copyOf((List<Object>) raw.get("enum")));
+      return new EnumSchema(List.copyOf((List<Object>) raw.get("enum")));
     }
 ```
 
@@ -1074,7 +1087,7 @@ Helper:
     List<Map<String, Object>> raws = (List<Map<String, Object>>) raw.get(key);
     List<Schema> out = new ArrayList<>(raws.size());
     for (Map<String, Object> r : raws) out.add(parse(r));
-    return java.util.List.copyOf(out);
+    return List.copyOf(out);
   }
 ```
 
@@ -1211,6 +1224,7 @@ class PathTemplateTest {
 ```java
 package com.retailsvc.http.spec;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -1224,7 +1238,7 @@ public record PathTemplate(String raw, Pattern compiled, List<String> parameterN
 
   public static PathTemplate compile(String template) {
     StringBuilder regex = new StringBuilder("^");
-    java.util.List<String> names = new java.util.ArrayList<>();
+    List<String> names = new ArrayList<>();
     Matcher m = TOKEN.matcher(template);
     int last = 0;
     while (m.find()) {
@@ -1475,9 +1489,9 @@ git commit -m "feat(spec): add Operation record"
 package com.retailsvc.http.spec;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
 import com.google.gson.Gson;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import com.retailsvc.http.spec.schema.ObjectSchema;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -1533,8 +1547,7 @@ class SpecTest {
         "components", Map.of(
             "schemas", Map.of("User", Map.of("type", "object"))));
     Spec spec = Spec.from(raw);
-    assertThat(spec.resolveSchema("#/components/schemas/User"))
-        .isInstanceOf(com.retailsvc.http.spec.schema.ObjectSchema.class);
+    assertThat(spec.resolveSchema("#/components/schemas/User")).isInstanceOf(ObjectSchema.class);
   }
 
   @Test
@@ -1557,8 +1570,10 @@ package com.retailsvc.http.spec;
 import com.retailsvc.http.spec.schema.Schema;
 import com.retailsvc.http.spec.schema.SchemaParser;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -1644,19 +1659,19 @@ public record Spec(
   private static Parameter parseParameter(Map<String, Object> raw) {
     return new Parameter(
         (String) raw.get("name"),
-        Parameter.Location.valueOf(((String) raw.get("in")).toUpperCase(java.util.Locale.ROOT)),
+        Parameter.Location.valueOf(((String) raw.get("in")).toUpperCase(Locale.ROOT)),
         Boolean.TRUE.equals(raw.get("required")),
         SchemaParser.parse((Map<String, Object>) raw.getOrDefault("schema", Map.of("type", "string"))));
   }
 
   @SuppressWarnings("unchecked")
   private static List<Operation> parseOperations(Map<String, Object> rawPaths) {
-    List<Operation> out = new java.util.ArrayList<>();
+    List<Operation> out = new ArrayList<>();
     for (var pathEntry : rawPaths.entrySet()) {
       PathTemplate template = PathTemplate.compile(pathEntry.getKey());
       Map<String, Object> pathItem = (Map<String, Object>) pathEntry.getValue();
       for (HttpMethod m : HttpMethod.values()) {
-        Object opRaw = pathItem.get(m.name().toLowerCase(java.util.Locale.ROOT));
+        Object opRaw = pathItem.get(m.name().toLowerCase(Locale.ROOT));
         if (opRaw instanceof Map<?, ?> opMap) {
           out.add(parseOperation(m, template, (Map<String, Object>) opMap));
         }
@@ -1825,8 +1840,12 @@ package com.retailsvc.http.validate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.retailsvc.http.ValidationException;
-import com.retailsvc.http.spec.schema.*;
+import com.retailsvc.http.spec.schema.BooleanSchema;
+import com.retailsvc.http.spec.schema.NullSchema;
+import com.retailsvc.http.spec.schema.OneOfSchema;
+import com.retailsvc.http.spec.schema.TypeName;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -1874,8 +1893,34 @@ class DefaultValidatorDispatchTest {
 package com.retailsvc.http.validate;
 
 import com.retailsvc.http.ValidationException;
-import com.retailsvc.http.spec.schema.*;
+import com.retailsvc.http.spec.schema.AdditionalProperties;
+import com.retailsvc.http.spec.schema.AllOfSchema;
+import com.retailsvc.http.spec.schema.AnyOfSchema;
+import com.retailsvc.http.spec.schema.ArraySchema;
+import com.retailsvc.http.spec.schema.BooleanSchema;
+import com.retailsvc.http.spec.schema.ConstSchema;
+import com.retailsvc.http.spec.schema.EnumSchema;
+import com.retailsvc.http.spec.schema.IntegerSchema;
+import com.retailsvc.http.spec.schema.NotSchema;
+import com.retailsvc.http.spec.schema.NullSchema;
+import com.retailsvc.http.spec.schema.NumberSchema;
+import com.retailsvc.http.spec.schema.ObjectSchema;
+import com.retailsvc.http.spec.schema.OneOfSchema;
+import com.retailsvc.http.spec.schema.RefSchema;
+import com.retailsvc.http.spec.schema.Schema;
+import com.retailsvc.http.spec.schema.StringSchema;
+import com.retailsvc.http.spec.schema.TypeName;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 public final class DefaultValidator implements Validator {
   private final Function<String, Schema> refResolver;
@@ -1898,7 +1943,7 @@ public final class DefaultValidator implements Validator {
       case ObjectSchema o    -> validateObject(value, o, pointer);
       case ArraySchema a     -> validateArray(value, a, pointer);
       case EnumSchema e      -> require(e.values().contains(value), pointer, "enum", "value not in enum");
-      case ConstSchema c     -> require(java.util.Objects.equals(c.value(), value), pointer, "const", "value does not equal const");
+      case ConstSchema c     -> require(Objects.equals(c.value(), value), pointer, "const", "value does not equal const");
       case OneOfSchema o     -> throw new UnsupportedOperationException("oneOf not yet supported");
       case AnyOfSchema a     -> throw new UnsupportedOperationException("anyOf not yet supported");
       case AllOfSchema a     -> throw new UnsupportedOperationException("allOf not yet supported");
@@ -1965,10 +2010,16 @@ package com.retailsvc.http.validate;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.retailsvc.http.ValidationException;
-import com.retailsvc.http.spec.schema.*;
+import com.retailsvc.http.spec.schema.BooleanSchema;
+import com.retailsvc.http.spec.schema.IntegerSchema;
+import com.retailsvc.http.spec.schema.NumberSchema;
+import com.retailsvc.http.spec.schema.StringSchema;
+import com.retailsvc.http.spec.schema.TypeName;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class StringIntegerNumberTest {
@@ -2009,7 +2060,7 @@ class StringIntegerNumberTest {
   @Test
   void stringFormatUuid() {
     StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "uuid", null);
-    assertThatCode(() -> v.validate(java.util.UUID.randomUUID().toString(), s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(UUID.randomUUID().toString(), s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate("not-a-uuid", s, "/v"))
         .extracting(t -> ((ValidationException) t).error().keyword()).isEqualTo("format");
   }
@@ -2070,7 +2121,7 @@ class StringIntegerNumberTest {
       fail(pointer, "minLength", "string shorter than " + s.minLength(), str);
     if (s.maxLength() != null && str.length() > s.maxLength())
       fail(pointer, "maxLength", "string longer than " + s.maxLength(), str);
-    if (s.pattern() != null && !java.util.regex.Pattern.compile(s.pattern()).matcher(str).matches())
+    if (s.pattern() != null && !Pattern.compile(s.pattern()).matcher(str).matches())
       fail(pointer, "pattern", "does not match pattern " + s.pattern(), str);
     if (s.enumValues() != null && !s.enumValues().contains(str))
       fail(pointer, "enum", "value not in enum", str);
@@ -2080,15 +2131,15 @@ class StringIntegerNumberTest {
   private void validateStringFormat(String str, String format, String pointer) {
     switch (format) {
       case "uuid" -> {
-        try { java.util.UUID.fromString(str); }
+        try { UUID.fromString(str); }
         catch (IllegalArgumentException e) { fail(pointer, "format", "not a valid uuid", str); }
       }
       case "date" -> {
-        try { java.time.LocalDate.parse(str); }
+        try { LocalDate.parse(str); }
         catch (Exception e) { fail(pointer, "format", "not a valid date", str); }
       }
       case "date-time" -> {
-        try { java.time.OffsetDateTime.parse(str); }
+        try { OffsetDateTime.parse(str); }
         catch (Exception e) { fail(pointer, "format", "not a valid date-time", str); }
       }
       default -> { /* unknown format ignored */ }
@@ -2171,8 +2222,13 @@ package com.retailsvc.http.validate;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.retailsvc.http.ValidationException;
-import com.retailsvc.http.spec.schema.*;
+import com.retailsvc.http.spec.schema.AdditionalProperties;
+import com.retailsvc.http.spec.schema.ObjectSchema;
+import com.retailsvc.http.spec.schema.Schema;
+import com.retailsvc.http.spec.schema.StringSchema;
+import com.retailsvc.http.spec.schema.TypeName;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -2288,8 +2344,13 @@ package com.retailsvc.http.validate;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.retailsvc.http.ValidationException;
-import com.retailsvc.http.spec.schema.*;
+import com.retailsvc.http.spec.schema.ArraySchema;
+import com.retailsvc.http.spec.schema.BooleanSchema;
+import com.retailsvc.http.spec.schema.IntegerSchema;
+import com.retailsvc.http.spec.schema.Schema;
+import com.retailsvc.http.spec.schema.TypeName;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -2349,7 +2410,7 @@ class ArrayValidationTest {
   private void validateArray(Object value, ArraySchema s, String pointer) {
     require(value instanceof Iterable, pointer, "type", "expected array");
     Iterable<?> it = (Iterable<?>) value;
-    java.util.List<Object> elements = new java.util.ArrayList<>();
+    List<Object> elements = new ArrayList<>();
     for (Object o : it) elements.add(o);
 
     if (s.minItems() != null && elements.size() < s.minItems())
@@ -2358,7 +2419,7 @@ class ArrayValidationTest {
       fail(pointer, "maxItems", "more than " + s.maxItems() + " items", elements.size());
 
     if (s.uniqueItems()) {
-      java.util.Set<Object> seen = new java.util.HashSet<>();
+      Set<Object> seen = new HashSet<>();
       for (Object e : elements) {
         if (!seen.add(e)) fail(pointer, "uniqueItems", "duplicate item", e);
       }
@@ -2450,9 +2511,9 @@ package com.retailsvc.http.internal;
 
 import com.retailsvc.http.spec.HttpMethod;
 import com.retailsvc.http.spec.Operation;
-import com.retailsvc.http.spec.PathTemplate;
+import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.HashMap;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -2469,7 +2530,7 @@ public final class Router {
   public Router(List<Operation> operations) {
     for (HttpMethod m : HttpMethod.values()) {
       exact.put(m, new LinkedHashMap<>());
-      templated.put(m, new java.util.ArrayList<>());
+      templated.put(m, new ArrayList<>());
     }
     for (Operation op : operations) {
       if (op.path().parameterNames().isEmpty()) {
@@ -2491,7 +2552,7 @@ public final class Router {
   }
 
   public Set<HttpMethod> allowedMethods(String path) {
-    java.util.EnumSet<HttpMethod> out = java.util.EnumSet.noneOf(HttpMethod.class);
+    EnumSet<HttpMethod> out = EnumSet.noneOf(HttpMethod.class);
     for (HttpMethod m : HttpMethod.values()) {
       if (exact.get(m).containsKey(path)) { out.add(m); continue; }
       for (Operation op : templated.get(m)) {
@@ -3041,20 +3102,32 @@ package com.retailsvc.http.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.retailsvc.http.JsonMapper;
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
 import com.retailsvc.http.Request;
 import com.retailsvc.http.ValidationException;
-import com.retailsvc.http.spec.*;
-import com.retailsvc.http.spec.schema.*;
+import com.retailsvc.http.spec.HttpMethod;
+import com.retailsvc.http.spec.Info;
+import com.retailsvc.http.spec.Operation;
+import com.retailsvc.http.spec.Parameter;
+import com.retailsvc.http.spec.PathTemplate;
+import com.retailsvc.http.spec.Server;
+import com.retailsvc.http.spec.Spec;
+import com.retailsvc.http.spec.schema.StringSchema;
+import com.retailsvc.http.spec.schema.TypeName;
 import com.retailsvc.http.validate.DefaultValidator;
 import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayInputStream;
 import java.net.URI;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -3152,22 +3225,30 @@ class RequestPreparationFilterTest {
 ```java
 package com.retailsvc.http.internal;
 
-import static com.retailsvc.http.Request.*;
+import static com.retailsvc.http.Request.BODY;
+import static com.retailsvc.http.Request.OPERATION_ID;
+import static com.retailsvc.http.Request.PARSED_BODY;
+import static com.retailsvc.http.Request.PATH_PARAMETERS;
 
 import com.retailsvc.http.JsonMapper;
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
+import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.HttpMethod;
 import com.retailsvc.http.spec.MediaType;
 import com.retailsvc.http.spec.Operation;
 import com.retailsvc.http.spec.Parameter;
 import com.retailsvc.http.spec.RequestBody;
 import com.retailsvc.http.spec.Spec;
+import com.retailsvc.http.validate.ValidationError;
 import com.retailsvc.http.validate.Validator;
 import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 public final class RequestPreparationFilter extends Filter {
 
@@ -3230,9 +3311,9 @@ public final class RequestPreparationFilter extends Filter {
       };
       if (value == null) {
         if (p.required()) {
-          throw new com.retailsvc.http.ValidationException(
-              new com.retailsvc.http.validate.ValidationError(pointer, "required",
-                  "required " + p.in().name().toLowerCase(Locale.ROOT) + " parameter is missing", null));
+          throw new ValidationException(new ValidationError(
+              pointer, "required",
+              "required " + p.in().name().toLowerCase(Locale.ROOT) + " parameter is missing", null));
         }
         continue;
       }
@@ -3245,9 +3326,8 @@ public final class RequestPreparationFilter extends Filter {
     if (rb.isEmpty()) return;
     if (body.length == 0) {
       if (rb.get().required()) {
-        throw new com.retailsvc.http.ValidationException(
-            new com.retailsvc.http.validate.ValidationError("/body", "required",
-                "request body is required", null));
+        throw new ValidationException(new ValidationError(
+            "/body", "required", "request body is required", null));
       }
       return;
     }
@@ -3256,9 +3336,8 @@ public final class RequestPreparationFilter extends Filter {
     contentType = contentType.split(";", 2)[0].trim();
     MediaType mt = rb.get().content().get(contentType);
     if (mt == null) {
-      throw new com.retailsvc.http.ValidationException(
-          new com.retailsvc.http.validate.ValidationError("/body", "content-type",
-              "unsupported content type: " + contentType, null));
+      throw new ValidationException(new ValidationError(
+          "/body", "content-type", "unsupported content type: " + contentType, null));
     }
     Object parsed = jsonMapper.mapFrom(body);
     exchange.setAttribute(PARSED_BODY, parsed);
