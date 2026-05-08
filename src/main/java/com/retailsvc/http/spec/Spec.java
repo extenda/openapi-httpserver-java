@@ -57,7 +57,7 @@ public record Spec(
   }
 
   private static <T> Map<String, T> indexByRef(Map<String, T> components, String prefix) {
-    Map<String, T> out = new LinkedHashMap<>(components.size());
+    Map<String, T> out = LinkedHashMap.newLinkedHashMap(components.size());
     for (var e : components.entrySet()) {
       out.put(prefix + e.getKey(), e.getValue());
     }
@@ -175,7 +175,7 @@ public record Spec(
       Map<String, Object> raw, Map<String, Parameter> componentParameters) {
     String ref = (String) raw.get("$ref");
     if (ref != null) {
-      String name = stripPrefix(ref, "#/components/parameters/");
+      String name = stripPrefix(ref, PARAMETER_REF_PREFIX);
       Parameter p = componentParameters.get(name);
       if (p == null) {
         throw new IllegalArgumentException("unknown parameter ref: " + ref);
