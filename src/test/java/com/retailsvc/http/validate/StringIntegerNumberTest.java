@@ -1,0 +1,119 @@
+package com.retailsvc.http.validate;
+
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.retailsvc.http.ValidationException;
+import com.retailsvc.http.spec.schema.IntegerSchema;
+import com.retailsvc.http.spec.schema.NumberSchema;
+import com.retailsvc.http.spec.schema.StringSchema;
+import com.retailsvc.http.spec.schema.TypeName;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+
+class StringIntegerNumberTest {
+  private final Validator v =
+      new DefaultValidator(
+          name -> {
+            throw new AssertionError();
+          });
+
+  @Test
+  void stringMinLength() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, 3, null, null, null);
+    assertThatCode(() -> v.validate("abc", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("ab", s, "/v"))
+        .isInstanceOf(ValidationException.class)
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("minLength");
+  }
+
+  @Test
+  void stringMaxLength() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, 5, null, null);
+    assertThatThrownBy(() -> v.validate("abcdef", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("maxLength");
+  }
+
+  @Test
+  void stringPattern() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), "^[a-z]+$", null, null, null, null);
+    assertThatCode(() -> v.validate("abc", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("ABC", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("pattern");
+  }
+
+  @Test
+  void stringEnum() {
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, null, List.of("a", "b"));
+    assertThatCode(() -> v.validate("a", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("c", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("enum");
+  }
+
+  @Test
+  void stringFormatUuid() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "uuid", null);
+    assertThatCode(() -> v.validate(UUID.randomUUID().toString(), s, "/v"))
+        .doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("not-a-uuid", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
+  void integerWithMinMax() {
+    IntegerSchema s =
+        new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 10L, null, null, null, "int32");
+    assertThatCode(() -> v.validate(5, s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate(-1, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("minimum");
+    assertThatThrownBy(() -> v.validate(11, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("maximum");
+  }
+
+  @Test
+  void integerExclusiveBoundsBugFixedFromMaster() {
+    // Master's Schema defaulted minimum to Double.MIN_VALUE (~4.9e-324) and silently rejected
+    // negative numbers. New model uses null = no constraint.
+    IntegerSchema s =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, "int32");
+    assertThatCode(() -> v.validate(-1_000_000, s, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
+  void integerMultipleOf() {
+    IntegerSchema s =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, 5L, "int32");
+    assertThatCode(() -> v.validate(15, s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate(7, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("multipleOf");
+  }
+
+  @Test
+  void numberAcceptsDoublesAndIntegers() {
+    NumberSchema s = new NumberSchema(Set.of(TypeName.NUMBER), 0, 1, null, null, null, "double");
+    assertThatCode(() -> v.validate(0.5, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(1, s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate(2.0, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("maximum");
+  }
+
+  @Test
+  void stringRejectsNonString() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, null, null);
+    assertThatThrownBy(() -> v.validate(42, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("type");
+  }
+}

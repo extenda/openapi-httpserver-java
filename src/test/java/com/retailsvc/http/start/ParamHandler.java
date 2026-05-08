@@ -17,8 +17,9 @@ public class ParamHandler implements HttpHandler {
     LOG.debug("GET /params");
 
     try (exchange) {
-      exchange.getResponseHeaders().add("content-type", "application/json");
-      exchange.sendResponseHeaders(HTTP_OK, 0);
+      // -1 = no response body. Passing 0 would trigger chunked transfer encoding with zero chunks,
+      // which is technically non-conformant for an empty 200.
+      exchange.sendResponseHeaders(HTTP_OK, -1);
     }
   }
 }

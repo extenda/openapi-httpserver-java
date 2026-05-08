@@ -1,20 +1,19 @@
 package com.retailsvc.http;
 
 import static com.retailsvc.http.Handlers.defaultExceptionHandler;
-import static com.retailsvc.http.openapi.SpecificationLoader.parseSpecification;
 import static java.net.http.HttpClient.Version.HTTP_1_1;
 import static java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor;
 import static org.assertj.core.api.Assertions.fail;
 
 import com.google.gson.Gson;
-import com.retailsvc.http.openapi.model.JsonMapper;
-import com.retailsvc.http.openapi.model.OpenApi;
+import com.retailsvc.http.spec.Spec;
 import com.sun.net.httpserver.HttpHandler;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublisher;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,12 +25,19 @@ public abstract class ServerBaseTest {
 
   protected Gson gson = new Gson();
 
-  protected OpenApi specification;
+  protected Spec spec;
   protected OpenApiServer server;
 
   @BeforeEach
   void setUp() {
-    specification = parseSpecification("openapi.json", s -> gson.fromJson(s, OpenApi.class), null);
+    try (InputStream in = ServerBaseTest.class.getResourceAsStream("/openapi.json")) {
+      String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+      @SuppressWarnings("unchecked")
+      Map<String, Object> raw = (Map<String, Object>) gson.fromJson(text, Map.class);
+      spec = Spec.from(raw);
+    } catch (Exception e) {
+      fail(e);
+    }
   }
 
   @AfterEach
@@ -40,21 +46,12 @@ public abstract class ServerBaseTest {
   }
 
   protected JsonMapper jsonMapper() {
-    return new JsonMapper() {
-      @Override
-      public <T> T mapFrom(byte[] body) {
-        if (body.length > 0 && body[0] == '[') {
-          return (T) gson.fromJson(new String(body), List.class);
-        }
-        return (T) gson.fromJson(new String(body), Map.class);
-      }
-    };
+    return body -> gson.fromJson(new String(body), Object.class);
   }
 
   protected OpenApiServer newServer(Map<String, HttpHandler> handlers) {
     try {
-      server =
-          new OpenApiServer(specification, jsonMapper(), handlers, defaultExceptionHandler(), 0);
+      server = new OpenApiServer(spec, jsonMapper(), handlers, defaultExceptionHandler(), 0);
       return server;
     } catch (Exception e) {
       fail(e);

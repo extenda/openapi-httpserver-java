@@ -9,7 +9,8 @@ import java.io.IOException;
  *
  * @author thced
  */
+@FunctionalInterface
 public interface ExceptionHandler {
 
-  void handleException(HttpExchange exchange, Exception e) throws IOException;
+  void handle(HttpExchange exchange, Throwable t) throws IOException;
 }

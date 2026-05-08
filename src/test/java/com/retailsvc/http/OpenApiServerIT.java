@@ -63,10 +63,13 @@ class OpenApiServerIT extends ServerBaseTest {
 
         var response = client.send(request, BodyHandlers.ofString());
         var statusCode = response.statusCode();
+        var contentType = response.headers().firstValue("Content-Type").orElse("");
         var responseBody = response.body();
 
         assertThat(statusCode).isEqualTo(400);
-        assertThat(responseBody).isEmpty();
+        assertThat(contentType).contains("application/problem+json");
+        assertThat(responseBody).contains("keyword");
+        assertThat(responseBody).contains("pointer");
 
       } catch (IOException e) {
         fail(e);
@@ -81,30 +84,32 @@ class OpenApiServerIT extends ServerBaseTest {
       try (var server = newServer(Map.of("post-data", new EchoHandler()));
           var client = httpClient()) {
 
+        // language=JSON
         var body =
             """
-        {
-          "id": "some-id",
-          "age": 42,
-          "random": "d5af5004-8b5a-4db6-838e-38be773eac34",
-          "status": "ERROR",
-          "feelingGood": true,
-          "aList": [ "string", "string" ],
-          "anObject": {
-            "id": "some-id",
-            "age": 42,
-            "longNumber": 900,
-            "nested": {
-              "nestedValue": 43
-            }
-          },
-          "aListOfObjects": [
-            { "value": 42 },
-            { "value": 43 }
-          ],
-          "aDate": "2025-03-02",
-          "aDateTime": "2025-03-02T12:34:56Z"
-        }""";
+            {
+              "id": "some-id",
+              "age": 42,
+              "random": "d5af5004-8b5a-4db6-838e-38be773eac34",
+              "status": "ERROR",
+              "feelingGood": true,
+              "aList": [ "string", "string" ],
+              "anObject": {
+                "id": "some-id",
+                "age": 42,
+                "longNumber": 900,
+                "nested": {
+                  "nestedValue": 43
+                }
+              },
+              "aListOfObjects": [
+                { "value": 42 },
+                { "value": 43 }
+              ],
+              "aDate": "2025-03-02",
+              "aDateTime": "2025-03-02T12:34:56Z"
+            }\
+            """;
         var headers = Map.of("correlation-id", UUID.randomUUID().toString());
         var request = newRequest(server, path, "POST", ofString(body), headers);
 
@@ -130,37 +135,42 @@ class OpenApiServerIT extends ServerBaseTest {
       try (var server = newServer(handlers);
           var client = httpClient()) {
 
+        // language=JSON
         var body =
             """
-        {
-          "id": "some-id",
-          "age": 42,
-          "random": "d5af5004-8b5a-4db6-838e-38be773eac34",
-          "status": "ERROR",
-          "anObject": {
-            "id": "some-id",
-            "age": 42,
-            "longNumber": 900,
-            "nested": {
-              "nestedValue": 43
-            }
-          },
-          "aListOfObjects": [
-            { "value": 42 },
-            { "value": 43 }
-          ],
-          "aDate": "2025-03-02",
-          "aDateTime": "2025-03-02T12:34:56Z"
-        }""";
+            {
+              "id": "some-id",
+              "age": 42,
+              "random": "d5af5004-8b5a-4db6-838e-38be773eac34",
+              "status": "ERROR",
+              "anObject": {
+                "id": "some-id",
+                "age": 42,
+                "longNumber": 900,
+                "nested": {
+                  "nestedValue": 43
+                }
+              },
+              "aListOfObjects": [
+                { "value": 42 },
+                { "value": 43 }
+              ],
+              "aDate": "2025-03-02",
+              "aDateTime": "2025-03-02T12:34:56Z"
+            }\
+            """;
         var headers = Map.of("correlation-id", UUID.randomUUID().toString());
         var request = newRequest(server, path, "POST", ofString(body), headers);
 
         var response = client.send(request, BodyHandlers.ofString());
         var statusCode = response.statusCode();
+        var contentType = response.headers().firstValue("Content-Type").orElse("");
         var responseBody = response.body();
 
         assertThat(statusCode).isEqualTo(400);
-        assertThat(responseBody).isEmpty();
+        assertThat(contentType).contains("application/problem+json");
+        assertThat(responseBody).contains("keyword");
+        assertThat(responseBody).contains("pointer");
 
       } catch (IOException e) {
         fail(e);
@@ -181,13 +191,14 @@ class OpenApiServerIT extends ServerBaseTest {
       try (var server = newServer(Map.of("post-list-objects", new EchoHandler()));
           var client = httpClient()) {
 
+        // language=JSON
         var body =
             """
-        [
-          { "value": 42 },
-          { "value": 43 }
-        ]
-        """;
+            [
+              { "value": 42 },
+              { "value": 43 }
+            ]
+            """;
         var headers = Map.of("correlation-id", UUID.randomUUID().toString());
         var request = newRequest(server, path, "POST", ofString(body), headers);
 
@@ -211,16 +222,20 @@ class OpenApiServerIT extends ServerBaseTest {
       try (var server = newServer(Map.of("post-list-objects", new EchoHandler()));
           var client = httpClient()) {
 
+        // language=JSON
         var body = "{\"value\":42}";
         var headers = Map.of("correlation-id", UUID.randomUUID().toString());
         var request = newRequest(server, path, "POST", ofString(body), headers);
 
         var response = client.send(request, BodyHandlers.ofString());
         var statusCode = response.statusCode();
+        var contentType = response.headers().firstValue("Content-Type").orElse("");
         var responseBody = response.body();
 
         assertThat(statusCode).isEqualTo(400);
-        assertThat(responseBody).isEmpty();
+        assertThat(contentType).contains("application/problem+json");
+        assertThat(responseBody).contains("keyword");
+        assertThat(responseBody).contains("pointer");
 
       } catch (IOException e) {
         fail(e);
@@ -271,10 +286,13 @@ class OpenApiServerIT extends ServerBaseTest {
 
         var response = client.send(request, BodyHandlers.ofString());
         var statusCode = response.statusCode();
+        var contentType = response.headers().firstValue("Content-Type").orElse("");
         var responseBody = response.body();
 
         assertThat(statusCode).isEqualTo(400);
-        assertThat(responseBody).isEmpty();
+        assertThat(contentType).contains("application/problem+json");
+        assertThat(responseBody).contains("keyword");
+        assertThat(responseBody).contains("pointer");
 
       } catch (IOException e) {
         fail(e);
@@ -341,16 +359,19 @@ class OpenApiServerIT extends ServerBaseTest {
       try (var server = newServer(Map.of("path-params-multi", new EchoHandler()));
           var client = httpClient()) {
 
-        // '123' is not in [A-Za-z]
+        // '123' does not match pattern [A-Za-z]+ for Name parameter
         var pathWithParams = path + "/1234567890/123/Case";
         var request = newRequest(server, pathWithParams, "GET", noBody());
 
         var response = client.send(request, BodyHandlers.ofString());
         var statusCode = response.statusCode();
+        var contentType = response.headers().firstValue("Content-Type").orElse("");
         var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(404);
-        assertThat(responseBody).isEmpty();
+        assertThat(statusCode).isEqualTo(400);
+        assertThat(contentType).contains("application/problem+json");
+        assertThat(responseBody).contains("keyword");
+        assertThat(responseBody).contains("pointer");
 
       } catch (IOException e) {
         fail(e);
