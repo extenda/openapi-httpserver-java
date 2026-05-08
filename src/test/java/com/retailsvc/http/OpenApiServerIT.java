@@ -402,4 +402,92 @@ class OpenApiServerIT extends ServerBaseTest {
       }
     }
   }
+
+  @Nested
+  class Shapes {
+
+    String path = "/shapes";
+
+    @Test
+    void postShape_validCircleReturns200() {
+      try (var server =
+              newServer(Map.of("post-shape", new com.retailsvc.http.start.PolymorphicHandler()));
+          var client = httpClient()) {
+        var body = "{\"kind\":\"circle\",\"radius\":2.5}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).contains("\"ok\":true");
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postShape_validSquareReturns200() {
+      try (var server =
+              newServer(Map.of("post-shape", new com.retailsvc.http.start.PolymorphicHandler()));
+          var client = httpClient()) {
+        var body = "{\"kind\":\"square\",\"side\":3}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postShape_unknownKindReturns400() {
+      // matches zero branches: "kind" is neither "circle" nor "square".
+      try (var server =
+              newServer(Map.of("post-shape", new com.retailsvc.http.start.PolymorphicHandler()));
+          var client = httpClient()) {
+        var body = "{\"kind\":\"triangle\",\"side\":3}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.headers().firstValue("Content-Type").orElse(""))
+            .contains("application/problem+json");
+        assertThat(response.body()).contains("oneOf");
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postShape_missingDiscriminatorReturns400() {
+      // omitting "kind" makes both branches fail "required".
+      try (var server =
+              newServer(Map.of("post-shape", new com.retailsvc.http.start.PolymorphicHandler()));
+          var client = httpClient()) {
+        var body = "{\"radius\":2.5}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(400);
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+  }
 }

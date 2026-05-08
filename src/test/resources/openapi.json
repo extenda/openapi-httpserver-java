@@ -170,14 +170,37 @@
         }
       }
     },
-    "/anyOf": {
+    "/shapes": {
       "post": {
-
-      }
-    },
-    "/allOf": {
-      "post": {
-
+        "operationId": "post-shape",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": ["kind", "radius"],
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["circle"] },
+                      "radius": { "type": "number" }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": ["kind", "side"],
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["square"] },
+                      "side": { "type": "number" }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
       }
     }
   },
