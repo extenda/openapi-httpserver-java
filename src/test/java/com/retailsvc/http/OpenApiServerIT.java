@@ -31,7 +31,7 @@ class OpenApiServerIT extends ServerBaseTest {
     String path = "/data";
 
     @Test
-    void getData_shouldReturnJsonBody() {
+    void getDataShouldReturnJsonBody() {
       try (var server = newServer(Map.of("get-data", new GetDataHandler()));
           var client = httpClient()) {
 
@@ -54,7 +54,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void getData_shouldReturnBadRequestOnInvalidXNameHeader() {
+    void getDataShouldReturnBadRequestOnInvalidXNameHeader() {
       try (var server = newServer(Map.of("get-data", new GetDataHandler()));
           var client = httpClient()) {
 
@@ -80,7 +80,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void postData_shouldReturnJsonBody() {
+    void postDataShouldReturnJsonBody() {
       try (var server = newServer(Map.of("post-data", new EchoHandler()));
           var client = httpClient()) {
 
@@ -129,7 +129,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void postData_shouldReturnBadRequestOnMissingRequiredProperties() {
+    void postDataShouldReturnBadRequestOnMissingRequiredProperties() {
       Map<String, HttpHandler> handlers = Map.of("post-data", new EchoHandler());
 
       try (var server = newServer(handlers);
@@ -187,7 +187,7 @@ class OpenApiServerIT extends ServerBaseTest {
     String path = "/list/objects";
 
     @Test
-    void listObjects_shouldReturnJsonBody() {
+    void listObjectsShouldReturnJsonBody() {
       try (var server = newServer(Map.of("post-list-objects", new EchoHandler()));
           var client = httpClient()) {
 
@@ -218,7 +218,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void listObjects_shouldReturnBadRequestOnPassingObjectInsteadOfArray() {
+    void listObjectsShouldReturnBadRequestOnPassingObjectInsteadOfArray() {
       try (var server = newServer(Map.of("post-list-objects", new EchoHandler()));
           var client = httpClient()) {
 
@@ -252,7 +252,7 @@ class OpenApiServerIT extends ServerBaseTest {
     String path = "/params/query";
 
     @Test
-    void getParamsQuery_shouldReturnOkOnValidQueryParams() {
+    void getParamsQueryShouldReturnOkOnValidQueryParams() {
       try (var server = newServer(Map.of("query-params", new EchoHandler()));
           var client = httpClient()) {
 
@@ -276,7 +276,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void paramsQuery_shouldReturnBadRequestOnMissingRequiredQueryParams() {
+    void paramsQueryShouldReturnBadRequestOnMissingRequiredQueryParams() {
       try (var server = newServer(Map.of("query-params", new EchoHandler()));
           var client = httpClient()) {
 
@@ -309,7 +309,7 @@ class OpenApiServerIT extends ServerBaseTest {
     String path = "/params/path";
 
     @Test
-    void getPathParams_shouldReturnOkOnValidPathParam() {
+    void getPathParamsShouldReturnOkOnValidPathParam() {
       try (var server = newServer(Map.of("path-params", new EchoHandler()));
           var client = httpClient()) {
 
@@ -332,7 +332,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void getPathParams_shouldReturnOkOnMultipleValidPathParams() {
+    void getPathParamsShouldReturnOkOnMultipleValidPathParams() {
       try (var server = newServer(Map.of("path-params-multi", new EchoHandler()));
           var client = httpClient()) {
 
@@ -355,7 +355,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void getPathParams_shouldReturnBadRequestOnBadFormatPathParam() {
+    void getPathParamsShouldReturnBadRequestOnBadFormatPathParam() {
       try (var server = newServer(Map.of("path-params-multi", new EchoHandler()));
           var client = httpClient()) {
 
@@ -382,7 +382,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void getPathParams_shouldReturnInternalErrorOnMissingHandler() {
+    void getPathParamsShouldReturnInternalErrorOnMissingHandler() {
       try (var server = newServer(Map.of("not-a-valid-operation-id", new EchoHandler()));
           var client = httpClient()) {
 
