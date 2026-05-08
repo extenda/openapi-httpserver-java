@@ -18,18 +18,35 @@ public final class SchemaParser {
       return new RefSchema((String) raw.get("$ref"));
     }
 
-    if (raw.containsKey("oneOf")) {
-      return new OneOfSchema(parseList(raw, "oneOf"));
+    List<Schema> assertions = new ArrayList<>();
+
+    Schema base = parseBaseIfPresent(raw);
+    if (base != null) {
+      assertions.add(base);
+    }
+
+    if (raw.containsKey("allOf")) {
+      assertions.addAll(parseList(raw, "allOf"));
     }
     if (raw.containsKey("anyOf")) {
-      return new AnyOfSchema(parseList(raw, "anyOf"));
+      assertions.add(new AnyOfSchema(parseList(raw, "anyOf")));
     }
-    if (raw.containsKey("allOf")) {
-      return new AllOfSchema(parseList(raw, "allOf"));
+    if (raw.containsKey("oneOf")) {
+      assertions.add(new OneOfSchema(parseList(raw, "oneOf")));
     }
     if (raw.containsKey("not")) {
-      return new NotSchema(parse((Map<String, Object>) raw.get("not")));
+      assertions.add(new NotSchema(parse((Map<String, Object>) raw.get("not"))));
     }
+
+    return switch (assertions.size()) {
+      case 0 -> permissiveObject();
+      case 1 -> assertions.getFirst();
+      default -> new AllOfSchema(List.copyOf(assertions));
+    };
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Schema parseBaseIfPresent(Map<String, Object> raw) {
     if (raw.containsKey("const")) {
       return new ConstSchema(raw.get("const"));
     }
@@ -38,10 +55,19 @@ public final class SchemaParser {
     }
 
     Set<TypeName> types = parseTypes(raw);
+    if (types.isEmpty() && !hasObjectShapeKeywords(raw) && !hasArrayShapeKeywords(raw)) {
+      return null;
+    }
 
-    // Pick primary (non-null) type for record dispatch.
     TypeName primary =
         types.stream().filter(t -> t != TypeName.NULL).findFirst().orElse(TypeName.NULL);
+
+    if (types.isEmpty() && hasObjectShapeKeywords(raw)) {
+      return parseObject(raw, types);
+    }
+    if (types.isEmpty() && hasArrayShapeKeywords(raw)) {
+      return parseArray(raw, types);
+    }
 
     return switch (primary) {
       case STRING -> parseString(raw, types);
@@ -52,6 +78,26 @@ public final class SchemaParser {
       case OBJECT -> parseObject(raw, types);
       case ARRAY -> parseArray(raw, types);
     };
+  }
+
+  private static boolean hasObjectShapeKeywords(Map<String, Object> raw) {
+    return raw.containsKey("properties")
+        || raw.containsKey("required")
+        || raw.containsKey("additionalProperties")
+        || raw.containsKey("minProperties")
+        || raw.containsKey("maxProperties");
+  }
+
+  private static boolean hasArrayShapeKeywords(Map<String, Object> raw) {
+    return raw.containsKey("items")
+        || raw.containsKey("minItems")
+        || raw.containsKey("maxItems")
+        || raw.containsKey("uniqueItems");
+  }
+
+  private static Schema permissiveObject() {
+    return new ObjectSchema(
+        Set.of(), Map.of(), List.of(), new AdditionalProperties.Allowed(), null, null);
   }
 
   private static Set<TypeName> parseTypes(Map<String, Object> raw) {

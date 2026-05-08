@@ -121,7 +121,15 @@ class SchemaParserTest {
   void parsesAnyOfAllOfNot() {
     assertThat(SchemaParser.parse(Map.of("anyOf", List.of(Map.of("type", "string")))))
         .isInstanceOf(AnyOfSchema.class);
+    // allOf with a single branch flattens to the branch itself (no wrapper AllOfSchema).
     assertThat(SchemaParser.parse(Map.of("allOf", List.of(Map.of("type", "string")))))
+        .isInstanceOf(StringSchema.class);
+    // allOf with multiple branches flattens into AllOfSchema.
+    assertThat(
+            SchemaParser.parse(
+                Map.of(
+                    "allOf",
+                    List.of(Map.of("type", "string"), Map.of("type", "string", "minLength", 1)))))
         .isInstanceOf(AllOfSchema.class);
     assertThat(SchemaParser.parse(Map.of("not", Map.of("type", "null"))))
         .isInstanceOf(NotSchema.class);
@@ -145,5 +153,113 @@ class SchemaParserTest {
     Schema s = SchemaParser.parse(Map.of("type", "string", "enum", List.of("a", "b")));
     assertThat(s).isInstanceOf(StringSchema.class);
     assertThat(((StringSchema) s).enumValues()).containsExactly("a", "b");
+  }
+
+  @Test
+  void allOfWithSiblingTypeWrapsInImplicitAllOf() {
+    Schema s =
+        SchemaParser.parse(
+            Map.of(
+                "type", "object",
+                "required", List.of("x"),
+                "allOf", List.of(Map.of("type", "object", "required", List.of("y")))));
+    assertThat(s).isInstanceOf(AllOfSchema.class);
+    AllOfSchema all = (AllOfSchema) s;
+    assertThat(all.parts()).hasSize(2);
+    assertThat(all.parts().get(0)).isInstanceOf(ObjectSchema.class);
+    assertThat(((ObjectSchema) all.parts().get(0)).required()).containsExactly("x");
+    assertThat(all.parts().get(1)).isInstanceOf(ObjectSchema.class);
+    assertThat(((ObjectSchema) all.parts().get(1)).required()).containsExactly("y");
+  }
+
+  @Test
+  void anyOfWithSiblingTypeWrapsInImplicitAllOf() {
+    Schema s =
+        SchemaParser.parse(
+            Map.of(
+                "type",
+                "string",
+                "anyOf",
+                List.of(
+                    Map.of("type", "string", "minLength", 1),
+                    Map.of("type", "string", "maxLength", 10))));
+    assertThat(s).isInstanceOf(AllOfSchema.class);
+    AllOfSchema all = (AllOfSchema) s;
+    assertThat(all.parts()).hasSize(2);
+    assertThat(all.parts().get(0)).isInstanceOf(StringSchema.class);
+    assertThat(all.parts().get(1)).isInstanceOf(AnyOfSchema.class);
+    assertThat(((AnyOfSchema) all.parts().get(1)).options()).hasSize(2);
+  }
+
+  @Test
+  void oneOfWithSiblingTypeWrapsInImplicitAllOf() {
+    Schema s =
+        SchemaParser.parse(
+            Map.of(
+                "type",
+                "string",
+                "oneOf",
+                List.of(
+                    Map.of("type", "string", "minLength", 1),
+                    Map.of("type", "string", "maxLength", 10))));
+    assertThat(s).isInstanceOf(AllOfSchema.class);
+    AllOfSchema all = (AllOfSchema) s;
+    assertThat(all.parts()).hasSize(2);
+    assertThat(all.parts().get(0)).isInstanceOf(StringSchema.class);
+    assertThat(all.parts().get(1)).isInstanceOf(OneOfSchema.class);
+  }
+
+  @Test
+  void notWithSiblingTypeWrapsInImplicitAllOf() {
+    Schema s =
+        SchemaParser.parse(
+            Map.of("type", "string", "not", Map.of("type", "string", "maxLength", 2)));
+    assertThat(s).isInstanceOf(AllOfSchema.class);
+    AllOfSchema all = (AllOfSchema) s;
+    assertThat(all.parts()).hasSize(2);
+    assertThat(all.parts().get(0)).isInstanceOf(StringSchema.class);
+    assertThat(all.parts().get(1)).isInstanceOf(NotSchema.class);
+  }
+
+  @Test
+  void multipleCombinatorsInOneSchemaWrapInAllOf() {
+    Schema s =
+        SchemaParser.parse(
+            Map.of(
+                "anyOf", List.of(Map.of("type", "string"), Map.of("type", "integer")),
+                "not", Map.of("type", "boolean")));
+    assertThat(s).isInstanceOf(AllOfSchema.class);
+    AllOfSchema all = (AllOfSchema) s;
+    assertThat(all.parts()).hasSize(2);
+    assertThat(all.parts().get(0)).isInstanceOf(AnyOfSchema.class);
+    assertThat(all.parts().get(1)).isInstanceOf(NotSchema.class);
+  }
+
+  @Test
+  void allOfBranchesFlattenIntoOuterAllOf() {
+    Schema s =
+        SchemaParser.parse(
+            Map.of(
+                "type",
+                "string",
+                "allOf",
+                List.of(
+                    Map.of("type", "string", "minLength", 1),
+                    Map.of("type", "string", "maxLength", 10))));
+    assertThat(s).isInstanceOf(AllOfSchema.class);
+    AllOfSchema all = (AllOfSchema) s;
+    // Base + the two allOf branches flattened.
+    assertThat(all.parts()).hasSize(3);
+  }
+
+  @Test
+  void aloneCombinatorStillReturnsCombinatorRecord() {
+    // Regression: when no base assertions are present, the result is still the
+    // single combinator record, not an AllOfSchema with a single child.
+    Schema s =
+        SchemaParser.parse(
+            Map.of("oneOf", List.of(Map.of("type", "string"), Map.of("type", "integer"))));
+    assertThat(s).isInstanceOf(OneOfSchema.class);
+    assertThat(((OneOfSchema) s).options()).hasSize(2);
   }
 }
