@@ -250,6 +250,27 @@
         },
         "responses": { "200": { "description": "OK" } }
       }
+    },
+    "/gates": {
+      "post": {
+        "operationId": "post-gate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["open"],
+                "properties": {
+                  "open": true,
+                  "blocked": false
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
     }
   },
   "components": {

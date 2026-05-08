@@ -12,8 +12,20 @@ public final class SchemaParser {
 
   private static final String FORMAT_KEY = "format";
 
+  public static Schema parse(Object raw) {
+    if (raw instanceof Boolean b) {
+      return b ? new AlwaysSchema() : new NeverSchema();
+    }
+    if (raw instanceof Map<?, ?> map) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> typed = (Map<String, Object>) map;
+      return parseMap(typed);
+    }
+    throw new IllegalArgumentException("schema must be a boolean or an object, was: " + raw);
+  }
+
   @SuppressWarnings("unchecked")
-  public static Schema parse(Map<String, Object> raw) {
+  private static Schema parseMap(Map<String, Object> raw) {
     if (raw.containsKey("$ref")) {
       return new RefSchema((String) raw.get("$ref"));
     }
@@ -35,7 +47,7 @@ public final class SchemaParser {
       assertions.add(new OneOfSchema(parseList(raw, "oneOf")));
     }
     if (raw.containsKey("not")) {
-      assertions.add(new NotSchema(parse((Map<String, Object>) raw.get("not"))));
+      assertions.add(new NotSchema(parse(raw.get("not"))));
     }
 
     return switch (assertions.size()) {
@@ -152,7 +164,7 @@ public final class SchemaParser {
     Map<String, Object> rawProps = (Map<String, Object>) raw.getOrDefault("properties", Map.of());
     Map<String, Schema> properties = new LinkedHashMap<>();
     for (var e : rawProps.entrySet()) {
-      properties.put(e.getKey(), parse((Map<String, Object>) e.getValue()));
+      properties.put(e.getKey(), parse(e.getValue()));
     }
     List<String> required = (List<String>) raw.getOrDefault("required", List.of());
     AdditionalProperties ap = parseAdditionalProperties(raw.get("additionalProperties"));
@@ -171,14 +183,22 @@ public final class SchemaParser {
       case null -> new AdditionalProperties.Allowed();
       case Boolean b when b -> new AdditionalProperties.Allowed();
       case Boolean _ -> new AdditionalProperties.Forbidden();
-      default -> new AdditionalProperties.SchemaConstraint(parse((Map<String, Object>) value));
+      default -> new AdditionalProperties.SchemaConstraint(parse(value));
     };
   }
 
   @SuppressWarnings("unchecked")
   private static ArraySchema parseArray(Map<String, Object> raw, Set<TypeName> types) {
-    Map<String, Object> items = (Map<String, Object>) raw.getOrDefault("items", Map.of());
-    Schema itemSchema = items.isEmpty() ? new NullSchema() : parse(items);
+    Object itemsRaw = raw.get("items");
+    Schema itemSchema;
+    if (itemsRaw == null) {
+      itemSchema = new NullSchema();
+    } else if (itemsRaw instanceof Boolean b) {
+      itemSchema = b ? new AlwaysSchema() : new NeverSchema();
+    } else {
+      Map<String, Object> items = (Map<String, Object>) itemsRaw;
+      itemSchema = items.isEmpty() ? new NullSchema() : parse(items);
+    }
     return new ArraySchema(
         types,
         itemSchema,
@@ -189,9 +209,9 @@ public final class SchemaParser {
 
   @SuppressWarnings("unchecked")
   private static List<Schema> parseList(Map<String, Object> raw, String key) {
-    List<Map<String, Object>> raws = (List<Map<String, Object>>) raw.get(key);
+    List<Object> raws = (List<Object>) raw.get(key);
     List<Schema> out = new ArrayList<>(raws.size());
-    for (Map<String, Object> r : raws) {
+    for (Object r : raws) {
       out.add(parse(r));
     }
     return List.copyOf(out);

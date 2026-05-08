@@ -16,6 +16,8 @@ public sealed interface Schema
         AllOfSchema,
         NotSchema,
         ConstSchema,
-        EnumSchema {
+        EnumSchema,
+        AlwaysSchema,
+        NeverSchema {
   Set<TypeName> types();
 }

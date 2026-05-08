@@ -5,14 +5,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.schema.AllOfSchema;
+import com.retailsvc.http.spec.schema.AlwaysSchema;
 import com.retailsvc.http.spec.schema.AnyOfSchema;
 import com.retailsvc.http.spec.schema.BooleanSchema;
+import com.retailsvc.http.spec.schema.NeverSchema;
 import com.retailsvc.http.spec.schema.NotSchema;
 import com.retailsvc.http.spec.schema.NullSchema;
 import com.retailsvc.http.spec.schema.OneOfSchema;
 import com.retailsvc.http.spec.schema.StringSchema;
 import com.retailsvc.http.spec.schema.TypeName;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -171,5 +174,56 @@ class DefaultValidatorDispatchTest {
     // anyOf containing a NullSchema branch must pass for a null value.
     var schema = new AnyOfSchema(List.of(stringSchema(1, null), new NullSchema()));
     v.validate(null, schema, "/v");
+  }
+
+  @Test
+  void alwaysSchemaAcceptsString() {
+    v.validate("anything", new AlwaysSchema(), "/v");
+  }
+
+  @Test
+  void alwaysSchemaAcceptsInteger() {
+    v.validate(42, new AlwaysSchema(), "/v");
+  }
+
+  @Test
+  void alwaysSchemaAcceptsObject() {
+    v.validate(Map.of("a", 1), new AlwaysSchema(), "/v");
+  }
+
+  @Test
+  void alwaysSchemaAcceptsNull() {
+    v.validate(null, new AlwaysSchema(), "/v");
+  }
+
+  @Test
+  void neverSchemaRejectsString() {
+    assertThatThrownBy(() -> v.validate("anything", new NeverSchema(), "/v"))
+        .isInstanceOf(ValidationException.class)
+        .satisfies(
+            t -> {
+              var err = ((ValidationException) t).error();
+              assertThat(err.keyword()).isEqualTo("false");
+              assertThat(err.message()).isEqualTo("schema rejects all values");
+              assertThat(err.pointer()).isEqualTo("/v");
+              assertThat(err.rejectedValue()).isEqualTo("anything");
+            });
+  }
+
+  // Full ValidationError surface is verified by neverSchemaRejectsString; these cover keyword only.
+  @Test
+  void neverSchemaRejectsInteger() {
+    assertThatThrownBy(() -> v.validate(42, new NeverSchema(), "/v"))
+        .isInstanceOf(ValidationException.class)
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("false");
+  }
+
+  @Test
+  void neverSchemaRejectsNull() {
+    assertThatThrownBy(() -> v.validate(null, new NeverSchema(), "/v"))
+        .isInstanceOf(ValidationException.class)
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("false");
   }
 }

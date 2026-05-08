@@ -104,7 +104,7 @@ public record Spec(
         (Map<String, Object>) rawComponents.getOrDefault("schemas", Map.of());
     Map<String, Schema> out = new LinkedHashMap<>();
     for (var e : rawSchemas.entrySet()) {
-      out.put(e.getKey(), SchemaParser.parse((Map<String, Object>) e.getValue()));
+      out.put(e.getKey(), SchemaParser.parse(e.getValue()));
     }
     return Map.copyOf(out);
   }
@@ -127,8 +127,7 @@ public record Spec(
         (String) raw.get("name"),
         Parameter.Location.valueOf(((String) raw.get("in")).toUpperCase(Locale.ROOT)),
         Boolean.TRUE.equals(raw.get("required")),
-        SchemaParser.parse(
-            (Map<String, Object>) raw.getOrDefault(SCHEMA_KEY, Map.of("type", "string"))));
+        SchemaParser.parse(raw.getOrDefault(SCHEMA_KEY, Map.of("type", "string"))));
   }
 
   @SuppressWarnings("unchecked")
@@ -193,9 +192,7 @@ public record Spec(
       Map<String, Object> mt = (Map<String, Object>) e.getValue();
       content.put(
           e.getKey(),
-          new MediaType(
-              SchemaParser.parse(
-                  (Map<String, Object>) mt.getOrDefault(SCHEMA_KEY, Map.of("type", "object")))));
+          new MediaType(SchemaParser.parse(mt.getOrDefault(SCHEMA_KEY, Map.of("type", "object")))));
     }
     return new RequestBody(Boolean.TRUE.equals(raw.get("required")), Map.copyOf(content));
   }
@@ -210,9 +207,7 @@ public record Spec(
       for (var ce : contentRaw.entrySet()) {
         Map<String, Object> mt = (Map<String, Object>) ce.getValue();
         if (mt.containsKey(SCHEMA_KEY)) {
-          content.put(
-              ce.getKey(),
-              new MediaType(SchemaParser.parse((Map<String, Object>) mt.get(SCHEMA_KEY))));
+          content.put(ce.getKey(), new MediaType(SchemaParser.parse(mt.get(SCHEMA_KEY))));
         }
       }
       out.put(e.getKey(), new Response(Map.copyOf(content)));

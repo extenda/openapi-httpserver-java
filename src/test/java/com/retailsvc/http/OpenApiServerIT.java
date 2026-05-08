@@ -598,4 +598,51 @@ class OpenApiServerIT extends ServerBaseTest {
       }
     }
   }
+
+  @Nested
+  class Gates {
+
+    String path = "/gates";
+
+    @Test
+    void postGateBodyWithOnlyOpenReturns200() {
+      try (var server = newServer(Map.of("post-gate", new EchoHandler()));
+          var client = httpClient()) {
+        var body = "{\"open\":\"anything\"}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void postGateBodyWithBlockedReturns400() {
+      try (var server = newServer(Map.of("post-gate", new EchoHandler()));
+          var client = httpClient()) {
+        // Any value in 'blocked' triggers the false-schema rejection,
+        // because NeverSchema rejects every value.
+        var body = "{\"open\":\"x\",\"blocked\":\"anything\"}";
+        var request = newRequest(server, path, "POST", ofString(body));
+
+        var response = client.send(request, BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(response.headers().firstValue("Content-Type").orElse(""))
+            .contains("application/problem+json");
+        assertThat(response.body()).contains("\"keyword\":\"false\"");
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+  }
 }
