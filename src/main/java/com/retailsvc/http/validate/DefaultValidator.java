@@ -43,11 +43,14 @@ public final class DefaultValidator implements Validator {
 
   private record FormatCheck(Predicate<String> isValid, String message) {}
 
+  private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+
   private static final Map<String, FormatCheck> FORMAT_CHECKS =
       Map.of(
           "uuid", new FormatCheck(DefaultValidator::isUuid, "not a valid uuid"),
           "date", new FormatCheck(DefaultValidator::isDate, "not a valid date"),
-          "date-time", new FormatCheck(DefaultValidator::isDateTime, "not a valid date-time"));
+          "date-time", new FormatCheck(DefaultValidator::isDateTime, "not a valid date-time"),
+          "email", new FormatCheck(s -> EMAIL.matcher(s).matches(), "not a valid email"));
 
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();

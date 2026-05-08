@@ -68,6 +68,18 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void stringFormatEmail() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "email", null);
+    assertThatCode(() -> v.validate("user@example.com", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("not-an-email", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("missing@dot", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
   void integerWithMinMax() {
     IntegerSchema s =
         new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 10L, null, null, null, "int32");
