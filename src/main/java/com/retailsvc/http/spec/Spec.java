@@ -16,7 +16,8 @@ public record Spec(
     List<Server> servers,
     List<Operation> operations,
     Map<String, Schema> componentSchemas,
-    Map<String, Parameter> componentParameters) {
+    Map<String, Parameter> componentParameters,
+    String basePath) {
 
   private static final String SCHEMA_KEY = "schema";
 
@@ -32,14 +33,21 @@ public record Spec(
     List<Operation> operations =
         parseOperations(
             (Map<String, Object>) raw.getOrDefault("paths", Map.of()), componentParameters);
-    return new Spec(openapi, info, servers, operations, componentSchemas, componentParameters);
+    return new Spec(
+        openapi,
+        info,
+        servers,
+        operations,
+        componentSchemas,
+        componentParameters,
+        computeBasePath(servers));
   }
 
-  public String basePath() {
+  private static String computeBasePath(List<Server> servers) {
     if (servers.isEmpty()) {
       throw new IllegalStateException("no servers declared");
     }
-    return Optional.ofNullable(URI.create(servers.get(0).url()).getPath()).orElse("");
+    return Optional.ofNullable(URI.create(servers.getFirst().url()).getPath()).orElse("");
   }
 
   public Schema resolveSchema(String ref) {
