@@ -21,13 +21,17 @@ public record RequestContext(
     if (this == o) {
       return true;
     }
-    if (!(o instanceof RequestContext other)) {
-      return false;
-    }
-    return Arrays.equals(body, other.body)
-        && Objects.equals(parsedBody, other.parsedBody)
-        && Objects.equals(operationId, other.operationId)
-        && Objects.equals(pathParameters, other.pathParameters);
+    return o
+            instanceof
+            RequestContext(
+                byte[] otherBody,
+                Object otherParsedBody,
+                String otherOperationId,
+                Map<String, String> otherPathParameters)
+        && Arrays.equals(body, otherBody)
+        && Objects.equals(parsedBody, otherParsedBody)
+        && Objects.equals(operationId, otherOperationId)
+        && Objects.equals(pathParameters, otherPathParameters);
   }
 
   @Override
