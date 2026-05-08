@@ -17,8 +17,12 @@ import com.retailsvc.http.spec.schema.RefSchema;
 import com.retailsvc.http.spec.schema.Schema;
 import com.retailsvc.http.spec.schema.StringSchema;
 import com.retailsvc.http.spec.schema.TypeName;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 public final class DefaultValidator implements Validator {
   private final Function<String, Schema> refResolver;
@@ -56,15 +60,98 @@ public final class DefaultValidator implements Validator {
   }
 
   private void validateString(Object value, StringSchema s, String pointer) {
-    throw new UnsupportedOperationException("E3 implements string");
+    require(value instanceof String, pointer, "type", "expected string");
+    String str = (String) value;
+    if (s.minLength() != null && str.length() < s.minLength())
+      fail(pointer, "minLength", "string shorter than " + s.minLength(), str);
+    if (s.maxLength() != null && str.length() > s.maxLength())
+      fail(pointer, "maxLength", "string longer than " + s.maxLength(), str);
+    if (s.pattern() != null && !Pattern.compile(s.pattern()).matcher(str).matches())
+      fail(pointer, "pattern", "does not match pattern " + s.pattern(), str);
+    if (s.enumValues() != null && !s.enumValues().contains(str))
+      fail(pointer, "enum", "value not in enum", str);
+    if (s.format() != null) validateStringFormat(str, s.format(), pointer);
+  }
+
+  private void validateStringFormat(String str, String format, String pointer) {
+    switch (format) {
+      case "uuid" -> {
+        try {
+          UUID.fromString(str);
+        } catch (IllegalArgumentException e) {
+          fail(pointer, "format", "not a valid uuid", str);
+        }
+      }
+      case "date" -> {
+        try {
+          LocalDate.parse(str);
+        } catch (Exception e) {
+          fail(pointer, "format", "not a valid date", str);
+        }
+      }
+      case "date-time" -> {
+        try {
+          OffsetDateTime.parse(str);
+        } catch (Exception e) {
+          fail(pointer, "format", "not a valid date-time", str);
+        }
+      }
+      default -> {}
+    }
   }
 
   private void validateInteger(Object value, IntegerSchema s, String pointer) {
-    throw new UnsupportedOperationException("E3 implements integer");
+    long n;
+    if (value instanceof Number num) n = num.longValue();
+    else if (value instanceof String str) {
+      try {
+        n = Long.parseLong(str);
+      } catch (NumberFormatException e) {
+        fail(pointer, "type", "expected integer", value);
+        return;
+      }
+    } else {
+      fail(pointer, "type", "expected integer", value);
+      return;
+    }
+
+    if (s.minimum() != null && n < s.minimum())
+      fail(pointer, "minimum", "integer below minimum " + s.minimum(), n);
+    if (s.maximum() != null && n > s.maximum())
+      fail(pointer, "maximum", "integer above maximum " + s.maximum(), n);
+    if (s.exclusiveMinimum() != null && n <= s.exclusiveMinimum())
+      fail(pointer, "exclusiveMinimum", "integer not greater than " + s.exclusiveMinimum(), n);
+    if (s.exclusiveMaximum() != null && n >= s.exclusiveMaximum())
+      fail(pointer, "exclusiveMaximum", "integer not less than " + s.exclusiveMaximum(), n);
+    if (s.multipleOf() != null && n % s.multipleOf() != 0)
+      fail(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
   }
 
   private void validateNumber(Object value, NumberSchema s, String pointer) {
-    throw new UnsupportedOperationException("E3 implements number");
+    double n;
+    if (value instanceof Number num) n = num.doubleValue();
+    else if (value instanceof String str) {
+      try {
+        n = Double.parseDouble(str);
+      } catch (NumberFormatException e) {
+        fail(pointer, "type", "expected number", value);
+        return;
+      }
+    } else {
+      fail(pointer, "type", "expected number", value);
+      return;
+    }
+
+    if (s.minimum() != null && n < s.minimum().doubleValue())
+      fail(pointer, "minimum", "number below minimum " + s.minimum(), n);
+    if (s.maximum() != null && n > s.maximum().doubleValue())
+      fail(pointer, "maximum", "number above maximum " + s.maximum(), n);
+    if (s.exclusiveMinimum() != null && n <= s.exclusiveMinimum().doubleValue())
+      fail(pointer, "exclusiveMinimum", "number not greater than " + s.exclusiveMinimum(), n);
+    if (s.exclusiveMaximum() != null && n >= s.exclusiveMaximum().doubleValue())
+      fail(pointer, "exclusiveMaximum", "number not less than " + s.exclusiveMaximum(), n);
+    if (s.multipleOf() != null && (n / s.multipleOf().doubleValue()) % 1 != 0)
+      fail(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
   }
 
   private void validateObject(Object value, ObjectSchema s, String pointer) {
@@ -72,7 +159,11 @@ public final class DefaultValidator implements Validator {
   }
 
   private void validateArray(Object value, ArraySchema s, String pointer) {
-    throw new UnsupportedOperationException("E4 implements array");
+    throw new UnsupportedOperationException("E5 implements array");
+  }
+
+  private static void fail(String pointer, String keyword, String message, Object rejectedValue) {
+    throw new ValidationException(new ValidationError(pointer, keyword, message, rejectedValue));
   }
 
   static void require(boolean condition, String pointer, String keyword, String message) {
