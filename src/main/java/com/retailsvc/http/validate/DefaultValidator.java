@@ -29,6 +29,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
@@ -37,6 +39,7 @@ public final class DefaultValidator implements Validator {
   private static final String FORMAT_KEYWORD = "format";
 
   private final Function<String, Schema> refResolver;
+  private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
 
   public DefaultValidator(Function<String, Schema> refResolver) {
     this.refResolver = refResolver;
@@ -81,7 +84,11 @@ public final class DefaultValidator implements Validator {
     if (s.maxLength() != null && str.length() > s.maxLength()) {
       fail(pointer, "maxLength", "string longer than " + s.maxLength(), str);
     }
-    if (s.pattern() != null && !Pattern.compile(s.pattern()).matcher(str).matches()) {
+    if (s.pattern() != null
+        && !compiledPatterns
+            .computeIfAbsent(s.pattern(), Pattern::compile)
+            .matcher(str)
+            .matches()) {
       fail(pointer, "pattern", "does not match pattern " + s.pattern(), str);
     }
     if (s.enumValues() != null && !s.enumValues().contains(str)) {
