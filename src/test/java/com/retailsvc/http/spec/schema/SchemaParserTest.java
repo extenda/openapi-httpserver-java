@@ -288,4 +288,81 @@ class SchemaParserTest {
     assertThat(s).isInstanceOf(OneOfSchema.class);
     assertThat(((OneOfSchema) s).options()).hasSize(2);
   }
+
+  @Test
+  void refWithSiblingsIsParsedSolo() {
+    // Deliberate limitation: $ref returns immediately and ignores sibling keywords.
+    // JSON Schema 2020-12 allows $ref + siblings but that interaction is a separate gap.
+    Schema s =
+        SchemaParser.parse(
+            Map.of(
+                "$ref", "#/components/schemas/Foo",
+                "type", "string",
+                "minLength", 5));
+    assertThat(s).isInstanceOf(RefSchema.class);
+    assertThat(((RefSchema) s).pointer()).isEqualTo("#/components/schemas/Foo");
+  }
+
+  @Test
+  void nestedAllOfIsNotFlattenedWhenBasePresent() {
+    // Flattening is one-level: when a base assertion plus an outer allOf coexist,
+    // the outer allOf branches are pulled into the assertions list, but any
+    // allOf nested inside one of those branches stays wrapped.
+    Schema s =
+        SchemaParser.parse(
+            Map.of(
+                "type",
+                "object",
+                "allOf",
+                List.of(
+                    Map.of(
+                        "allOf", List.of(Map.of("type", "string"), Map.of("type", "integer"))))));
+    assertThat(s).isInstanceOf(AllOfSchema.class);
+    AllOfSchema all = (AllOfSchema) s;
+    assertThat(all.parts()).hasSize(2);
+    assertThat(all.parts().get(0)).isInstanceOf(ObjectSchema.class);
+    assertThat(all.parts().get(1)).isInstanceOf(AllOfSchema.class);
+    assertThat(((AllOfSchema) all.parts().get(1)).parts()).hasSize(2);
+  }
+
+  @Test
+  void constWithSiblingAllOfWrapsInImplicitAllOf() {
+    // const acts as a base assertion, so a sibling combinator wraps both in AllOf.
+    Schema s =
+        SchemaParser.parse(
+            Map.of("const", 5, "allOf", List.of(Map.of("type", "integer", "minimum", 0))));
+    assertThat(s).isInstanceOf(AllOfSchema.class);
+    AllOfSchema all = (AllOfSchema) s;
+    assertThat(all.parts()).hasSize(2);
+    assertThat(all.parts().get(0)).isInstanceOf(ConstSchema.class);
+    assertThat(((ConstSchema) all.parts().get(0)).value()).isEqualTo(5);
+    assertThat(all.parts().get(1)).isInstanceOf(IntegerSchema.class);
+  }
+
+  @Test
+  void notWithEmptyInnerSchemaWrapsPermissiveObject() {
+    // not: {} parses the inner empty schema as the permissive ObjectSchema.
+    Schema s = SchemaParser.parse(Map.of("not", Map.of()));
+    assertThat(s).isInstanceOf(NotSchema.class);
+    assertThat(((NotSchema) s).schema()).isInstanceOf(ObjectSchema.class);
+  }
+
+  @Test
+  void oneOfContainingNestedAnyOfRecurses() {
+    // Pins that combinator branches are themselves passed through parse(),
+    // so nested combinators survive intact.
+    Schema s =
+        SchemaParser.parse(
+            Map.of(
+                "oneOf",
+                List.of(
+                    Map.of("anyOf", List.of(Map.of("type", "string"), Map.of("type", "integer"))),
+                    Map.of("type", "boolean"))));
+    assertThat(s).isInstanceOf(OneOfSchema.class);
+    OneOfSchema one = (OneOfSchema) s;
+    assertThat(one.options()).hasSize(2);
+    assertThat(one.options().get(0)).isInstanceOf(AnyOfSchema.class);
+    assertThat(((AnyOfSchema) one.options().get(0)).options()).hasSize(2);
+    assertThat(one.options().get(1)).isInstanceOf(BooleanSchema.class);
+  }
 }
