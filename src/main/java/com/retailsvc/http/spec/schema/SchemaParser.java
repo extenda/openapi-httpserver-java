@@ -61,9 +61,9 @@ public final class SchemaParser {
     }
 
     return switch (assertions.size()) {
-      case 0 -> permissiveObject();
+      case 0 -> permissiveObject(extractExtensions(raw));
       case 1 -> assertions.getFirst();
-      default -> new AllOfSchema(List.copyOf(assertions), Map.of());
+      default -> new AllOfSchema(List.copyOf(assertions), extractExtensions(raw));
     };
   }
 
@@ -115,9 +115,9 @@ public final class SchemaParser {
         || raw.containsKey("uniqueItems");
   }
 
-  private static Schema permissiveObject() {
+  private static Schema permissiveObject(Map<String, Object> extensions) {
     return new ObjectSchema(
-        Set.of(), Map.of(), List.of(), new AdditionalProperties.Allowed(), null, null, Map.of());
+        Set.of(), Map.of(), List.of(), new AdditionalProperties.Allowed(), null, null, extensions);
   }
 
   private static Set<TypeName> parseTypes(Map<String, Object> raw) {

@@ -170,4 +170,52 @@ class ExtensionsTest {
     assertThat(spec.componentSchemas().get("Either").extensions())
         .containsEntry("x-discriminator-hint", "kind");
   }
+
+  @Test
+  void permissiveObjectPreservesXKeys() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi",
+            "3.1.0",
+            "info",
+            Map.of("title", "t", "version", "1"),
+            "servers",
+            List.of(Map.of("url", "https://example.com")),
+            "paths",
+            Map.of(),
+            "components",
+            Map.of("schemas", Map.of("FreeForm", Map.of("x-vendor", "acme"))));
+    Spec spec = Spec.from(raw);
+    assertThat(spec.componentSchemas().get("FreeForm").extensions())
+        .containsEntry("x-vendor", "acme");
+  }
+
+  @Test
+  void multiAssertionWrapperPreservesXKeys() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi",
+            "3.1.0",
+            "info",
+            Map.of("title", "t", "version", "1"),
+            "servers",
+            List.of(Map.of("url", "https://example.com")),
+            "paths",
+            Map.of(),
+            "components",
+            Map.of(
+                "schemas",
+                Map.of(
+                    "Composite",
+                    Map.of(
+                        "type",
+                        "object",
+                        "anyOf",
+                        List.of(Map.of("type", "object"), Map.of("type", "object")),
+                        "x-tag",
+                        "composite"))));
+    Spec spec = Spec.from(raw);
+    assertThat(spec.componentSchemas().get("Composite").extensions())
+        .containsEntry("x-tag", "composite");
+  }
 }
