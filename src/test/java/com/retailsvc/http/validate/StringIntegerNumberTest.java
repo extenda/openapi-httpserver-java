@@ -241,4 +241,75 @@ class StringIntegerNumberTest {
             Set.of(TypeName.STRING), null, null, null, "definitely-not-a-format", null);
     assertThatCode(() -> v.validate("anything", s, "/v")).doesNotThrowAnyException();
   }
+
+  @Test
+  void integerFormatInt64AcceptsAnyLong() {
+    IntegerSchema s =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, "int64");
+    assertThatCode(() -> v.validate(Long.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(Long.MIN_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(0L, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(123L, s, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
+  void integerFormatInt32() {
+    IntegerSchema s =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, "int32");
+    assertThatCode(() -> v.validate(Integer.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(Integer.MIN_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate(Integer.MAX_VALUE + 1L, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate(Integer.MIN_VALUE - 1L, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
+  void numberFormatDoubleAcceptsAnyDouble() {
+    NumberSchema s =
+        new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, "double");
+    assertThatCode(() -> v.validate(Double.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(-Double.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(0.0, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(1.5, s, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
+  void numberFormatFloat() {
+    NumberSchema s =
+        new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, "float");
+    assertThatCode(() -> v.validate(1.5, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(-1.5, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate((double) Float.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate(1e40, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate(-1e40, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate(Double.NaN, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate(Double.POSITIVE_INFINITY, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
+  void integerFormatUnknownIsIgnored() {
+    IntegerSchema s =
+        new IntegerSchema(
+            Set.of(TypeName.INTEGER), null, null, null, null, null, "definitely-not-a-format");
+    assertThatCode(() -> v.validate(42L, s, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
+  void numberFormatUnknownIsIgnored() {
+    NumberSchema s =
+        new NumberSchema(
+            Set.of(TypeName.NUMBER), null, null, null, null, null, "definitely-not-a-format");
+    assertThatCode(() -> v.validate(1.5, s, "/v")).doesNotThrowAnyException();
+  }
 }

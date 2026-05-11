@@ -704,6 +704,58 @@ class OpenApiServerIT extends ServerBaseTest {
   }
 
   @Nested
+  class FormatInt32 {
+
+    String path = "/format/int32";
+
+    @Test
+    void formatInt32ShouldReturnBadRequestOnOverflow() {
+      try (var server =
+              newServer(Map.of("format-int32", exchange -> exchange.sendResponseHeaders(200, -1)));
+          var client = httpClient()) {
+
+        var request = newRequest(server, path + "?n=2147483648", "GET", noBody());
+
+        var response = client.send(request, BodyHandlers.ofString());
+        var statusCode = response.statusCode();
+        var contentType = response.headers().firstValue("Content-Type").orElse("");
+        var responseBody = response.body();
+
+        assertThat(statusCode).isEqualTo(400);
+        assertThat(contentType).contains("application/problem+json");
+        assertThat(responseBody).contains("\"format\"");
+
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+
+    @Test
+    void formatInt32ShouldReturnOkOnValidValue() {
+      try (var server =
+              newServer(Map.of("format-int32", exchange -> exchange.sendResponseHeaders(200, -1)));
+          var client = httpClient()) {
+
+        var request = newRequest(server, path + "?n=42", "GET", noBody());
+
+        var response = client.send(request, BodyHandlers.ofString());
+        var statusCode = response.statusCode();
+
+        assertThat(statusCode).isEqualTo(200);
+
+      } catch (IOException e) {
+        fail(e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        fail(e);
+      }
+    }
+  }
+
+  @Nested
   class Gates {
 
     String path = "/gates";
