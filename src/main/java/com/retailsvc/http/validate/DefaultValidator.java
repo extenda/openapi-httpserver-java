@@ -94,7 +94,9 @@ public final class DefaultValidator implements Validator {
           "float",
           new NumberFormatCheck(
               n -> !Double.isNaN(n) && !Double.isInfinite(n) && Math.abs(n) <= Float.MAX_VALUE,
-              "value does not fit in float"));
+              "value does not fit in float"),
+          "double",
+          new NumberFormatCheck(n -> true, "value does not fit in double"));
 
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();

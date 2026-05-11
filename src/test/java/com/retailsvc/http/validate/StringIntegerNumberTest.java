@@ -267,6 +267,16 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void numberFormatDoubleAcceptsAnyDouble() {
+    NumberSchema s =
+        new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, "double");
+    assertThatCode(() -> v.validate(Double.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(-Double.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(0.0, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(1.5, s, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
   void numberFormatFloat() {
     NumberSchema s =
         new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, "float");
