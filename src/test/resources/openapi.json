@@ -272,6 +272,27 @@
         }
       }
     },
+    "/format/int32": {
+      "get": {
+        "operationId": "format-int32",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "n",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/format/byte": {
       "get": {
         "operationId": "format-byte",
