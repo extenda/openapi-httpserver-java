@@ -47,7 +47,7 @@ public final class DefaultValidator implements Validator {
 
   private record FormatCheck(Predicate<String> isValid, String message) {}
 
-  private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+  private static final Pattern EMAIL = Pattern.compile("^[^\\s@]++@[^\\s@.]++\\.[^\\s@]++$");
 
   private static final Pattern HOSTNAME =
       Pattern.compile(
