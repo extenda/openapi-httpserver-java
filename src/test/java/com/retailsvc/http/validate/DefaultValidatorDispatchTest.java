@@ -28,12 +28,12 @@ class DefaultValidatorDispatchTest {
 
   @Test
   void nullSchemaAcceptsNull() {
-    v.validate(null, new NullSchema(), "");
+    v.validate(null, new NullSchema(Map.of()), "");
   }
 
   @Test
   void nullSchemaRejectsNonNull() {
-    var schema = new NullSchema();
+    var schema = new NullSchema(Map.of());
     assertThatThrownBy(() -> v.validate("x", schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
@@ -42,28 +42,28 @@ class DefaultValidatorDispatchTest {
 
   @Test
   void booleanSchemaAcceptsBoolean() {
-    v.validate(true, new BooleanSchema(Set.of(TypeName.BOOLEAN)), "/v");
+    v.validate(true, new BooleanSchema(Set.of(TypeName.BOOLEAN), Map.of()), "/v");
   }
 
   @Test
   void booleanSchemaRejectsString() {
-    var schema = new BooleanSchema(Set.of(TypeName.BOOLEAN));
+    var schema = new BooleanSchema(Set.of(TypeName.BOOLEAN), Map.of());
     assertThatThrownBy(() -> v.validate("x", schema, "/v")).isInstanceOf(ValidationException.class);
   }
 
   private StringSchema stringSchema(Integer min, Integer max) {
-    return new StringSchema(Set.of(TypeName.STRING), null, min, max, null, null);
+    return new StringSchema(Set.of(TypeName.STRING), null, min, max, null, null, Map.of());
   }
 
   @Test
   void allOfPassesWhenAllBranchesPass() {
-    var schema = new AllOfSchema(List.of(stringSchema(1, null), stringSchema(null, 10)));
+    var schema = new AllOfSchema(List.of(stringSchema(1, null), stringSchema(null, 10)), Map.of());
     v.validate("hello", schema, "/v");
   }
 
   @Test
   void allOfPropagatesFirstFailingBranch() {
-    var schema = new AllOfSchema(List.of(stringSchema(1, null), stringSchema(null, 3)));
+    var schema = new AllOfSchema(List.of(stringSchema(1, null), stringSchema(null, 3)), Map.of());
     assertThatThrownBy(() -> v.validate("hello", schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
@@ -72,13 +72,14 @@ class DefaultValidatorDispatchTest {
 
   @Test
   void anyOfPassesWhenOneBranchPasses() {
-    var schema = new AnyOfSchema(List.of(stringSchema(100, null), stringSchema(null, 10)));
+    var schema =
+        new AnyOfSchema(List.of(stringSchema(100, null), stringSchema(null, 10)), Map.of());
     v.validate("hello", schema, "/v");
   }
 
   @Test
   void anyOfFailsWhenNoBranchMatches() {
-    var schema = new AnyOfSchema(List.of(stringSchema(100, null), stringSchema(null, 2)));
+    var schema = new AnyOfSchema(List.of(stringSchema(100, null), stringSchema(null, 2)), Map.of());
     assertThatThrownBy(() -> v.validate("hello", schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
@@ -88,13 +89,14 @@ class DefaultValidatorDispatchTest {
   @Test
   void oneOfPassesWhenExactlyOneBranchMatches() {
     // value "hello" — len 5. branch[0] requires min 100 (fails), branch[1] max 10 (passes).
-    var schema = new OneOfSchema(List.of(stringSchema(100, null), stringSchema(null, 10)));
+    var schema =
+        new OneOfSchema(List.of(stringSchema(100, null), stringSchema(null, 10)), Map.of());
     v.validate("hello", schema, "/v");
   }
 
   @Test
   void oneOfFailsWhenZeroBranchesMatch() {
-    var schema = new OneOfSchema(List.of(stringSchema(100, null), stringSchema(null, 2)));
+    var schema = new OneOfSchema(List.of(stringSchema(100, null), stringSchema(null, 2)), Map.of());
     assertThatThrownBy(() -> v.validate("hello", schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .satisfies(
@@ -108,7 +110,7 @@ class DefaultValidatorDispatchTest {
   @Test
   void oneOfFailsWhenTwoBranchesMatch() {
     // value "hello" — both branches accept.
-    var schema = new OneOfSchema(List.of(stringSchema(null, 10), stringSchema(1, null)));
+    var schema = new OneOfSchema(List.of(stringSchema(null, 10), stringSchema(1, null)), Map.of());
     assertThatThrownBy(() -> v.validate("hello", schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .satisfies(
@@ -121,13 +123,13 @@ class DefaultValidatorDispatchTest {
 
   @Test
   void notPassesWhenInnerFails() {
-    var schema = new NotSchema(stringSchema(100, null));
+    var schema = new NotSchema(stringSchema(100, null), Map.of());
     v.validate("hello", schema, "/v");
   }
 
   @Test
   void notFailsWhenInnerPasses() {
-    var schema = new NotSchema(stringSchema(null, 10));
+    var schema = new NotSchema(stringSchema(null, 10), Map.of());
     assertThatThrownBy(() -> v.validate("hello", schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
@@ -137,12 +139,12 @@ class DefaultValidatorDispatchTest {
   @Test
   void allOfWithEmptyPartsAlwaysPasses() {
     // Empty allOf is vacuously true per JSON Schema 2020-12.
-    v.validate("anything", new AllOfSchema(List.of()), "/v");
+    v.validate("anything", new AllOfSchema(List.of(), Map.of()), "/v");
   }
 
   @Test
   void anyOfWithEmptyOptionsAlwaysFails() {
-    assertThatThrownBy(() -> v.validate("anything", new AnyOfSchema(List.of()), "/v"))
+    assertThatThrownBy(() -> v.validate("anything", new AnyOfSchema(List.of(), Map.of()), "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("anyOf");
@@ -150,7 +152,7 @@ class DefaultValidatorDispatchTest {
 
   @Test
   void oneOfWithEmptyOptionsAlwaysFails() {
-    assertThatThrownBy(() -> v.validate("anything", new OneOfSchema(List.of()), "/v"))
+    assertThatThrownBy(() -> v.validate("anything", new OneOfSchema(List.of(), Map.of()), "/v"))
         .isInstanceOf(ValidationException.class)
         .satisfies(
             t -> {
@@ -163,7 +165,8 @@ class DefaultValidatorDispatchTest {
   @Test
   void notWithNullSchemaRejectsNull() {
     // not(NullSchema) — inner accepts null, outer must reject.
-    assertThatThrownBy(() -> v.validate(null, new NotSchema(new NullSchema()), "/v"))
+    assertThatThrownBy(
+            () -> v.validate(null, new NotSchema(new NullSchema(Map.of()), Map.of()), "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("not");
@@ -172,33 +175,34 @@ class DefaultValidatorDispatchTest {
   @Test
   void anyOfMatchesNullViaNullSchema() {
     // anyOf containing a NullSchema branch must pass for a null value.
-    var schema = new AnyOfSchema(List.of(stringSchema(1, null), new NullSchema()));
+    var schema =
+        new AnyOfSchema(List.of(stringSchema(1, null), new NullSchema(Map.of())), Map.of());
     v.validate(null, schema, "/v");
   }
 
   @Test
   void alwaysSchemaAcceptsString() {
-    v.validate("anything", new AlwaysSchema(), "/v");
+    v.validate("anything", new AlwaysSchema(Map.of()), "/v");
   }
 
   @Test
   void alwaysSchemaAcceptsInteger() {
-    v.validate(42, new AlwaysSchema(), "/v");
+    v.validate(42, new AlwaysSchema(Map.of()), "/v");
   }
 
   @Test
   void alwaysSchemaAcceptsObject() {
-    v.validate(Map.of("a", 1), new AlwaysSchema(), "/v");
+    v.validate(Map.of("a", 1), new AlwaysSchema(Map.of()), "/v");
   }
 
   @Test
   void alwaysSchemaAcceptsNull() {
-    v.validate(null, new AlwaysSchema(), "/v");
+    v.validate(null, new AlwaysSchema(Map.of()), "/v");
   }
 
   @Test
   void neverSchemaRejectsString() {
-    assertThatThrownBy(() -> v.validate("anything", new NeverSchema(), "/v"))
+    assertThatThrownBy(() -> v.validate("anything", new NeverSchema(Map.of()), "/v"))
         .isInstanceOf(ValidationException.class)
         .satisfies(
             t -> {
@@ -213,7 +217,7 @@ class DefaultValidatorDispatchTest {
   // Full ValidationError surface is verified by neverSchemaRejectsString; these cover keyword only.
   @Test
   void neverSchemaRejectsInteger() {
-    assertThatThrownBy(() -> v.validate(42, new NeverSchema(), "/v"))
+    assertThatThrownBy(() -> v.validate(42, new NeverSchema(Map.of()), "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("false");
@@ -221,7 +225,7 @@ class DefaultValidatorDispatchTest {
 
   @Test
   void neverSchemaRejectsNull() {
-    assertThatThrownBy(() -> v.validate(null, new NeverSchema(), "/v"))
+    assertThatThrownBy(() -> v.validate(null, new NeverSchema(Map.of()), "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("false");

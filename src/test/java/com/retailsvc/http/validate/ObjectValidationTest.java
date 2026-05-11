@@ -23,14 +23,16 @@ class ObjectValidationTest {
 
   private ObjectSchema obj(
       Map<String, Schema> props, List<String> required, AdditionalProperties ap) {
-    return new ObjectSchema(Set.of(TypeName.OBJECT), props, required, ap, null, null);
+    return new ObjectSchema(Set.of(TypeName.OBJECT), props, required, ap, null, null, Map.of());
   }
 
   @Test
   void requiredFieldMissing() {
     var s =
         obj(
-            Map.of("name", new StringSchema(Set.of(TypeName.STRING), null, null, null, null, null)),
+            Map.of(
+                "name",
+                new StringSchema(Set.of(TypeName.STRING), null, null, null, null, null, Map.of())),
             List.of("name"),
             new AdditionalProperties.Allowed());
     var emptyMap = Map.<String, Object>of();
@@ -44,7 +46,9 @@ class ObjectValidationTest {
   void propertyValidatedAtPointer() {
     var s =
         obj(
-            Map.of("name", new StringSchema(Set.of(TypeName.STRING), null, 3, null, null, null)),
+            Map.of(
+                "name",
+                new StringSchema(Set.of(TypeName.STRING), null, 3, null, null, null, Map.of())),
             List.of(),
             new AdditionalProperties.Allowed());
     assertThatThrownBy(() -> v.validate(Map.of("name", "ab"), s, ""))

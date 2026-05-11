@@ -1,6 +1,7 @@
 package com.retailsvc.http.spec.schema;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public record StringSchema(
@@ -9,5 +10,6 @@ public record StringSchema(
     Integer minLength,
     Integer maxLength,
     String format,
-    List<String> enumValues)
+    List<String> enumValues,
+    Map<String, Object> extensions)
     implements Schema {}

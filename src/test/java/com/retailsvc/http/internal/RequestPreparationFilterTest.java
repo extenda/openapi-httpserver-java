@@ -137,7 +137,8 @@ class RequestPreparationFilterTest {
 
   @Test
   void invalidQueryParamThrowsValidation() {
-    var stringSchema = new StringSchema(Set.of(TypeName.STRING), null, 3, null, null, null);
+    var stringSchema =
+        new StringSchema(Set.of(TypeName.STRING), null, 3, null, null, null, Map.of());
     var op =
         new Operation(
             "a",

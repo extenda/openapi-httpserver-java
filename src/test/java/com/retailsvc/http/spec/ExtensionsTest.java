@@ -84,4 +84,73 @@ class ExtensionsTest {
     Operation op = spec.operations().getFirst();
     assertThat(op.extensions()).containsEntry("x-permissions", List.of("pro.promotion.create"));
   }
+
+  @Test
+  void objectSchemaExtensionsExposeXKeys() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi",
+            "3.1.0",
+            "info",
+            Map.of("title", "t", "version", "1"),
+            "servers",
+            List.of(Map.of("url", "https://example.com")),
+            "paths",
+            Map.of(),
+            "components",
+            Map.of(
+                "schemas",
+                Map.of(
+                    "Promotion",
+                    Map.of("type", "object", "properties", Map.of(), "x-ui-hint", "card"))));
+    Spec spec = Spec.from(raw);
+    assertThat(spec.componentSchemas().get("Promotion").extensions())
+        .containsEntry("x-ui-hint", "card");
+  }
+
+  @Test
+  void stringSchemaExtensionsExposeXKeys() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi",
+            "3.1.0",
+            "info",
+            Map.of("title", "t", "version", "1"),
+            "servers",
+            List.of(Map.of("url", "https://example.com")),
+            "paths",
+            Map.of(),
+            "components",
+            Map.of("schemas", Map.of("Code", Map.of("type", "string", "x-format-hint", "slug"))));
+    Spec spec = Spec.from(raw);
+    assertThat(spec.componentSchemas().get("Code").extensions())
+        .containsEntry("x-format-hint", "slug");
+  }
+
+  @Test
+  void oneOfSchemaExtensionsExposeXKeys() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi",
+            "3.1.0",
+            "info",
+            Map.of("title", "t", "version", "1"),
+            "servers",
+            List.of(Map.of("url", "https://example.com")),
+            "paths",
+            Map.of(),
+            "components",
+            Map.of(
+                "schemas",
+                Map.of(
+                    "Either",
+                    Map.of(
+                        "oneOf",
+                        List.of(Map.of("type", "string"), Map.of("type", "integer")),
+                        "x-discriminator-hint",
+                        "kind"))));
+    Spec spec = Spec.from(raw);
+    assertThat(spec.componentSchemas().get("Either").extensions())
+        .containsEntry("x-discriminator-hint", "kind");
+  }
 }

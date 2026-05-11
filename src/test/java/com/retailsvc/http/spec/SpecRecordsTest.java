@@ -10,7 +10,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class SpecRecordsTest {
-  private final Schema s = new BooleanSchema(Set.of(TypeName.BOOLEAN));
+  private final Schema s = new BooleanSchema(Set.of(TypeName.BOOLEAN), Map.of());
 
   @Test
   void parameterLocationEnum() {

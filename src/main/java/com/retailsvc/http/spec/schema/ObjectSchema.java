@@ -10,5 +10,6 @@ public record ObjectSchema(
     List<String> required,
     AdditionalProperties additionalProperties,
     Integer minProperties,
-    Integer maxProperties)
+    Integer maxProperties,
+    Map<String, Object> extensions)
     implements Schema {}

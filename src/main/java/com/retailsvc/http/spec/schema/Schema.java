@@ -1,5 +1,6 @@
 package com.retailsvc.http.spec.schema;
 
+import java.util.Map;
 import java.util.Set;
 
 public sealed interface Schema
@@ -20,4 +21,6 @@ public sealed interface Schema
         AlwaysSchema,
         NeverSchema {
   Set<TypeName> types();
+
+  Map<String, Object> extensions();
 }
