@@ -2,6 +2,7 @@ package com.retailsvc.http.spec;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.google.gson.Gson;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -125,6 +126,22 @@ class ExtensionsTest {
     Spec spec = Spec.from(raw);
     assertThat(spec.componentSchemas().get("Code").extensions())
         .containsEntry("x-format-hint", "slug");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void fixtureOperationExtensionsAreReadable() throws Exception {
+    Gson gson = new Gson();
+    String text =
+        new String(ExtensionsTest.class.getResourceAsStream("/openapi.json").readAllBytes());
+    Map<String, Object> raw = (Map<String, Object>) gson.fromJson(text, Map.class);
+    Spec spec = Spec.from(raw);
+    Operation op =
+        spec.operations().stream()
+            .filter(o -> "post-data".equals(o.operationId()))
+            .findFirst()
+            .orElseThrow();
+    assertThat(op.extensions()).containsEntry("x-permissions", List.of("pro.promotion.create"));
   }
 
   @Test
