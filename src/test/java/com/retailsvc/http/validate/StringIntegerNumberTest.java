@@ -265,4 +265,25 @@ class StringIntegerNumberTest {
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("format");
   }
+
+  @Test
+  void numberFormatFloat() {
+    NumberSchema s =
+        new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, "float");
+    assertThatCode(() -> v.validate(1.5, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(-1.5, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate((double) Float.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate(1e40, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate(-1e40, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate(Double.NaN, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate(Double.POSITIVE_INFINITY, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
 }

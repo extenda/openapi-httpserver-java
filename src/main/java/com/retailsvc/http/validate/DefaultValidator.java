@@ -89,7 +89,12 @@ public final class DefaultValidator implements Validator {
           "int64",
           new IntegerFormatCheck(n -> true, "value does not fit in int64"));
 
-  private static final Map<String, NumberFormatCheck> NUMBER_FORMAT_CHECKS = Map.of();
+  private static final Map<String, NumberFormatCheck> NUMBER_FORMAT_CHECKS =
+      Map.of(
+          "float",
+          new NumberFormatCheck(
+              n -> !Double.isNaN(n) && !Double.isInfinite(n) && Math.abs(n) <= Float.MAX_VALUE,
+              "value does not fit in float"));
 
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
