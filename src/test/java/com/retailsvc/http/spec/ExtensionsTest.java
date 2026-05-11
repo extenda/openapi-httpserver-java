@@ -41,4 +41,20 @@ class ExtensionsTest {
     Spec spec = Spec.from(raw);
     assertThat(spec.extensions()).isEmpty();
   }
+
+  @Test
+  void infoExtensionsExposeXKeys() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi",
+            "3.1.0",
+            "info",
+            Map.of("title", "t", "version", "1", "x-contact-team", "platform"),
+            "servers",
+            List.of(Map.of("url", "https://example.com")),
+            "paths",
+            Map.of());
+    Spec spec = Spec.from(raw);
+    assertThat(spec.info().extensions()).containsEntry("x-contact-team", "platform");
+  }
 }

@@ -45,7 +45,7 @@ class RequestPreparationFilterTest {
   private Spec specWith(Operation... ops) {
     return new Spec(
         "3.1.0",
-        new Info("t", "1"),
+        new Info("t", "1", Map.of()),
         List.of(new Server("/")),
         List.of(ops),
         Map.of(),

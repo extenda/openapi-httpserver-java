@@ -100,7 +100,7 @@ public record Spec(
   }
 
   private static Info parseInfo(Map<String, Object> raw) {
-    return new Info((String) raw.get("title"), (String) raw.get("version"));
+    return new Info((String) raw.get("title"), (String) raw.get("version"), extractExtensions(raw));
   }
 
   private static List<Server> parseServers(List<Map<String, Object>> raw) {
