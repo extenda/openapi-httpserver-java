@@ -241,4 +241,18 @@ class StringIntegerNumberTest {
             Set.of(TypeName.STRING), null, null, null, "definitely-not-a-format", null);
     assertThatCode(() -> v.validate("anything", s, "/v")).doesNotThrowAnyException();
   }
+
+  @Test
+  void integerFormatInt32() {
+    IntegerSchema s =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, "int32");
+    assertThatCode(() -> v.validate(Integer.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(Integer.MIN_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate(Integer.MAX_VALUE + 1L, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate(Integer.MIN_VALUE - 1L, s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
 }

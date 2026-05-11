@@ -36,7 +36,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.DoublePredicate;
 import java.util.function.Function;
+import java.util.function.LongPredicate;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -46,6 +48,10 @@ public final class DefaultValidator implements Validator {
   private static final String FORMAT_KEYWORD = "format";
 
   private record FormatCheck(Predicate<String> isValid, String message) {}
+
+  private record IntegerFormatCheck(LongPredicate isValid, String message) {}
+
+  private record NumberFormatCheck(DoublePredicate isValid, String message) {}
 
   private static final Pattern EMAIL = Pattern.compile("^[^\\s@]++@[^\\s@.]++\\.[^\\s@]++$");
 
@@ -74,6 +80,15 @@ public final class DefaultValidator implements Validator {
           Map.entry("byte", new FormatCheck(DefaultValidator::isByte, "not valid base64")),
           Map.entry("binary", new FormatCheck(s -> true, "not valid binary")),
           Map.entry("password", new FormatCheck(s -> true, "not valid password")));
+
+  private static final Map<String, IntegerFormatCheck> INTEGER_FORMAT_CHECKS =
+      Map.of(
+          "int32",
+          new IntegerFormatCheck(
+              n -> n >= Integer.MIN_VALUE && n <= Integer.MAX_VALUE,
+              "value does not fit in int32"));
+
+  private static final Map<String, NumberFormatCheck> NUMBER_FORMAT_CHECKS = Map.of();
 
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
@@ -151,6 +166,26 @@ public final class DefaultValidator implements Validator {
     }
     if (!check.isValid().test(str)) {
       fail(pointer, FORMAT_KEYWORD, check.message(), str);
+    }
+  }
+
+  private void validateIntegerFormat(long n, String format, String pointer) {
+    IntegerFormatCheck check = INTEGER_FORMAT_CHECKS.get(format);
+    if (check == null) {
+      return;
+    }
+    if (!check.isValid().test(n)) {
+      fail(pointer, FORMAT_KEYWORD, check.message(), n);
+    }
+  }
+
+  private void validateNumberFormat(double n, String format, String pointer) {
+    NumberFormatCheck check = NUMBER_FORMAT_CHECKS.get(format);
+    if (check == null) {
+      return;
+    }
+    if (!check.isValid().test(n)) {
+      fail(pointer, FORMAT_KEYWORD, check.message(), n);
     }
   }
 
@@ -336,6 +371,9 @@ public final class DefaultValidator implements Validator {
     if (s.multipleOf() != null && n % s.multipleOf() != 0) {
       fail(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
     }
+    if (s.format() != null) {
+      validateIntegerFormat(n, s.format(), pointer);
+    }
   }
 
   private void validateNumber(Object value, NumberSchema s, String pointer) {
@@ -370,6 +408,9 @@ public final class DefaultValidator implements Validator {
     }
     if (s.multipleOf() != null && !isMultipleOf(n, s.multipleOf().doubleValue())) {
       fail(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
+    }
+    if (s.format() != null) {
+      validateNumberFormat(n, s.format(), pointer);
     }
   }
 
