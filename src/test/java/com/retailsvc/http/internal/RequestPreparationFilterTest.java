@@ -52,6 +52,7 @@ class RequestPreparationFilterTest {
         Map.of(),
         "",
         Map.of(),
+        Map.of(),
         Map.of());
   }
 

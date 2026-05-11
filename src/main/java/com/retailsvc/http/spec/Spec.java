@@ -19,11 +19,22 @@ public record Spec(
     Map<String, Parameter> componentParameters,
     String basePath,
     Map<String, Schema> schemaRefIndex,
-    Map<String, Parameter> parameterRefIndex) {
+    Map<String, Parameter> parameterRefIndex,
+    Map<String, Object> extensions) {
 
   private static final String SCHEMA_KEY = "schema";
   private static final String SCHEMA_REF_PREFIX = "#/components/schemas/";
   private static final String PARAMETER_REF_PREFIX = "#/components/parameters/";
+
+  static Map<String, Object> extractExtensions(Map<String, Object> raw) {
+    Map<String, Object> out = new LinkedHashMap<>();
+    for (var e : raw.entrySet()) {
+      if (e.getKey().startsWith("x-")) {
+        out.put(e.getKey(), e.getValue());
+      }
+    }
+    return Map.copyOf(out);
+  }
 
   @SuppressWarnings("unchecked")
   public static Spec from(Map<String, Object> raw) {
@@ -46,7 +57,8 @@ public record Spec(
         componentParameters,
         computeBasePath(servers),
         indexByRef(componentSchemas, SCHEMA_REF_PREFIX),
-        indexByRef(componentParameters, PARAMETER_REF_PREFIX));
+        indexByRef(componentParameters, PARAMETER_REF_PREFIX),
+        extractExtensions(raw));
   }
 
   private static String computeBasePath(List<Server> servers) {
