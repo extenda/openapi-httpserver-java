@@ -49,24 +49,6 @@ public final class DefaultValidator implements Validator {
 
   private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
-  private static final Pattern IPV4 =
-      Pattern.compile(
-          "^((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)$");
-
-  private static final Pattern IPV6 =
-      Pattern.compile(
-          "^("
-              + "([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}"
-              + "|([0-9a-fA-F]{1,4}:){1,7}:"
-              + "|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}"
-              + "|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}"
-              + "|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}"
-              + "|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}"
-              + "|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}"
-              + "|[0-9a-fA-F]{1,4}:(:[0-9a-fA-F]{1,4}){1,6}"
-              + "|:((:[0-9a-fA-F]{1,4}){1,7}|:)"
-              + ")$");
-
   private static final Pattern HOSTNAME =
       Pattern.compile(
           "^(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
@@ -86,8 +68,8 @@ public final class DefaultValidator implements Validator {
           Map.entry(
               "hostname",
               new FormatCheck(s -> HOSTNAME.matcher(s).matches(), "not a valid hostname")),
-          Map.entry("ipv4", new FormatCheck(s -> IPV4.matcher(s).matches(), "not a valid ipv4")),
-          Map.entry("ipv6", new FormatCheck(s -> IPV6.matcher(s).matches(), "not a valid ipv6")),
+          Map.entry("ipv4", new FormatCheck(DefaultValidator::isIpv4, "not a valid ipv4")),
+          Map.entry("ipv6", new FormatCheck(DefaultValidator::isIpv6, "not a valid ipv6")),
           Map.entry("regex", new FormatCheck(DefaultValidator::isRegex, "not a valid regex")),
           Map.entry("byte", new FormatCheck(DefaultValidator::isByte, "not valid base64")),
           Map.entry("binary", new FormatCheck(s -> true, "not valid binary")),
@@ -232,6 +214,86 @@ public final class DefaultValidator implements Validator {
     } catch (URISyntaxException _) {
       return false;
     }
+  }
+
+  private static boolean isIpv4(String s) {
+    String[] parts = s.split("\\.", -1);
+    if (parts.length != 4) {
+      return false;
+    }
+    for (String part : parts) {
+      if (!isIpv4Octet(part)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean isIpv4Octet(String part) {
+    int len = part.length();
+    if (len == 0 || len > 3) {
+      return false;
+    }
+    if (len > 1 && part.charAt(0) == '0') {
+      return false;
+    }
+    int n = 0;
+    for (int i = 0; i < len; i++) {
+      char c = part.charAt(i);
+      if (c < '0' || c > '9') {
+        return false;
+      }
+      n = n * 10 + (c - '0');
+    }
+    return n <= 255;
+  }
+
+  private static boolean isIpv6(String s) {
+    int doubleColon = s.indexOf("::");
+    if (doubleColon != s.lastIndexOf("::")) {
+      return false;
+    }
+    boolean compressed = doubleColon >= 0;
+    String[] left;
+    String[] right;
+    if (compressed) {
+      String l = s.substring(0, doubleColon);
+      String r = s.substring(doubleColon + 2);
+      left = l.isEmpty() ? new String[0] : l.split(":", -1);
+      right = r.isEmpty() ? new String[0] : r.split(":", -1);
+    } else {
+      left = s.split(":", -1);
+      right = new String[0];
+    }
+    int total = left.length + right.length;
+    if (compressed ? total > 7 : total != 8) {
+      return false;
+    }
+    return allHextets(left) && allHextets(right);
+  }
+
+  private static boolean allHextets(String[] parts) {
+    for (String hextet : parts) {
+      if (!isHextet(hextet)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean isHextet(String hextet) {
+    int len = hextet.length();
+    if (len == 0 || len > 4) {
+      return false;
+    }
+    for (int i = 0; i < len; i++) {
+      char c = hextet.charAt(i);
+      boolean hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+      if (!hex) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private void validateInteger(Object value, IntegerSchema s, String pointer) {
