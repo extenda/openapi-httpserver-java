@@ -128,6 +128,9 @@ class StringIntegerNumberTest {
     assertThatThrownBy(() -> v.validate("1.2.3", s, "/v"))
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("01.02.03.04", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
   }
 
   @Test
