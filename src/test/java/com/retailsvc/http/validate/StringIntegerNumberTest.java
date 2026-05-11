@@ -243,6 +243,16 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void integerFormatInt64AcceptsAnyLong() {
+    IntegerSchema s =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, "int64");
+    assertThatCode(() -> v.validate(Long.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(Long.MIN_VALUE, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(0L, s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(123L, s, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
   void integerFormatInt32() {
     IntegerSchema s =
         new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, "int32");

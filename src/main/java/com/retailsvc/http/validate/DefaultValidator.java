@@ -85,8 +85,9 @@ public final class DefaultValidator implements Validator {
       Map.of(
           "int32",
           new IntegerFormatCheck(
-              n -> n >= Integer.MIN_VALUE && n <= Integer.MAX_VALUE,
-              "value does not fit in int32"));
+              n -> n >= Integer.MIN_VALUE && n <= Integer.MAX_VALUE, "value does not fit in int32"),
+          "int64",
+          new IntegerFormatCheck(n -> true, "value does not fit in int64"));
 
   private static final Map<String, NumberFormatCheck> NUMBER_FORMAT_CHECKS = Map.of();
 
