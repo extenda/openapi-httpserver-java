@@ -454,56 +454,63 @@ The following docs reference Java 21 today and must be updated as part of the re
 
 Each item below becomes its own small spec/PR after the refactor lands. Listed in the recommended order.
 
-**Wave 1 — high impact, low cost, unblocked by typed model**
+> **Reprioritized 2026-05-08.** Wave 1 and the high-impact slices of the original Wave 2 (string formats, numeric widths) have landed. The remaining items have been re-ordered to prioritize parameter/body fidelity, refs/topology, and extensions — the keywords most real-world specs depend on — over niche JSON Schema validation keywords. Item numbering follows the original inventory in parentheses so historical references still resolve.
+
+**Wave 1 — high impact, low cost, unblocked by typed model — ✅ DONE**
 
 1. `requestBody.required: true` enforcement when body is empty.
 2. `additionalProperties: false` and `additionalProperties: { schema }` enforcement.
 3. Combinators: `oneOf` / `anyOf` / `allOf` (one spec — they share machinery).
 4. `not` + `const` + top-level `enum` + schema booleans (`true` / `false`).
 
-**Wave 2 — coverage breadth**
+**Wave 2 (original, partially done — string formats and numeric widths)**
 
-5. Format expansion: `email`, `uri`, `uri-reference`, `hostname`, `ipv4`, `ipv6`, `regex`, `byte` (base64), `binary`, `password`.
-6. Object: `patternProperties`, `dependentRequired`, `dependentSchemas`, `propertyNames`.
-7. Array: `contains` / `minContains` / `maxContains`, `prefixItems` (tuple validation).
-8. Format-driven width validation: `int32` / `int64` overflow, `float` / `double` precision.
+5. ✅ Format expansion: `email`, `uri`, `uri-reference`, `hostname`, `ipv4`, `ipv6`, `regex`, `byte` (base64), `binary`, `password`.
+8. ✅ Format-driven width validation: `int32` / `int64` overflow, `float` / `double` precision.
 
-**Wave 3 — parameter & request-body fidelity**
+Items 6 and 7 from the original Wave 2 are demoted to the new Wave 4 below.
 
-9. Parameter `style` + `explode` for `query`, `path`, `header`, `cookie`.
-10. Array query parameters (`?ids=1&ids=2` and `?ids=1,2`).
-11. `deepObject` query style.
-12. `content` instead of `schema` on parameters.
-13. `cookie` parameter location.
-14. Media-type ranges (`application/*`, charset suffix tolerance).
-15. Non-JSON request bodies: `application/x-www-form-urlencoded`, `multipart/form-data`, `text/plain`. `encoding` object on multipart fields.
+**Wave 2 — parameter & request-body fidelity + extensions (new)**
 
-**Wave 4 — responses**
+- (orig #9) Parameter `style` + `explode` for `query`, `path`, `header`, `cookie`.
+- (orig #10) Array query parameters (`?ids=1&ids=2` and `?ids=1,2`).
+- (orig #11) `deepObject` query style.
+- (orig #12) `content` instead of `schema` on parameters.
+- (orig #13) `cookie` parameter location.
+- (orig #14) Media-type ranges (`application/*`, charset suffix tolerance).
+- (orig #15) Non-JSON request bodies: `application/x-www-form-urlencoded`, `multipart/form-data`, `text/plain`. `encoding` object on multipart fields.
+- (orig #29) Extensions (`x-*` keys) — at minimum: silently preserved, accessible via raw map fallback. Pulled forward from old Wave 6 because consumers rely on vendor extensions across the spec.
 
-16. Validate response body against `responses[status].content[mediaType].schema`.
-17. Validate response headers.
-18. `default` response handling.
+**Wave 3 — refs & spec topology (new)**
 
-**Wave 5 — refs & spec topology**
+- (orig #19) Cross-document `$ref`.
+- (orig #20) JSON Schema `$defs` (3.1 alternative to `components.schemas`).
+- (orig #21) `$dynamicRef` / `$dynamicAnchor` (rarely used).
+- (orig #22) Multiple `servers[]` entries; server variables (`{tenant}.example.com`).
+- (orig #23) Path-level parameters (defined on `PathItem`, shared across operations).
+- (orig #24) Path-level / operation-level `servers`.
 
-19. Cross-document `$ref`.
-20. JSON Schema `$defs` (3.1 alternative to `components.schemas`).
-21. `$dynamicRef` / `$dynamicAnchor` (rarely used).
-22. Multiple `servers[]` entries; server variables (`{tenant}.example.com`).
-23. Path-level parameters (defined on `PathItem`, shared across operations).
-24. Path-level / operation-level `servers`.
+**Wave 4 — niche JSON Schema keywords (demoted)**
+
+- (orig #6) Object: `patternProperties`, `dependentRequired`, `dependentSchemas`, `propertyNames`.
+- (orig #7) Array: `contains` / `minContains` / `maxContains`, `prefixItems` (tuple validation).
+
+**Wave 5 — responses**
+
+- (orig #16) Validate response body against `responses[status].content[mediaType].schema`.
+- (orig #17) Validate response headers.
+- (orig #18) `default` response handling.
 
 **Wave 6 — UX & metadata**
 
-25. Multi-error collection (gather all failures per request, not first-only).
-26. `discriminator` (used with combinators).
-27. `readOnly` / `writeOnly` (skip validation in the wrong direction).
-28. `deprecated` (warning logging on use).
-29. Extensions (`x-*` keys) — at minimum: silently preserved, accessible via raw map fallback.
+- (orig #25) Multi-error collection (gather all failures per request, not first-only).
+- (orig #26) `discriminator` (used with combinators).
+- (orig #27) `readOnly` / `writeOnly` (skip validation in the wrong direction).
+- (orig #28) `deprecated` (warning logging on use).
 
 **Wave 7 — last**
 
-30. Security: `securitySchemes` parsing; `security` enforcement at operation level.
+- (orig #30) Security: `securitySchemes` parsing; `security` enforcement at operation level.
 
 ## Out of scope for this design
 
