@@ -68,6 +68,87 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void stringFormatEmail() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "email", null);
+    assertThatCode(() -> v.validate("user@example.com", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("not-an-email", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("missing@dot", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
+  void stringFormatUri() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "uri", null);
+    assertThatCode(() -> v.validate("https://example.com/path", s, "/v"))
+        .doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("/relative/path", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("not a uri at all", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
+  void stringFormatUriReference() {
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "uri-reference", null);
+    assertThatCode(() -> v.validate("https://example.com", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("/relative/path", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("ht tp://broken", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
+  void stringFormatHostname() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "hostname", null);
+    assertThatCode(() -> v.validate("example.com", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("a.b.c.example", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("-leading-hyphen.com", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("invalid host name", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
+  void stringFormatIpv4() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "ipv4", null);
+    assertThatCode(() -> v.validate("192.168.0.1", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("0.0.0.0", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("255.255.255.255", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("256.0.0.1", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("1.2.3", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("01.02.03.04", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
+  void stringFormatIpv6() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "ipv6", null);
+    assertThatCode(() -> v.validate("2001:0db8:85a3:0000:0000:8a2e:0370:7334", s, "/v"))
+        .doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("2001:db8::1", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("::1", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("not:an:ipv6", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("12345::1", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
   void integerWithMinMax() {
     IntegerSchema s =
         new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 10L, null, null, null, "int32");
@@ -110,10 +191,54 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void stringFormatRegex() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "regex", null);
+    assertThatCode(() -> v.validate("^[a-z]+$", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("\\d{3}-\\d{4}", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("[invalid", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
+  void stringFormatByte() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "byte", null);
+    assertThatCode(() -> v.validate("aGVsbG8=", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("", s, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate("not base64!!", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("a===", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
+  void stringFormatBinaryAcceptsAnyString() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "binary", null);
+    assertThatCode(() -> v.validate("anything goes", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate(" ", s, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
+  void stringFormatPasswordAcceptsAnyString() {
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "password", null);
+    assertThatCode(() -> v.validate("anything goes", s, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
   void stringRejectsNonString() {
     StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, null, null);
     assertThatThrownBy(() -> v.validate(42, s, "/v"))
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("type");
+  }
+
+  @Test
+  void stringFormatUnknownIsIgnored() {
+    StringSchema s =
+        new StringSchema(
+            Set.of(TypeName.STRING), null, null, null, "definitely-not-a-format", null);
+    assertThatCode(() -> v.validate("anything", s, "/v")).doesNotThrowAnyException();
   }
 }

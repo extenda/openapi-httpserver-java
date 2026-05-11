@@ -21,10 +21,13 @@ import com.retailsvc.http.spec.schema.Schema;
 import com.retailsvc.http.spec.schema.StringSchema;
 import com.retailsvc.http.spec.schema.TypeName;
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -34,11 +37,43 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public final class DefaultValidator implements Validator {
 
   private static final String FORMAT_KEYWORD = "format";
+
+  private record FormatCheck(Predicate<String> isValid, String message) {}
+
+  private static final Pattern EMAIL = Pattern.compile("^[^\\s@]++@[^\\s@.]++\\.[^\\s@]++$");
+
+  private static final Pattern HOSTNAME =
+      Pattern.compile(
+          "^(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+              + "(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*+$");
+
+  private static final Map<String, FormatCheck> FORMAT_CHECKS =
+      Map.ofEntries(
+          Map.entry("uuid", new FormatCheck(DefaultValidator::isUuid, "not a valid uuid")),
+          Map.entry("date", new FormatCheck(DefaultValidator::isDate, "not a valid date")),
+          Map.entry(
+              "date-time", new FormatCheck(DefaultValidator::isDateTime, "not a valid date-time")),
+          Map.entry("email", new FormatCheck(s -> EMAIL.matcher(s).matches(), "not a valid email")),
+          Map.entry("uri", new FormatCheck(DefaultValidator::isUri, "not a valid uri")),
+          Map.entry(
+              "uri-reference",
+              new FormatCheck(DefaultValidator::isUriReference, "not a valid uri-reference")),
+          Map.entry(
+              "hostname",
+              new FormatCheck(s -> HOSTNAME.matcher(s).matches(), "not a valid hostname")),
+          Map.entry("ipv4", new FormatCheck(DefaultValidator::isIpv4, "not a valid ipv4")),
+          Map.entry("ipv6", new FormatCheck(DefaultValidator::isIpv6, "not a valid ipv6")),
+          Map.entry("regex", new FormatCheck(DefaultValidator::isRegex, "not a valid regex")),
+          Map.entry("byte", new FormatCheck(DefaultValidator::isByte, "not valid base64")),
+          Map.entry("binary", new FormatCheck(s -> true, "not valid binary")),
+          Map.entry("password", new FormatCheck(s -> true, "not valid password")));
 
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
@@ -110,32 +145,162 @@ public final class DefaultValidator implements Validator {
   }
 
   private void validateStringFormat(String str, String format, String pointer) {
-    switch (format) {
-      case "uuid" -> {
-        try {
-          UUID.fromString(str);
-        } catch (IllegalArgumentException _) {
-          fail(pointer, FORMAT_KEYWORD, "not a valid uuid", str);
-        }
-      }
-      case "date" -> {
-        try {
-          LocalDate.parse(str);
-        } catch (DateTimeParseException _) {
-          fail(pointer, FORMAT_KEYWORD, "not a valid date", str);
-        }
-      }
-      case "date-time" -> {
-        try {
-          OffsetDateTime.parse(str);
-        } catch (DateTimeParseException _) {
-          fail(pointer, FORMAT_KEYWORD, "not a valid date-time", str);
-        }
-      }
-      default -> {
-        /* unknown format ignored — handled in 3.1 follow-up */
+    FormatCheck check = FORMAT_CHECKS.get(format);
+    if (check == null) {
+      return;
+    }
+    if (!check.isValid().test(str)) {
+      fail(pointer, FORMAT_KEYWORD, check.message(), str);
+    }
+  }
+
+  private static boolean isUuid(String s) {
+    try {
+      UUID.fromString(s);
+      return true;
+    } catch (IllegalArgumentException _) {
+      return false;
+    }
+  }
+
+  private static boolean isDate(String s) {
+    try {
+      LocalDate.parse(s);
+      return true;
+    } catch (DateTimeParseException _) {
+      return false;
+    }
+  }
+
+  private static boolean isDateTime(String s) {
+    try {
+      OffsetDateTime.parse(s);
+      return true;
+    } catch (DateTimeParseException _) {
+      return false;
+    }
+  }
+
+  private static boolean isUri(String s) {
+    try {
+      return new URI(s).isAbsolute();
+    } catch (URISyntaxException _) {
+      return false;
+    }
+  }
+
+  private static boolean isRegex(String s) {
+    try {
+      Pattern.compile(s);
+      return true;
+    } catch (PatternSyntaxException _) {
+      return false;
+    }
+  }
+
+  private static boolean isByte(String s) {
+    try {
+      Base64.getDecoder().decode(s);
+      return true;
+    } catch (IllegalArgumentException _) {
+      return false;
+    }
+  }
+
+  private static boolean isUriReference(String s) {
+    try {
+      new URI(s);
+      return true;
+    } catch (URISyntaxException _) {
+      return false;
+    }
+  }
+
+  private static final int IPV4_OCTET_COUNT = 4;
+  private static final int IPV4_OCTET_MAX_DIGITS = 3;
+  private static final int IPV4_OCTET_MAX_VALUE = 255;
+  private static final int DECIMAL_RADIX = 10;
+  private static final int IPV6_HEXTET_COUNT = 8;
+  private static final int IPV6_HEXTET_MAX_DIGITS = 4;
+
+  private static boolean isIpv4(String s) {
+    String[] parts = s.split("\\.", -1);
+    if (parts.length != IPV4_OCTET_COUNT) {
+      return false;
+    }
+    for (String part : parts) {
+      if (!isIpv4Octet(part)) {
+        return false;
       }
     }
+    return true;
+  }
+
+  private static boolean isIpv4Octet(String part) {
+    int len = part.length();
+    if (len == 0 || len > IPV4_OCTET_MAX_DIGITS) {
+      return false;
+    }
+    if (len > 1 && part.charAt(0) == '0') {
+      return false;
+    }
+    int n = 0;
+    for (int i = 0; i < len; i++) {
+      char c = part.charAt(i);
+      if (c < '0' || c > '9') {
+        return false;
+      }
+      n = n * DECIMAL_RADIX + (c - '0');
+    }
+    return n <= IPV4_OCTET_MAX_VALUE;
+  }
+
+  private static boolean isIpv6(String s) {
+    int doubleColon = s.indexOf("::");
+    if (doubleColon != s.lastIndexOf("::")) {
+      return false;
+    }
+    boolean compressed = doubleColon >= 0;
+    String[] left;
+    String[] right;
+    if (compressed) {
+      String l = s.substring(0, doubleColon);
+      String r = s.substring(doubleColon + 2);
+      left = l.isEmpty() ? new String[0] : l.split(":", -1);
+      right = r.isEmpty() ? new String[0] : r.split(":", -1);
+    } else {
+      left = s.split(":", -1);
+      right = new String[0];
+    }
+    int total = left.length + right.length;
+    if (compressed ? total > IPV6_HEXTET_COUNT - 1 : total != IPV6_HEXTET_COUNT) {
+      return false;
+    }
+    return allHextets(left) && allHextets(right);
+  }
+
+  private static boolean allHextets(String[] parts) {
+    for (String hextet : parts) {
+      if (!isHextet(hextet)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean isHextet(String hextet) {
+    int len = hextet.length();
+    if (len == 0 || len > IPV6_HEXTET_MAX_DIGITS) {
+      return false;
+    }
+    for (int i = 0; i < len; i++) {
+      char c = hextet.charAt(i);
+      boolean hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+      if (!hex) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private void validateInteger(Object value, IntegerSchema s, String pointer) {

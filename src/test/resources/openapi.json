@@ -251,6 +251,48 @@
         "responses": { "200": { "description": "OK" } }
       }
     },
+    "/format/email": {
+      "get": {
+        "operationId": "format-email",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "addr",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "email"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/format/byte": {
+      "get": {
+        "operationId": "format-byte",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "data",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "byte"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/gates": {
       "post": {
         "operationId": "post-gate",
