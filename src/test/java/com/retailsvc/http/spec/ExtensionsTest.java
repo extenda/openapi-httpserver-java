@@ -57,4 +57,31 @@ class ExtensionsTest {
     Spec spec = Spec.from(raw);
     assertThat(spec.info().extensions()).containsEntry("x-contact-team", "platform");
   }
+
+  @Test
+  void operationExtensionsExposeXPermissions() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi",
+            "3.1.0",
+            "info",
+            Map.of("title", "t", "version", "1"),
+            "servers",
+            List.of(Map.of("url", "https://example.com")),
+            "paths",
+            Map.of(
+                "/promotions",
+                Map.of(
+                    "post",
+                    Map.of(
+                        "operationId",
+                        "createPromotion",
+                        "x-permissions",
+                        List.of("pro.promotion.create"),
+                        "responses",
+                        Map.of()))));
+    Spec spec = Spec.from(raw);
+    Operation op = spec.operations().getFirst();
+    assertThat(op.extensions()).containsEntry("x-permissions", List.of("pro.promotion.create"));
+  }
 }

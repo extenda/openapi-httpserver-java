@@ -10,4 +10,5 @@ public record Operation(
     PathTemplate path,
     Optional<RequestBody> requestBody,
     List<Parameter> parameters,
-    Map<String, Response> responses) {}
+    Map<String, Response> responses,
+    Map<String, Object> extensions) {}

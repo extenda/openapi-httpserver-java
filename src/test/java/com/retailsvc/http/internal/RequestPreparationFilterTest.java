@@ -71,6 +71,7 @@ class RequestPreparationFilterTest {
             PathTemplate.compile("/users/{id}"),
             Optional.empty(),
             List.of(),
+            Map.of(),
             Map.of());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
@@ -106,6 +107,7 @@ class RequestPreparationFilterTest {
                 PathTemplate.compile("/x"),
                 Optional.empty(),
                 List.of(),
+                Map.of(),
                 Map.of()));
     Filter f = newFilter(spec);
 
@@ -124,6 +126,7 @@ class RequestPreparationFilterTest {
                 PathTemplate.compile("/x"),
                 Optional.empty(),
                 List.of(),
+                Map.of(),
                 Map.of()));
     Filter f = newFilter(spec);
 
@@ -142,6 +145,7 @@ class RequestPreparationFilterTest {
             PathTemplate.compile("/x"),
             Optional.empty(),
             List.of(new Parameter("q", Parameter.Location.QUERY, true, stringSchema)),
+            Map.of(),
             Map.of());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
