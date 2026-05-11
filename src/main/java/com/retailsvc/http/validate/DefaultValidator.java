@@ -69,8 +69,8 @@ public final class DefaultValidator implements Validator {
 
   private static final Pattern HOSTNAME =
       Pattern.compile(
-          "^(?=.{1,253}$)([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)"
-              + "(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$");
+          "^(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+              + "(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*+$");
 
   private static final Map<String, FormatCheck> FORMAT_CHECKS =
       Map.ofEntries(
