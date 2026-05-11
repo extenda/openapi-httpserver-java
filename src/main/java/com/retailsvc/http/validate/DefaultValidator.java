@@ -216,9 +216,16 @@ public final class DefaultValidator implements Validator {
     }
   }
 
+  private static final int IPV4_OCTET_COUNT = 4;
+  private static final int IPV4_OCTET_MAX_DIGITS = 3;
+  private static final int IPV4_OCTET_MAX_VALUE = 255;
+  private static final int DECIMAL_RADIX = 10;
+  private static final int IPV6_HEXTET_COUNT = 8;
+  private static final int IPV6_HEXTET_MAX_DIGITS = 4;
+
   private static boolean isIpv4(String s) {
     String[] parts = s.split("\\.", -1);
-    if (parts.length != 4) {
+    if (parts.length != IPV4_OCTET_COUNT) {
       return false;
     }
     for (String part : parts) {
@@ -231,7 +238,7 @@ public final class DefaultValidator implements Validator {
 
   private static boolean isIpv4Octet(String part) {
     int len = part.length();
-    if (len == 0 || len > 3) {
+    if (len == 0 || len > IPV4_OCTET_MAX_DIGITS) {
       return false;
     }
     if (len > 1 && part.charAt(0) == '0') {
@@ -243,9 +250,9 @@ public final class DefaultValidator implements Validator {
       if (c < '0' || c > '9') {
         return false;
       }
-      n = n * 10 + (c - '0');
+      n = n * DECIMAL_RADIX + (c - '0');
     }
-    return n <= 255;
+    return n <= IPV4_OCTET_MAX_VALUE;
   }
 
   private static boolean isIpv6(String s) {
@@ -266,7 +273,7 @@ public final class DefaultValidator implements Validator {
       right = new String[0];
     }
     int total = left.length + right.length;
-    if (compressed ? total > 7 : total != 8) {
+    if (compressed ? total > IPV6_HEXTET_COUNT - 1 : total != IPV6_HEXTET_COUNT) {
       return false;
     }
     return allHextets(left) && allHextets(right);
@@ -283,7 +290,7 @@ public final class DefaultValidator implements Validator {
 
   private static boolean isHextet(String hextet) {
     int len = hextet.length();
-    if (len == 0 || len > 4) {
+    if (len == 0 || len > IPV6_HEXTET_MAX_DIGITS) {
       return false;
     }
     for (int i = 0; i < len; i++) {
