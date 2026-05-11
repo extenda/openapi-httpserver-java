@@ -296,4 +296,20 @@ class StringIntegerNumberTest {
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("format");
   }
+
+  @Test
+  void integerFormatUnknownIsIgnored() {
+    IntegerSchema s =
+        new IntegerSchema(
+            Set.of(TypeName.INTEGER), null, null, null, null, null, "definitely-not-a-format");
+    assertThatCode(() -> v.validate(42L, s, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
+  void numberFormatUnknownIsIgnored() {
+    NumberSchema s =
+        new NumberSchema(
+            Set.of(TypeName.NUMBER), null, null, null, null, null, "definitely-not-a-format");
+    assertThatCode(() -> v.validate(1.5, s, "/v")).doesNotThrowAnyException();
+  }
 }
