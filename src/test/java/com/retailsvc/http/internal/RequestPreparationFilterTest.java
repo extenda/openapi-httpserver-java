@@ -164,7 +164,8 @@ class RequestPreparationFilterTest {
 
   @Test
   void integerQueryParamIsCoercedFromStringBeforeValidation() throws Exception {
-    var intSchema = new IntegerSchema(Set.of(TypeName.INTEGER), 1L, 100L, null, null, null, null);
+    var intSchema =
+        new IntegerSchema(Set.of(TypeName.INTEGER), 1L, 100L, null, null, null, null, Map.of());
     var op =
         new Operation(
             "a",
@@ -172,6 +173,7 @@ class RequestPreparationFilterTest {
             PathTemplate.compile("/x"),
             Optional.empty(),
             List.of(new Parameter("n", Parameter.Location.QUERY, true, intSchema)),
+            Map.of(),
             Map.of());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
@@ -184,7 +186,8 @@ class RequestPreparationFilterTest {
 
   @Test
   void integerQueryParamRejectsNonNumericString() {
-    var intSchema = new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, null);
+    var intSchema =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, null, Map.of());
     var op =
         new Operation(
             "a",
@@ -192,6 +195,7 @@ class RequestPreparationFilterTest {
             PathTemplate.compile("/x"),
             Optional.empty(),
             List.of(new Parameter("n", Parameter.Location.QUERY, true, intSchema)),
+            Map.of(),
             Map.of());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
@@ -205,7 +209,8 @@ class RequestPreparationFilterTest {
 
   @Test
   void numberQueryParamIsCoercedFromStringBeforeValidation() throws Exception {
-    var numSchema = new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, null);
+    var numSchema =
+        new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, null, Map.of());
     var op =
         new Operation(
             "a",
@@ -213,6 +218,7 @@ class RequestPreparationFilterTest {
             PathTemplate.compile("/x"),
             Optional.empty(),
             List.of(new Parameter("n", Parameter.Location.QUERY, true, numSchema)),
+            Map.of(),
             Map.of());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
@@ -225,7 +231,8 @@ class RequestPreparationFilterTest {
 
   @Test
   void numberQueryParamRejectsNonNumericString() {
-    var numSchema = new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, null);
+    var numSchema =
+        new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, null, Map.of());
     var op =
         new Operation(
             "a",
@@ -233,6 +240,7 @@ class RequestPreparationFilterTest {
             PathTemplate.compile("/x"),
             Optional.empty(),
             List.of(new Parameter("n", Parameter.Location.QUERY, true, numSchema)),
+            Map.of(),
             Map.of());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
@@ -246,7 +254,7 @@ class RequestPreparationFilterTest {
 
   @Test
   void booleanQueryParamCoercesTrueAndFalse() throws Exception {
-    var boolSchema = new BooleanSchema(Set.of(TypeName.BOOLEAN));
+    var boolSchema = new BooleanSchema(Set.of(TypeName.BOOLEAN), Map.of());
     var op =
         new Operation(
             "a",
@@ -254,6 +262,7 @@ class RequestPreparationFilterTest {
             PathTemplate.compile("/x"),
             Optional.empty(),
             List.of(new Parameter("b", Parameter.Location.QUERY, true, boolSchema)),
+            Map.of(),
             Map.of());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
@@ -270,7 +279,7 @@ class RequestPreparationFilterTest {
 
   @Test
   void booleanQueryParamRejectsNonBooleanString() {
-    var boolSchema = new BooleanSchema(Set.of(TypeName.BOOLEAN));
+    var boolSchema = new BooleanSchema(Set.of(TypeName.BOOLEAN), Map.of());
     var op =
         new Operation(
             "a",
@@ -278,6 +287,7 @@ class RequestPreparationFilterTest {
             PathTemplate.compile("/x"),
             Optional.empty(),
             List.of(new Parameter("b", Parameter.Location.QUERY, true, boolSchema)),
+            Map.of(),
             Map.of());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
