@@ -128,7 +128,6 @@
             <configuration>
               <overWriteReleases>false</overWriteReleases>
               <outputDirectory>${project.build.directory}/lib</outputDirectory>
-              <silent>true</silent>
               <includeScope>runtime</includeScope>
             </configuration>
           </execution>

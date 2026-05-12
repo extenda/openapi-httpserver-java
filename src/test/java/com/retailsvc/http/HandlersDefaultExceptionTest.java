@@ -40,7 +40,7 @@ class HandlersDefaultExceptionTest {
   void notFoundReturns404() throws Exception {
     HttpExchange ex = newExchange(new ByteArrayOutputStream());
     Handlers.defaultExceptionHandler().handle(ex, new NotFoundException("GET /x"));
-    Mockito.verify(ex).sendResponseHeaders(404, 0);
+    Mockito.verify(ex).sendResponseHeaders(404, -1);
   }
 
   @Test
@@ -48,7 +48,7 @@ class HandlersDefaultExceptionTest {
     HttpExchange ex = newExchange(new ByteArrayOutputStream());
     Handlers.defaultExceptionHandler()
         .handle(ex, new MethodNotAllowedException(Set.of(HttpMethod.GET, HttpMethod.POST)));
-    Mockito.verify(ex).sendResponseHeaders(405, 0);
+    Mockito.verify(ex).sendResponseHeaders(405, -1);
     assertThat(ex.getResponseHeaders().getFirst("Allow")).contains("GET").contains("POST");
   }
 }
