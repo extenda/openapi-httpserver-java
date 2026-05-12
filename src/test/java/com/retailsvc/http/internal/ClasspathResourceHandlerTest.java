@@ -26,7 +26,7 @@ class ClasspathResourceHandlerTest {
 
     new ClasspathResourceHandler("/sample.txt").handle(ex);
 
-    verify(ex).sendResponseHeaders(eq(200), eq((long) expected.length));
+    verify(ex).sendResponseHeaders(200, expected.length);
     assertThat(body.toByteArray()).isEqualTo(expected);
   }
 
@@ -39,7 +39,7 @@ class ClasspathResourceHandlerTest {
 
     new ClasspathResourceHandler("/sample.txt").handle(ex);
 
-    verify(ex).sendResponseHeaders(eq(200), eq(-1L));
+    verify(ex).sendResponseHeaders(200, -1);
     assertThat(responseHeaders.getFirst("Content-Length"))
         .isEqualTo(String.valueOf(expected.length));
   }
