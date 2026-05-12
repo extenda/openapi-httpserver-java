@@ -122,6 +122,14 @@ Integration tests (additions, in a new `OpenApiServerBuilderIT` or extending `Op
 - Extra path equal to `spec.basePath()` → `IllegalStateException` from `build()` with a message naming both paths.
 - Existing `OpenApiServer` constructors still work (back-compat smoke test).
 
+### Documentation
+
+Update `README.md`:
+
+- Replace the existing constructor example (around line 86) with the new builder form.
+- Add a short subsection showing `addHandler` with `Handlers.aliveHandler()` and `Handlers.specHandler(...)`, and noting that extra handlers bypass OpenAPI validation but still flow through the configured `ExceptionHandler`.
+- Mention that the original constructors remain for back-compat.
+
 ## Out of scope
 
 - HTTP method-aware routing for extras beyond what the helpers implement.
