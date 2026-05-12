@@ -6,6 +6,8 @@ import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.retailsvc.http.internal.ClasspathResourceHandler;
+import com.retailsvc.http.internal.MethodLimitedHandler;
 import com.retailsvc.http.internal.ProblemDetailRenderer;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
@@ -52,5 +54,25 @@ public final class Handlers {
         exchange.sendResponseHeaders(HTTP_NOT_FOUND, 0);
       }
     };
+  }
+
+  /** Returns 204 No Content on GET/HEAD; 405 with {@code Allow: GET, HEAD} otherwise. */
+  public static HttpHandler aliveHandler() {
+    return new MethodLimitedHandler(
+        exchange -> {
+          try (exchange) {
+            exchange.sendResponseHeaders(204, -1);
+          }
+        });
+  }
+
+  /**
+   * Serves a classpath resource. Content-Type is inferred from the file extension. The resource is
+   * loaded eagerly; a missing resource fails immediately with {@link IllegalArgumentException}.
+   *
+   * @param classpathResource absolute classpath path, e.g. {@code /schemas/v1/openapi.yaml}
+   */
+  public static HttpHandler specHandler(String classpathResource) {
+    return new MethodLimitedHandler(new ClasspathResourceHandler(classpathResource));
   }
 }
