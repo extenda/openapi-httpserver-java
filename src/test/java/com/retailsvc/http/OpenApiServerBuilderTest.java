@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.retailsvc.http.spec.Spec;
+import com.sun.net.httpserver.HttpHandler;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -32,14 +33,15 @@ class OpenApiServerBuilderTest {
 
   @Test
   void rejectsDuplicateExtraPathOnSecondAddHandler() {
+    HttpHandler duplicate = Handlers.aliveHandler();
     OpenApiServer.Builder b =
         OpenApiServer.builder()
             .spec(spec)
             .jsonMapper(jsonMapper)
             .handlers(emptyMap())
-            .addHandler("/alive", Handlers.aliveHandler());
+            .addHandler("/alive", duplicate);
 
-    assertThatThrownBy(() -> b.addHandler("/alive", Handlers.aliveHandler()))
+    assertThatThrownBy(() -> b.addHandler("/alive", duplicate))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("/alive");
   }
@@ -47,24 +49,25 @@ class OpenApiServerBuilderTest {
   @Test
   void rejectsExtraPathEqualToSpecBasePathAtBuildTime() {
     // testSpec() uses "/api" as the basePath (servers[0].url = http://localhost:8080/api).
-    assertThatThrownBy(
-            () ->
-                OpenApiServer.builder()
-                    .spec(spec)
-                    .jsonMapper(jsonMapper)
-                    .handlers(emptyMap())
-                    .addHandler("/api", Handlers.aliveHandler())
-                    .port(0)
-                    .build())
+    OpenApiServer.Builder b =
+        OpenApiServer.builder()
+            .spec(spec)
+            .jsonMapper(jsonMapper)
+            .handlers(emptyMap())
+            .addHandler("/api", Handlers.aliveHandler())
+            .port(0);
+
+    assertThatThrownBy(b::build)
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("/api");
   }
 
   @Test
   void rejectsNullSpec() {
-    assertThatThrownBy(
-            () ->
-                OpenApiServer.builder().jsonMapper(jsonMapper).handlers(emptyMap()).port(0).build())
+    OpenApiServer.Builder b =
+        OpenApiServer.builder().jsonMapper(jsonMapper).handlers(emptyMap()).port(0);
+
+    assertThatThrownBy(b::build)
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("Spec");
   }
