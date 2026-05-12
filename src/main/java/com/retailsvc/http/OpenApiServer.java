@@ -32,6 +32,7 @@ public class OpenApiServer implements AutoCloseable {
   private static final int DEFAULT_PORT = 8080;
 
   private final HttpServer httpServer;
+  private final int shutdownTimeoutSeconds;
 
   /**
    * @param spec The parsed {@link Spec}
@@ -46,7 +47,7 @@ public class OpenApiServer implements AutoCloseable {
       Map<String, HttpHandler> handlers,
       ExceptionHandler exceptionHandler)
       throws IOException {
-    this(spec, jsonMapper, handlers, exceptionHandler, DEFAULT_PORT, Map.of());
+    this(spec, jsonMapper, handlers, exceptionHandler, DEFAULT_PORT, Map.of(), 0);
   }
 
   /**
@@ -64,7 +65,7 @@ public class OpenApiServer implements AutoCloseable {
       ExceptionHandler exceptionHandler,
       int port)
       throws IOException {
-    this(spec, jsonMapper, handlers, exceptionHandler, port, Map.of());
+    this(spec, jsonMapper, handlers, exceptionHandler, port, Map.of(), 0);
   }
 
   OpenApiServer(
@@ -73,7 +74,8 @@ public class OpenApiServer implements AutoCloseable {
       Map<String, HttpHandler> handlers,
       ExceptionHandler exceptionHandler,
       int port,
-      Map<String, HttpHandler> extras)
+      Map<String, HttpHandler> extras,
+      int shutdownTimeoutSeconds)
       throws IOException {
 
     requireNonNull(spec, "Spec must not be null");
@@ -105,6 +107,8 @@ public class OpenApiServer implements AutoCloseable {
     httpServer.createContext("/", Handlers.notFoundHandler());
     httpServer.start();
 
+    this.shutdownTimeoutSeconds = shutdownTimeoutSeconds;
+
     LOG.info("Server started (port {}) in {}ms", port, System.currentTimeMillis() - t0);
   }
 
@@ -112,11 +116,24 @@ public class OpenApiServer implements AutoCloseable {
     return httpServer.getAddress().getPort();
   }
 
+  /**
+   * Stops the server, waiting up to {@code delaySeconds} for active exchanges to finish before
+   * closing them. {@code 0} stops immediately.
+   *
+   * @param delaySeconds maximum seconds to wait for in-flight exchanges; must be non-negative
+   */
+  public void stop(int delaySeconds) {
+    if (delaySeconds < 0) {
+      throw new IllegalArgumentException("delaySeconds must be non-negative, got " + delaySeconds);
+    }
+    if (httpServer != null) {
+      httpServer.stop(delaySeconds);
+    }
+  }
+
   @Override
   public void close() {
-    if (httpServer != null) {
-      httpServer.stop(0);
-    }
+    stop(shutdownTimeoutSeconds);
   }
 
   public static Builder builder() {
@@ -131,6 +148,7 @@ public class OpenApiServer implements AutoCloseable {
     private Map<String, HttpHandler> handlers;
     private ExceptionHandler exceptionHandler;
     private int port = DEFAULT_PORT;
+    private int shutdownTimeoutSeconds = 0;
     private final LinkedHashMap<String, HttpHandler> extras = new LinkedHashMap<>();
 
     private Builder() {}
@@ -160,6 +178,20 @@ public class OpenApiServer implements AutoCloseable {
       return this;
     }
 
+    /**
+     * Sets the default drain timeout used by {@link OpenApiServer#close()}. {@code 0} (the default)
+     * stops immediately; positive values wait up to that many seconds for in-flight exchanges to
+     * finish.
+     */
+    public Builder shutdownTimeoutSeconds(int shutdownTimeoutSeconds) {
+      if (shutdownTimeoutSeconds < 0) {
+        throw new IllegalArgumentException(
+            "shutdownTimeoutSeconds must be non-negative, got " + shutdownTimeoutSeconds);
+      }
+      this.shutdownTimeoutSeconds = shutdownTimeoutSeconds;
+      return this;
+    }
+
     public Builder addHandler(String path, HttpHandler handler) {
       requireNonNull(path, "path must not be null");
       requireNonNull(handler, "handler must not be null");
@@ -181,7 +213,8 @@ public class OpenApiServer implements AutoCloseable {
               "extra handler path " + path + " conflicts with spec basePath " + basePath);
         }
       }
-      return new OpenApiServer(spec, jsonMapper, handlers, exceptionHandler, port, extras);
+      return new OpenApiServer(
+          spec, jsonMapper, handlers, exceptionHandler, port, extras, shutdownTimeoutSeconds);
     }
   }
 }

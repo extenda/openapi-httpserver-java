@@ -129,6 +129,27 @@ Built-in helpers:
 
 The original public constructors remain available for back-compat.
 
+### Graceful shutdown
+
+`OpenApiServer` exposes `stop(int delaySeconds)` for explicit shutdown that waits up to the
+given number of seconds for in-flight exchanges to complete before closing them. `0` stops
+immediately. The same drain timeout can be wired into `close()` (and therefore
+try-with-resources) via the builder:
+
+```java
+try (var server = OpenApiServer.builder()
+    .spec(spec)
+    .jsonMapper(mapper)
+    .handlers(handlers)
+    .shutdownTimeoutSeconds(5)   // close() drains up to 5s; default is 0
+    .build()) {
+  // serve requests...
+} // close() now waits up to 5s for in-flight exchanges
+```
+
+`stop(int)` and `shutdownTimeoutSeconds(int)` reject negative values with
+`IllegalArgumentException`.
+
 ## Features
 - OpenAPI specification support
 - Automatic request body parsing for JSON arrays and objects
