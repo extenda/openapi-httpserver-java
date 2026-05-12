@@ -63,6 +63,60 @@ class OpenApiServerBuilderTest {
   }
 
   @Test
+  void rejectsNegativeShutdownTimeout() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+
+    assertThatThrownBy(() -> b.shutdownTimeoutSeconds(-1))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("-1");
+  }
+
+  @Test
+  void buildsWithShutdownTimeout() {
+    assertDoesNotThrow(
+        () -> {
+          try (var _ =
+              OpenApiServer.builder()
+                  .spec(spec)
+                  .jsonMapper(jsonMapper)
+                  .handlers(emptyMap())
+                  .port(0)
+                  .shutdownTimeoutSeconds(2)
+                  .build()) {
+            // close on exit drains for up to 2s (no in-flight exchanges, so returns immediately)
+          }
+        });
+  }
+
+  @Test
+  void stopRejectsNegativeDelay() throws Exception {
+    try (var s =
+        OpenApiServer.builder()
+            .spec(spec)
+            .jsonMapper(jsonMapper)
+            .handlers(emptyMap())
+            .port(0)
+            .build()) {
+
+      assertThatThrownBy(() -> s.stop(-1))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("-1");
+    }
+  }
+
+  @Test
+  void stopWithZeroSucceeds() throws Exception {
+    var s =
+        OpenApiServer.builder()
+            .spec(spec)
+            .jsonMapper(jsonMapper)
+            .handlers(emptyMap())
+            .port(0)
+            .build();
+    assertDoesNotThrow(() -> s.stop(0));
+  }
+
+  @Test
   void rejectsNullSpec() {
     OpenApiServer.Builder b =
         OpenApiServer.builder().jsonMapper(jsonMapper).handlers(emptyMap()).port(0);
