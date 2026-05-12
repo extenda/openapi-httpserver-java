@@ -15,6 +15,7 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -45,7 +46,7 @@ public class OpenApiServer implements AutoCloseable {
       Map<String, HttpHandler> handlers,
       ExceptionHandler exceptionHandler)
       throws IOException {
-    this(spec, jsonMapper, handlers, exceptionHandler, DEFAULT_PORT);
+    this(spec, jsonMapper, handlers, exceptionHandler, DEFAULT_PORT, Map.of());
   }
 
   /**
@@ -62,6 +63,17 @@ public class OpenApiServer implements AutoCloseable {
       Map<String, HttpHandler> handlers,
       ExceptionHandler exceptionHandler,
       int port)
+      throws IOException {
+    this(spec, jsonMapper, handlers, exceptionHandler, port, Map.of());
+  }
+
+  OpenApiServer(
+      Spec spec,
+      JsonMapper jsonMapper,
+      Map<String, HttpHandler> handlers,
+      ExceptionHandler exceptionHandler,
+      int port,
+      Map<String, HttpHandler> extras)
       throws IOException {
 
     requireNonNull(spec, "Spec must not be null");
@@ -84,6 +96,12 @@ public class OpenApiServer implements AutoCloseable {
     ctx.getFilters().add(new RequestPreparationFilter(spec, router, validator, jsonMapper));
     ctx.setHandler(new DispatchHandler(handlers));
 
+    for (Map.Entry<String, HttpHandler> e : extras.entrySet()) {
+      HttpContext extraCtx = httpServer.createContext(e.getKey());
+      extraCtx.getFilters().add(new ExceptionFilter(exceptionHandler));
+      extraCtx.setHandler(e.getValue());
+    }
+
     httpServer.createContext("/", Handlers.notFoundHandler());
     httpServer.start();
 
@@ -98,6 +116,72 @@ public class OpenApiServer implements AutoCloseable {
   public void close() {
     if (httpServer != null) {
       httpServer.stop(0);
+    }
+  }
+
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /** Fluent builder for {@link OpenApiServer}. */
+  public static final class Builder {
+
+    private Spec spec;
+    private JsonMapper jsonMapper;
+    private Map<String, HttpHandler> handlers;
+    private ExceptionHandler exceptionHandler;
+    private int port = DEFAULT_PORT;
+    private final LinkedHashMap<String, HttpHandler> extras = new LinkedHashMap<>();
+
+    private Builder() {}
+
+    public Builder spec(Spec spec) {
+      this.spec = spec;
+      return this;
+    }
+
+    public Builder jsonMapper(JsonMapper jsonMapper) {
+      this.jsonMapper = jsonMapper;
+      return this;
+    }
+
+    public Builder handlers(Map<String, HttpHandler> handlers) {
+      this.handlers = handlers;
+      return this;
+    }
+
+    public Builder exceptionHandler(ExceptionHandler exceptionHandler) {
+      this.exceptionHandler = exceptionHandler;
+      return this;
+    }
+
+    public Builder port(int port) {
+      this.port = port;
+      return this;
+    }
+
+    public Builder addHandler(String path, HttpHandler handler) {
+      requireNonNull(path, "path must not be null");
+      requireNonNull(handler, "handler must not be null");
+      if (extras.containsKey(path)) {
+        throw new IllegalStateException("duplicate extra handler path: " + path);
+      }
+      extras.put(path, handler);
+      return this;
+    }
+
+    public OpenApiServer build() throws IOException {
+      requireNonNull(spec, "Spec must not be null");
+      requireNonNull(jsonMapper, "JsonMapper must not be null");
+      requireNonNull(handlers, "handlers must not be null");
+      String basePath = Optional.ofNullable(spec.basePath()).orElse("/");
+      for (String path : extras.keySet()) {
+        if (path.equals(basePath)) {
+          throw new IllegalStateException(
+              "extra handler path " + path + " conflicts with spec basePath " + basePath);
+        }
+      }
+      return new OpenApiServer(spec, jsonMapper, handlers, exceptionHandler, port, extras);
     }
   }
 }
