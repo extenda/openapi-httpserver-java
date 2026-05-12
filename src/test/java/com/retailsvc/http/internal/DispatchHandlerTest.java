@@ -1,6 +1,7 @@
 package com.retailsvc.http.internal;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 import com.retailsvc.http.MissingOperationHandlerException;
 import com.retailsvc.http.Request;
@@ -20,8 +21,8 @@ class DispatchHandlerTest {
 
   @Test
   void invokesRegisteredHandler() throws Exception {
-    HttpHandler handler = Mockito.mock(HttpHandler.class);
-    HttpExchange ex = Mockito.mock(HttpExchange.class);
+    HttpHandler handler = mock(HttpHandler.class);
+    HttpExchange ex = mock(HttpExchange.class);
 
     withOperationId(
         "get-x",
@@ -37,7 +38,7 @@ class DispatchHandlerTest {
   @Test
   void throwsWhenHandlerMissing() {
     DispatchHandler d = new DispatchHandler(Map.of());
-    HttpExchange ex = Mockito.mock(HttpExchange.class);
+    HttpExchange ex = mock(HttpExchange.class);
 
     assertThatThrownBy(
             () ->
