@@ -83,7 +83,12 @@ public class YourServerLauncher {
     handlers.put("get-data", new GetDataHandler());
     handlers.put("post-data", new PostDataHandler());
 
-    new OpenApiServer(spec, mapper, handlers, Handlers.defaultExceptionHandler());
+    var server = OpenApiServer.builder()
+        .spec(spec)
+        .jsonMapper(mapper)
+        .handlers(handlers)
+        .exceptionHandler(Handlers.defaultExceptionHandler())
+        .build();
   }
 }
 ```
@@ -94,6 +99,35 @@ For YAML, replace the JSON parsing line with SnakeYAML:
 Map<String, Object> raw = new Yaml().load(Files.newInputStream(Path.of("openapi.yaml")));
 ```
 The rest is identical.
+
+### Extra (non-OpenAPI) handlers
+
+Mount handlers at arbitrary paths outside the OpenAPI spec — useful for liveness probes,
+serving the spec document itself, or any other operational endpoint that should not be subject
+to OpenAPI parameter / body validation.
+
+``` java
+var server = OpenApiServer.builder()
+    .spec(spec)
+    .jsonMapper(mapper)
+    .handlers(handlers)
+    .addHandler("/alive", Handlers.aliveHandler())
+    .addHandler("/schemas/v1/openapi.yaml",
+                Handlers.specHandler("/schemas/v1/openapi.yaml"))
+    .build();
+```
+
+Extra handlers bypass OpenAPI validation but are still wrapped in the configured
+`ExceptionHandler`, so any uncaught exception is rendered using the same error envelope as
+API routes.
+
+Built-in helpers:
+- `Handlers.aliveHandler()` — 204 No Content on `GET`/`HEAD`, 405 otherwise.
+- `Handlers.specHandler(classpathResource)` — serves a classpath resource (content-type
+  inferred from extension). Throws `IllegalArgumentException` at construction if the resource
+  is missing.
+
+The original public constructors remain available for back-compat.
 
 ## Features
 - OpenAPI specification support
