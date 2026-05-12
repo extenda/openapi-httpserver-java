@@ -11,6 +11,10 @@ import com.retailsvc.http.spec.Operation;
 import com.retailsvc.http.spec.Parameter;
 import com.retailsvc.http.spec.RequestBody;
 import com.retailsvc.http.spec.Spec;
+import com.retailsvc.http.spec.schema.BooleanSchema;
+import com.retailsvc.http.spec.schema.IntegerSchema;
+import com.retailsvc.http.spec.schema.NumberSchema;
+import com.retailsvc.http.spec.schema.Schema;
 import com.retailsvc.http.validate.ValidationError;
 import com.retailsvc.http.validate.Validator;
 import com.sun.net.httpserver.Filter;
@@ -124,8 +128,46 @@ public final class RequestPreparationFilter extends Filter {
         }
         continue;
       }
-      validator.validate(value, p.schema(), pointer);
+      validator.validate(coerceParameterValue(value, p.schema(), pointer), p.schema(), pointer);
     }
+  }
+
+  /**
+   * Converts a raw parameter string into a typed value matching the schema's primitive kind, so the
+   * validator (which is faithful to JSON Schema {@code type} semantics) sees the value the spec
+   * describes rather than its string serialization. Strings that fail to parse are passed through
+   * unchanged so the validator surfaces a {@code type} error with the original input.
+   */
+  private static Object coerceParameterValue(String raw, Schema schema, String pointer) {
+    return switch (schema) {
+      case IntegerSchema _ -> {
+        try {
+          yield Long.parseLong(raw);
+        } catch (NumberFormatException _) {
+          throw new ValidationException(
+              new ValidationError(pointer, "type", "expected integer", raw));
+        }
+      }
+      case NumberSchema _ -> {
+        try {
+          yield Double.parseDouble(raw);
+        } catch (NumberFormatException _) {
+          throw new ValidationException(
+              new ValidationError(pointer, "type", "expected number", raw));
+        }
+      }
+      case BooleanSchema _ -> {
+        if ("true".equals(raw)) {
+          yield Boolean.TRUE;
+        }
+        if ("false".equals(raw)) {
+          yield Boolean.FALSE;
+        }
+        throw new ValidationException(
+            new ValidationError(pointer, "type", "expected boolean", raw));
+      }
+      default -> raw;
+    };
   }
 
   private Object validateAndParseBody(HttpExchange exchange, Operation op, byte[] body) {

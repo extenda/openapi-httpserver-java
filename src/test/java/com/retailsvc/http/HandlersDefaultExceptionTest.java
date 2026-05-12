@@ -1,6 +1,7 @@
 package com.retailsvc.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import com.retailsvc.http.spec.HttpMethod;
 import com.retailsvc.http.validate.ValidationError;
@@ -13,7 +14,7 @@ import org.mockito.Mockito;
 
 class HandlersDefaultExceptionTest {
   private HttpExchange newExchange(ByteArrayOutputStream sink) {
-    HttpExchange ex = Mockito.mock(HttpExchange.class);
+    HttpExchange ex = mock(HttpExchange.class);
     Mockito.when(ex.getResponseHeaders()).thenReturn(new Headers());
     Mockito.when(ex.getResponseBody()).thenReturn(sink);
     return ex;
