@@ -10,7 +10,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class SpecRecordsTest {
-  private final Schema s = new BooleanSchema(Set.of(TypeName.BOOLEAN));
+  private final Schema s = new BooleanSchema(Set.of(TypeName.BOOLEAN), Map.of());
 
   @Test
   void parameterLocationEnum() {
@@ -33,7 +33,7 @@ class SpecRecordsTest {
 
   @Test
   void infoHasTitleAndVersion() {
-    Info i = new Info("test", "1.0.0");
+    Info i = new Info("test", "1.0.0", Map.of());
     assertThat(i.title()).isEqualTo("test");
     assertThat(i.version()).isEqualTo("1.0.0");
   }

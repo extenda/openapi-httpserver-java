@@ -16,9 +16,13 @@ class OperationTest {
     var path = PathTemplate.compile("/users/{id}");
     var param =
         new Parameter(
-            "id", Parameter.Location.PATH, true, new BooleanSchema(Set.of(TypeName.BOOLEAN)));
+            "id",
+            Parameter.Location.PATH,
+            true,
+            new BooleanSchema(Set.of(TypeName.BOOLEAN), Map.of()));
     Operation op =
-        new Operation("get-user", HttpMethod.GET, path, Optional.empty(), List.of(param), Map.of());
+        new Operation(
+            "get-user", HttpMethod.GET, path, Optional.empty(), List.of(param), Map.of(), Map.of());
     assertThat(op.operationId()).isEqualTo("get-user");
     assertThat(op.method()).isEqualTo(HttpMethod.GET);
     assertThat(op.parameters()).hasSize(1);

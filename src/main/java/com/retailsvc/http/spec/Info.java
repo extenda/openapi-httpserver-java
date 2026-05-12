@@ -1,3 +1,5 @@
 package com.retailsvc.http.spec;
 
-public record Info(String title, String version) {}
+import java.util.Map;
+
+public record Info(String title, String version, Map<String, Object> extensions) {}

@@ -45,12 +45,13 @@ class RequestPreparationFilterTest {
   private Spec specWith(Operation... ops) {
     return new Spec(
         "3.1.0",
-        new Info("t", "1"),
+        new Info("t", "1", Map.of()),
         List.of(new Server("/")),
         List.of(ops),
         Map.of(),
         Map.of(),
         "",
+        Map.of(),
         Map.of(),
         Map.of());
   }
@@ -70,6 +71,7 @@ class RequestPreparationFilterTest {
             PathTemplate.compile("/users/{id}"),
             Optional.empty(),
             List.of(),
+            Map.of(),
             Map.of());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
@@ -105,6 +107,7 @@ class RequestPreparationFilterTest {
                 PathTemplate.compile("/x"),
                 Optional.empty(),
                 List.of(),
+                Map.of(),
                 Map.of()));
     Filter f = newFilter(spec);
 
@@ -123,6 +126,7 @@ class RequestPreparationFilterTest {
                 PathTemplate.compile("/x"),
                 Optional.empty(),
                 List.of(),
+                Map.of(),
                 Map.of()));
     Filter f = newFilter(spec);
 
@@ -133,7 +137,8 @@ class RequestPreparationFilterTest {
 
   @Test
   void invalidQueryParamThrowsValidation() {
-    var stringSchema = new StringSchema(Set.of(TypeName.STRING), null, 3, null, null, null);
+    var stringSchema =
+        new StringSchema(Set.of(TypeName.STRING), null, 3, null, null, null, Map.of());
     var op =
         new Operation(
             "a",
@@ -141,6 +146,7 @@ class RequestPreparationFilterTest {
             PathTemplate.compile("/x"),
             Optional.empty(),
             List.of(new Parameter("q", Parameter.Location.QUERY, true, stringSchema)),
+            Map.of(),
             Map.of());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);

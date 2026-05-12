@@ -1,5 +1,6 @@
 package com.retailsvc.http.spec.schema;
 
+import java.util.Map;
 import java.util.Set;
 
 public record NumberSchema(
@@ -9,5 +10,6 @@ public record NumberSchema(
     Number exclusiveMinimum,
     Number exclusiveMaximum,
     Number multipleOf,
-    String format)
+    String format,
+    Map<String, Object> extensions)
     implements Schema {}

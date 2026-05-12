@@ -9,6 +9,7 @@ import com.retailsvc.http.spec.schema.NumberSchema;
 import com.retailsvc.http.spec.schema.StringSchema;
 import com.retailsvc.http.spec.schema.TypeName;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -22,7 +23,7 @@ class StringIntegerNumberTest {
 
   @Test
   void stringMinLength() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, 3, null, null, null);
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, 3, null, null, null, Map.of());
     assertThatCode(() -> v.validate("abc", s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate("ab", s, "/v"))
         .isInstanceOf(ValidationException.class)
@@ -32,7 +33,7 @@ class StringIntegerNumberTest {
 
   @Test
   void stringMaxLength() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, 5, null, null);
+    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, 5, null, null, Map.of());
     assertThatThrownBy(() -> v.validate("abcdef", s, "/v"))
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("maxLength");
@@ -40,7 +41,8 @@ class StringIntegerNumberTest {
 
   @Test
   void stringPattern() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), "^[a-z]+$", null, null, null, null);
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), "^[a-z]+$", null, null, null, null, Map.of());
     assertThatCode(() -> v.validate("abc", s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate("ABC", s, "/v"))
         .extracting(t -> ((ValidationException) t).error().keyword())
@@ -50,7 +52,8 @@ class StringIntegerNumberTest {
   @Test
   void stringEnum() {
     StringSchema s =
-        new StringSchema(Set.of(TypeName.STRING), null, null, null, null, List.of("a", "b"));
+        new StringSchema(
+            Set.of(TypeName.STRING), null, null, null, null, List.of("a", "b"), Map.of());
     assertThatCode(() -> v.validate("a", s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate("c", s, "/v"))
         .extracting(t -> ((ValidationException) t).error().keyword())
@@ -59,7 +62,8 @@ class StringIntegerNumberTest {
 
   @Test
   void stringFormatUuid() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "uuid", null);
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "uuid", null, Map.of());
     assertThatCode(() -> v.validate(UUID.randomUUID().toString(), s, "/v"))
         .doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate("not-a-uuid", s, "/v"))
@@ -69,7 +73,8 @@ class StringIntegerNumberTest {
 
   @Test
   void stringFormatEmail() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "email", null);
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "email", null, Map.of());
     assertThatCode(() -> v.validate("user@example.com", s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate("not-an-email", s, "/v"))
         .extracting(t -> ((ValidationException) t).error().keyword())
@@ -81,7 +86,8 @@ class StringIntegerNumberTest {
 
   @Test
   void stringFormatUri() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "uri", null);
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "uri", null, Map.of());
     assertThatCode(() -> v.validate("https://example.com/path", s, "/v"))
         .doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate("/relative/path", s, "/v"))
@@ -95,7 +101,8 @@ class StringIntegerNumberTest {
   @Test
   void stringFormatUriReference() {
     StringSchema s =
-        new StringSchema(Set.of(TypeName.STRING), null, null, null, "uri-reference", null);
+        new StringSchema(
+            Set.of(TypeName.STRING), null, null, null, "uri-reference", null, Map.of());
     assertThatCode(() -> v.validate("https://example.com", s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate("/relative/path", s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate("ht tp://broken", s, "/v"))
@@ -105,7 +112,8 @@ class StringIntegerNumberTest {
 
   @Test
   void stringFormatHostname() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "hostname", null);
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "hostname", null, Map.of());
     assertThatCode(() -> v.validate("example.com", s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate("a.b.c.example", s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate("-leading-hyphen.com", s, "/v"))
@@ -118,7 +126,8 @@ class StringIntegerNumberTest {
 
   @Test
   void stringFormatIpv4() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "ipv4", null);
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "ipv4", null, Map.of());
     assertThatCode(() -> v.validate("192.168.0.1", s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate("0.0.0.0", s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate("255.255.255.255", s, "/v")).doesNotThrowAnyException();
@@ -135,7 +144,8 @@ class StringIntegerNumberTest {
 
   @Test
   void stringFormatIpv6() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "ipv6", null);
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "ipv6", null, Map.of());
     assertThatCode(() -> v.validate("2001:0db8:85a3:0000:0000:8a2e:0370:7334", s, "/v"))
         .doesNotThrowAnyException();
     assertThatCode(() -> v.validate("2001:db8::1", s, "/v")).doesNotThrowAnyException();
@@ -151,7 +161,7 @@ class StringIntegerNumberTest {
   @Test
   void integerWithMinMax() {
     IntegerSchema s =
-        new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 10L, null, null, null, "int32");
+        new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 10L, null, null, null, "int32", Map.of());
     assertThatCode(() -> v.validate(5, s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate(-1, s, "/v"))
         .extracting(t -> ((ValidationException) t).error().keyword())
@@ -166,14 +176,15 @@ class StringIntegerNumberTest {
     // Master's Schema defaulted minimum to Double.MIN_VALUE (~4.9e-324) and silently rejected
     // negative numbers. New model uses null = no constraint.
     IntegerSchema s =
-        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, "int32");
+        new IntegerSchema(
+            Set.of(TypeName.INTEGER), null, null, null, null, null, "int32", Map.of());
     assertThatCode(() -> v.validate(-1_000_000, s, "/v")).doesNotThrowAnyException();
   }
 
   @Test
   void integerMultipleOf() {
     IntegerSchema s =
-        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, 5L, "int32");
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, 5L, "int32", Map.of());
     assertThatCode(() -> v.validate(15, s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate(7, s, "/v"))
         .extracting(t -> ((ValidationException) t).error().keyword())
@@ -182,7 +193,8 @@ class StringIntegerNumberTest {
 
   @Test
   void numberAcceptsDoublesAndIntegers() {
-    NumberSchema s = new NumberSchema(Set.of(TypeName.NUMBER), 0, 1, null, null, null, "double");
+    NumberSchema s =
+        new NumberSchema(Set.of(TypeName.NUMBER), 0, 1, null, null, null, "double", Map.of());
     assertThatCode(() -> v.validate(0.5, s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate(1, s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate(2.0, s, "/v"))
@@ -192,7 +204,8 @@ class StringIntegerNumberTest {
 
   @Test
   void stringFormatRegex() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "regex", null);
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "regex", null, Map.of());
     assertThatCode(() -> v.validate("^[a-z]+$", s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate("\\d{3}-\\d{4}", s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate("[invalid", s, "/v"))
@@ -202,7 +215,8 @@ class StringIntegerNumberTest {
 
   @Test
   void stringFormatByte() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "byte", null);
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "byte", null, Map.of());
     assertThatCode(() -> v.validate("aGVsbG8=", s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate("", s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate("not base64!!", s, "/v"))
@@ -215,20 +229,23 @@ class StringIntegerNumberTest {
 
   @Test
   void stringFormatBinaryAcceptsAnyString() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "binary", null);
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "binary", null, Map.of());
     assertThatCode(() -> v.validate("anything goes", s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate(" ", s, "/v")).doesNotThrowAnyException();
   }
 
   @Test
   void stringFormatPasswordAcceptsAnyString() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, "password", null);
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "password", null, Map.of());
     assertThatCode(() -> v.validate("anything goes", s, "/v")).doesNotThrowAnyException();
   }
 
   @Test
   void stringRejectsNonString() {
-    StringSchema s = new StringSchema(Set.of(TypeName.STRING), null, null, null, null, null);
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, null, null, Map.of());
     assertThatThrownBy(() -> v.validate(42, s, "/v"))
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("type");
@@ -238,14 +255,15 @@ class StringIntegerNumberTest {
   void stringFormatUnknownIsIgnored() {
     StringSchema s =
         new StringSchema(
-            Set.of(TypeName.STRING), null, null, null, "definitely-not-a-format", null);
+            Set.of(TypeName.STRING), null, null, null, "definitely-not-a-format", null, Map.of());
     assertThatCode(() -> v.validate("anything", s, "/v")).doesNotThrowAnyException();
   }
 
   @Test
   void integerFormatInt64AcceptsAnyLong() {
     IntegerSchema s =
-        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, "int64");
+        new IntegerSchema(
+            Set.of(TypeName.INTEGER), null, null, null, null, null, "int64", Map.of());
     assertThatCode(() -> v.validate(Long.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate(Long.MIN_VALUE, s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate(0L, s, "/v")).doesNotThrowAnyException();
@@ -255,7 +273,8 @@ class StringIntegerNumberTest {
   @Test
   void integerFormatInt32() {
     IntegerSchema s =
-        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, "int32");
+        new IntegerSchema(
+            Set.of(TypeName.INTEGER), null, null, null, null, null, "int32", Map.of());
     assertThatCode(() -> v.validate(Integer.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate(Integer.MIN_VALUE, s, "/v")).doesNotThrowAnyException();
     assertThatThrownBy(() -> v.validate(Integer.MAX_VALUE + 1L, s, "/v"))
@@ -269,7 +288,7 @@ class StringIntegerNumberTest {
   @Test
   void numberFormatDoubleAcceptsAnyDouble() {
     NumberSchema s =
-        new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, "double");
+        new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, "double", Map.of());
     assertThatCode(() -> v.validate(Double.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate(-Double.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate(0.0, s, "/v")).doesNotThrowAnyException();
@@ -279,7 +298,7 @@ class StringIntegerNumberTest {
   @Test
   void numberFormatFloat() {
     NumberSchema s =
-        new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, "float");
+        new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, "float", Map.of());
     assertThatCode(() -> v.validate(1.5, s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate(-1.5, s, "/v")).doesNotThrowAnyException();
     assertThatCode(() -> v.validate((double) Float.MAX_VALUE, s, "/v")).doesNotThrowAnyException();
@@ -301,7 +320,14 @@ class StringIntegerNumberTest {
   void integerFormatUnknownIsIgnored() {
     IntegerSchema s =
         new IntegerSchema(
-            Set.of(TypeName.INTEGER), null, null, null, null, null, "definitely-not-a-format");
+            Set.of(TypeName.INTEGER),
+            null,
+            null,
+            null,
+            null,
+            null,
+            "definitely-not-a-format",
+            Map.of());
     assertThatCode(() -> v.validate(42L, s, "/v")).doesNotThrowAnyException();
   }
 
@@ -309,7 +335,14 @@ class StringIntegerNumberTest {
   void numberFormatUnknownIsIgnored() {
     NumberSchema s =
         new NumberSchema(
-            Set.of(TypeName.NUMBER), null, null, null, null, null, "definitely-not-a-format");
+            Set.of(TypeName.NUMBER),
+            null,
+            null,
+            null,
+            null,
+            null,
+            "definitely-not-a-format",
+            Map.of());
     assertThatCode(() -> v.validate(1.5, s, "/v")).doesNotThrowAnyException();
   }
 }

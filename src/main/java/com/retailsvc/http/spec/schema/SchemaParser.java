@@ -12,9 +12,19 @@ public final class SchemaParser {
 
   private static final String FORMAT_KEY = "format";
 
+  static Map<String, Object> extractExtensions(Map<String, Object> raw) {
+    Map<String, Object> out = new LinkedHashMap<>();
+    for (var e : raw.entrySet()) {
+      if (e.getKey().startsWith("x-")) {
+        out.put(e.getKey(), e.getValue());
+      }
+    }
+    return Map.copyOf(out);
+  }
+
   public static Schema parse(Object raw) {
     if (raw instanceof Boolean b) {
-      return b ? new AlwaysSchema() : new NeverSchema();
+      return b ? new AlwaysSchema(Map.of()) : new NeverSchema(Map.of());
     }
     if (raw instanceof Map<?, ?> map) {
       @SuppressWarnings("unchecked")
@@ -27,7 +37,7 @@ public final class SchemaParser {
   @SuppressWarnings("unchecked")
   private static Schema parseMap(Map<String, Object> raw) {
     if (raw.containsKey("$ref")) {
-      return new RefSchema((String) raw.get("$ref"));
+      return new RefSchema((String) raw.get("$ref"), extractExtensions(raw));
     }
 
     List<Schema> assertions = new ArrayList<>();
@@ -41,29 +51,29 @@ public final class SchemaParser {
       assertions.addAll(parseList(raw, "allOf"));
     }
     if (raw.containsKey("anyOf")) {
-      assertions.add(new AnyOfSchema(parseList(raw, "anyOf")));
+      assertions.add(new AnyOfSchema(parseList(raw, "anyOf"), extractExtensions(raw)));
     }
     if (raw.containsKey("oneOf")) {
-      assertions.add(new OneOfSchema(parseList(raw, "oneOf")));
+      assertions.add(new OneOfSchema(parseList(raw, "oneOf"), extractExtensions(raw)));
     }
     if (raw.containsKey("not")) {
-      assertions.add(new NotSchema(parse(raw.get("not"))));
+      assertions.add(new NotSchema(parse(raw.get("not")), extractExtensions(raw)));
     }
 
     return switch (assertions.size()) {
-      case 0 -> permissiveObject();
+      case 0 -> permissiveObject(extractExtensions(raw));
       case 1 -> assertions.getFirst();
-      default -> new AllOfSchema(List.copyOf(assertions));
+      default -> new AllOfSchema(List.copyOf(assertions), extractExtensions(raw));
     };
   }
 
   @SuppressWarnings("unchecked")
   private static Schema parseBaseIfPresent(Map<String, Object> raw) {
     if (raw.containsKey("const")) {
-      return new ConstSchema(raw.get("const"));
+      return new ConstSchema(raw.get("const"), extractExtensions(raw));
     }
     if (raw.containsKey("enum") && !raw.containsKey("type")) {
-      return new EnumSchema(List.copyOf((List<Object>) raw.get("enum")));
+      return new EnumSchema(List.copyOf((List<Object>) raw.get("enum")), extractExtensions(raw));
     }
 
     Set<TypeName> types = parseTypes(raw);
@@ -83,8 +93,8 @@ public final class SchemaParser {
       case STRING -> parseString(raw, types);
       case INTEGER -> parseInteger(raw, types);
       case NUMBER -> parseNumber(raw, types);
-      case BOOLEAN -> new BooleanSchema(types);
-      case NULL -> new NullSchema();
+      case BOOLEAN -> new BooleanSchema(types, extractExtensions(raw));
+      case NULL -> new NullSchema(extractExtensions(raw));
       case OBJECT -> parseObject(raw, types);
       case ARRAY -> parseArray(raw, types);
     };
@@ -105,9 +115,9 @@ public final class SchemaParser {
         || raw.containsKey("uniqueItems");
   }
 
-  private static Schema permissiveObject() {
+  private static Schema permissiveObject(Map<String, Object> extensions) {
     return new ObjectSchema(
-        Set.of(), Map.of(), List.of(), new AdditionalProperties.Allowed(), null, null);
+        Set.of(), Map.of(), List.of(), new AdditionalProperties.Allowed(), null, null, extensions);
   }
 
   private static Set<TypeName> parseTypes(Map<String, Object> raw) {
@@ -134,7 +144,8 @@ public final class SchemaParser {
         toIntOrNull(raw.get("minLength")),
         toIntOrNull(raw.get("maxLength")),
         (String) raw.get(FORMAT_KEY),
-        (List<String>) raw.get("enum"));
+        (List<String>) raw.get("enum"),
+        extractExtensions(raw));
   }
 
   private static IntegerSchema parseInteger(Map<String, Object> raw, Set<TypeName> types) {
@@ -145,7 +156,8 @@ public final class SchemaParser {
         toLongOrNull(raw.get("exclusiveMinimum")),
         toLongOrNull(raw.get("exclusiveMaximum")),
         toLongOrNull(raw.get("multipleOf")),
-        (String) raw.get(FORMAT_KEY));
+        (String) raw.get(FORMAT_KEY),
+        extractExtensions(raw));
   }
 
   private static NumberSchema parseNumber(Map<String, Object> raw, Set<TypeName> types) {
@@ -156,7 +168,8 @@ public final class SchemaParser {
         (Number) raw.get("exclusiveMinimum"),
         (Number) raw.get("exclusiveMaximum"),
         (Number) raw.get("multipleOf"),
-        (String) raw.get(FORMAT_KEY));
+        (String) raw.get(FORMAT_KEY),
+        extractExtensions(raw));
   }
 
   @SuppressWarnings("unchecked")
@@ -174,7 +187,8 @@ public final class SchemaParser {
         List.copyOf(required),
         ap,
         toIntOrNull(raw.get("minProperties")),
-        toIntOrNull(raw.get("maxProperties")));
+        toIntOrNull(raw.get("maxProperties")),
+        extractExtensions(raw));
   }
 
   @SuppressWarnings("unchecked")
@@ -192,19 +206,20 @@ public final class SchemaParser {
     Object itemsRaw = raw.get("items");
     Schema itemSchema;
     if (itemsRaw == null) {
-      itemSchema = new NullSchema();
+      itemSchema = new NullSchema(Map.of());
     } else if (itemsRaw instanceof Boolean b) {
-      itemSchema = b ? new AlwaysSchema() : new NeverSchema();
+      itemSchema = b ? new AlwaysSchema(Map.of()) : new NeverSchema(Map.of());
     } else {
       Map<String, Object> items = (Map<String, Object>) itemsRaw;
-      itemSchema = items.isEmpty() ? new NullSchema() : parse(items);
+      itemSchema = items.isEmpty() ? new NullSchema(Map.of()) : parse(items);
     }
     return new ArraySchema(
         types,
         itemSchema,
         toIntOrNull(raw.get("minItems")),
         toIntOrNull(raw.get("maxItems")),
-        Boolean.TRUE.equals(raw.get("uniqueItems")));
+        Boolean.TRUE.equals(raw.get("uniqueItems")),
+        extractExtensions(raw));
   }
 
   @SuppressWarnings("unchecked")

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 class ContainerSchemasTest {
   @Test
   void objectSchemaCarriesPropertiesAndRequired() {
-    Schema name = new StringSchema(Set.of(TypeName.STRING), null, null, null, null, null);
+    Schema name = new StringSchema(Set.of(TypeName.STRING), null, null, null, null, null, Map.of());
     ObjectSchema o =
         new ObjectSchema(
             Set.of(TypeName.OBJECT),
@@ -18,7 +18,8 @@ class ContainerSchemasTest {
             List.of("name"),
             new AdditionalProperties.Allowed(),
             null,
-            null);
+            null,
+            Map.of());
     assertThat(o.properties()).containsKey("name");
     assertThat(o.required()).containsExactly("name");
     assertThat(o.additionalProperties()).isInstanceOf(AdditionalProperties.Allowed.class);
@@ -27,8 +28,9 @@ class ContainerSchemasTest {
   @Test
   void arraySchemaCarriesItemsAndConstraints() {
     Schema items =
-        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, "int32");
-    ArraySchema a = new ArraySchema(Set.of(TypeName.ARRAY), items, 1, 10, true);
+        new IntegerSchema(
+            Set.of(TypeName.INTEGER), null, null, null, null, null, "int32", Map.of());
+    ArraySchema a = new ArraySchema(Set.of(TypeName.ARRAY), items, 1, 10, true, Map.of());
     assertThat(a.items()).isSameAs(items);
     assertThat(a.minItems()).isEqualTo(1);
     assertThat(a.maxItems()).isEqualTo(10);

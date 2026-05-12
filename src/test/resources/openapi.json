@@ -41,6 +41,7 @@
       },
       "post": {
         "operationId": "post-data",
+        "x-permissions": ["pro.promotion.create"],
         "requestBody": {
           "content": {
             "application/json": {
