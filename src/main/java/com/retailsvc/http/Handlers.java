@@ -4,6 +4,7 @@ import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.retailsvc.http.internal.ClasspathResourceHandler;
@@ -61,7 +62,7 @@ public final class Handlers {
     return new MethodLimitedHandler(
         exchange -> {
           try (exchange) {
-            exchange.sendResponseHeaders(204, -1);
+            exchange.sendResponseHeaders(HTTP_NO_CONTENT, -1);
           }
         });
   }

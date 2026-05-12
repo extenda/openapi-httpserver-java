@@ -1,5 +1,7 @@
 package com.retailsvc.http.internal;
 
+import static java.net.HttpURLConnection.HTTP_OK;
+
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
@@ -34,10 +36,10 @@ public final class ClasspathResourceHandler implements HttpHandler {
       exchange.getResponseHeaders().add("Content-Type", contentType);
       if ("HEAD".equals(exchange.getRequestMethod())) {
         exchange.getResponseHeaders().add("Content-Length", String.valueOf(bytes.length));
-        exchange.sendResponseHeaders(200, -1);
+        exchange.sendResponseHeaders(HTTP_OK, -1);
         return;
       }
-      exchange.sendResponseHeaders(200, bytes.length);
+      exchange.sendResponseHeaders(HTTP_OK, bytes.length);
       exchange.getResponseBody().write(bytes);
     }
   }
