@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,6 +47,7 @@ import java.util.regex.PatternSyntaxException;
 public final class DefaultValidator implements Validator {
 
   private static final String FORMAT_KEYWORD = "format";
+  private static final Optional<ValidationError> OK = Optional.empty();
 
   private record FormatCheck(Predicate<String> isValid, String message) {}
 
@@ -107,94 +109,111 @@ public final class DefaultValidator implements Validator {
 
   @Override
   public void validate(Object value, Schema schema, String pointer) {
+    Optional<ValidationError> result = check(value, schema, pointer);
+    if (result.isPresent()) {
+      throw new ValidationException(result.get());
+    }
+  }
+
+  /**
+   * Internal validation entry point. Returns the first {@link ValidationError} encountered, or
+   * {@link Optional#empty()} on success. This is what {@code anyOf} / {@code oneOf} / {@code not}
+   * branch-select against, so it must never throw {@link ValidationException} on a failed branch —
+   * exceptions would re-introduce the hot-path control-flow cost this refactor exists to remove.
+   */
+  Optional<ValidationError> check(Object value, Schema schema, String pointer) {
     if (value == null && schema.types().contains(TypeName.NULL)) {
-      return;
+      return OK;
     }
 
-    switch (schema) {
-      case RefSchema(String ref, var _) -> validate(value, refResolver.apply(ref), pointer);
-      case BooleanSchema _ -> validateBoolean(value, pointer);
-      case NullSchema _ -> require(value == null, pointer, "type", "expected null");
-      case StringSchema s -> validateString(value, s, pointer);
-      case IntegerSchema i -> validateInteger(value, i, pointer);
-      case NumberSchema n -> validateNumber(value, n, pointer);
-      case ObjectSchema o -> validateObject(value, o, pointer);
-      case ArraySchema a -> validateArray(value, a, pointer);
+    return switch (schema) {
+      case RefSchema(String ref, var _) -> check(value, refResolver.apply(ref), pointer);
+      case BooleanSchema _ -> checkBoolean(value, pointer);
+      case NullSchema _ -> value == null ? OK : err(pointer, "type", "expected null", value);
+      case StringSchema s -> checkString(value, s, pointer);
+      case IntegerSchema i -> checkInteger(value, i, pointer);
+      case NumberSchema n -> checkNumber(value, n, pointer);
+      case ObjectSchema o -> checkObject(value, o, pointer);
+      case ArraySchema a -> checkArray(value, a, pointer);
       case EnumSchema(List<Object> values, var _) ->
-          require(values.contains(value), pointer, "enum", "value not in enum");
+          values.contains(value) ? OK : err(pointer, "enum", "value not in enum", value);
       case ConstSchema(Object expected, var _) ->
-          require(Objects.equals(expected, value), pointer, "const", "value does not equal const");
-      case AllOfSchema(List<Schema> parts, var _) -> {
-        for (Schema p : parts) {
-          validate(value, p, pointer);
-        }
-      }
-      case AnyOfSchema(List<Schema> options, var _) -> validateAnyOf(value, options, pointer);
-      case OneOfSchema(List<Schema> options, var _) -> validateOneOf(value, options, pointer);
-      case NotSchema(Schema inner, var _) -> validateNot(value, inner, pointer);
-      case AlwaysSchema _ -> {
-        /* accepts any value, including null */
-      }
-      case NeverSchema _ -> fail(pointer, "false", "schema rejects all values", value);
+          Objects.equals(expected, value)
+              ? OK
+              : err(pointer, "const", "value does not equal const", value);
+      case AllOfSchema(List<Schema> parts, var _) -> checkAllOf(value, parts, pointer);
+      case AnyOfSchema(List<Schema> options, var _) -> checkAnyOf(value, options, pointer);
+      case OneOfSchema(List<Schema> options, var _) -> checkOneOf(value, options, pointer);
+      case NotSchema(Schema inner, var _) -> checkNot(value, inner, pointer);
+      case AlwaysSchema _ -> OK;
+      case NeverSchema _ -> err(pointer, "false", "schema rejects all values", value);
+    };
+  }
+
+  private static Optional<ValidationError> err(
+      String pointer, String keyword, String message, Object rejectedValue) {
+    return Optional.of(new ValidationError(pointer, keyword, message, rejectedValue));
+  }
+
+  private static Optional<ValidationError> err(String pointer, String keyword, String message) {
+    return Optional.of(new ValidationError(pointer, keyword, message, null));
+  }
+
+  private static Optional<ValidationError> checkBoolean(Object value, String pointer) {
+    return value instanceof Boolean ? OK : err(pointer, "type", "expected boolean", value);
+  }
+
+  private Optional<ValidationError> checkString(Object value, StringSchema s, String pointer) {
+    if (!(value instanceof String str)) {
+      return err(pointer, "type", "expected string", value);
     }
-  }
-
-  private void validateBoolean(Object value, String pointer) {
-    require(value instanceof Boolean, pointer, "type", "expected boolean");
-  }
-
-  private void validateString(Object value, StringSchema s, String pointer) {
-    require(value instanceof String, pointer, "type", "expected string");
-    String str = (String) value;
     if (s.minLength() != null && str.length() < s.minLength()) {
-      fail(pointer, "minLength", "string shorter than " + s.minLength(), str);
+      return err(pointer, "minLength", "string shorter than " + s.minLength(), str);
     }
     if (s.maxLength() != null && str.length() > s.maxLength()) {
-      fail(pointer, "maxLength", "string longer than " + s.maxLength(), str);
+      return err(pointer, "maxLength", "string longer than " + s.maxLength(), str);
     }
     if (s.pattern() != null
         && !compiledPatterns
             .computeIfAbsent(s.pattern(), Pattern::compile)
             .matcher(str)
             .matches()) {
-      fail(pointer, "pattern", "does not match pattern " + s.pattern(), str);
+      return err(pointer, "pattern", "does not match pattern " + s.pattern(), str);
     }
     if (s.enumValues() != null && !s.enumValues().contains(str)) {
-      fail(pointer, "enum", "value not in enum", str);
+      return err(pointer, "enum", "value not in enum", str);
     }
     if (s.format() != null) {
-      validateStringFormat(str, s.format(), pointer);
+      return checkStringFormat(str, s.format(), pointer);
     }
+    return OK;
   }
 
-  private void validateStringFormat(String str, String format, String pointer) {
+  private static Optional<ValidationError> checkStringFormat(
+      String str, String format, String pointer) {
     FormatCheck check = FORMAT_CHECKS.get(format);
     if (check == null) {
-      return;
+      return OK;
     }
-    if (!check.isValid().test(str)) {
-      fail(pointer, FORMAT_KEYWORD, check.message(), str);
-    }
+    return check.isValid().test(str) ? OK : err(pointer, FORMAT_KEYWORD, check.message(), str);
   }
 
-  private void validateIntegerFormat(long n, String format, String pointer) {
+  private static Optional<ValidationError> checkIntegerFormat(
+      long n, String format, String pointer) {
     IntegerFormatCheck check = INTEGER_FORMAT_CHECKS.get(format);
     if (check == null) {
-      return;
+      return OK;
     }
-    if (!check.isValid().test(n)) {
-      fail(pointer, FORMAT_KEYWORD, check.message(), n);
-    }
+    return check.isValid().test(n) ? OK : err(pointer, FORMAT_KEYWORD, check.message(), n);
   }
 
-  private void validateNumberFormat(double n, String format, String pointer) {
+  private static Optional<ValidationError> checkNumberFormat(
+      double n, String format, String pointer) {
     NumberFormatCheck check = NUMBER_FORMAT_CHECKS.get(format);
     if (check == null) {
-      return;
+      return OK;
     }
-    if (!check.isValid().test(n)) {
-      fail(pointer, FORMAT_KEYWORD, check.message(), n);
-    }
+    return check.isValid().test(n) ? OK : err(pointer, FORMAT_KEYWORD, check.message(), n);
   }
 
   private static boolean isUuid(String s) {
@@ -346,58 +365,61 @@ public final class DefaultValidator implements Validator {
     return true;
   }
 
-  private void validateInteger(Object value, IntegerSchema s, String pointer) {
+  private static Optional<ValidationError> checkInteger(
+      Object value, IntegerSchema s, String pointer) {
     if (!(value instanceof Number num)) {
-      fail(pointer, "type", "expected integer", value);
-      return;
+      return err(pointer, "type", "expected integer", value);
     }
     long n = num.longValue();
 
     if (s.minimum() != null && n < s.minimum()) {
-      fail(pointer, "minimum", "integer below minimum " + s.minimum(), n);
+      return err(pointer, "minimum", "integer below minimum " + s.minimum(), n);
     }
     if (s.maximum() != null && n > s.maximum()) {
-      fail(pointer, "maximum", "integer above maximum " + s.maximum(), n);
+      return err(pointer, "maximum", "integer above maximum " + s.maximum(), n);
     }
     if (s.exclusiveMinimum() != null && n <= s.exclusiveMinimum()) {
-      fail(pointer, "exclusiveMinimum", "integer not greater than " + s.exclusiveMinimum(), n);
+      return err(
+          pointer, "exclusiveMinimum", "integer not greater than " + s.exclusiveMinimum(), n);
     }
     if (s.exclusiveMaximum() != null && n >= s.exclusiveMaximum()) {
-      fail(pointer, "exclusiveMaximum", "integer not less than " + s.exclusiveMaximum(), n);
+      return err(pointer, "exclusiveMaximum", "integer not less than " + s.exclusiveMaximum(), n);
     }
     if (s.multipleOf() != null && n % s.multipleOf() != 0) {
-      fail(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
+      return err(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
     }
     if (s.format() != null) {
-      validateIntegerFormat(n, s.format(), pointer);
+      return checkIntegerFormat(n, s.format(), pointer);
     }
+    return OK;
   }
 
-  private void validateNumber(Object value, NumberSchema s, String pointer) {
+  private static Optional<ValidationError> checkNumber(
+      Object value, NumberSchema s, String pointer) {
     if (!(value instanceof Number num)) {
-      fail(pointer, "type", "expected number", value);
-      return;
+      return err(pointer, "type", "expected number", value);
     }
     double n = num.doubleValue();
 
     if (s.minimum() != null && n < s.minimum().doubleValue()) {
-      fail(pointer, "minimum", "number below minimum " + s.minimum(), n);
+      return err(pointer, "minimum", "number below minimum " + s.minimum(), n);
     }
     if (s.maximum() != null && n > s.maximum().doubleValue()) {
-      fail(pointer, "maximum", "number above maximum " + s.maximum(), n);
+      return err(pointer, "maximum", "number above maximum " + s.maximum(), n);
     }
     if (s.exclusiveMinimum() != null && n <= s.exclusiveMinimum().doubleValue()) {
-      fail(pointer, "exclusiveMinimum", "number not greater than " + s.exclusiveMinimum(), n);
+      return err(pointer, "exclusiveMinimum", "number not greater than " + s.exclusiveMinimum(), n);
     }
     if (s.exclusiveMaximum() != null && n >= s.exclusiveMaximum().doubleValue()) {
-      fail(pointer, "exclusiveMaximum", "number not less than " + s.exclusiveMaximum(), n);
+      return err(pointer, "exclusiveMaximum", "number not less than " + s.exclusiveMaximum(), n);
     }
     if (s.multipleOf() != null && !isMultipleOf(n, s.multipleOf().doubleValue())) {
-      fail(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
+      return err(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
     }
     if (s.format() != null) {
-      validateNumberFormat(n, s.format(), pointer);
+      return checkNumberFormat(n, s.format(), pointer);
     }
+    return OK;
   }
 
   /**
@@ -412,124 +434,127 @@ public final class DefaultValidator implements Validator {
   }
 
   @SuppressWarnings("unchecked")
-  private void validateObject(Object value, ObjectSchema s, String pointer) {
-    require(value instanceof Map, pointer, "type", "expected object");
+  private Optional<ValidationError> checkObject(Object value, ObjectSchema s, String pointer) {
+    if (!(value instanceof Map)) {
+      return err(pointer, "type", "expected object", value);
+    }
     Map<String, Object> map = (Map<String, Object>) value;
 
     for (String required : s.required()) {
-      require(
-          map.containsKey(required),
-          pointer + "/" + required,
-          "required",
-          "required property missing");
+      if (!map.containsKey(required)) {
+        return err(pointer + "/" + required, "required", "required property missing");
+      }
     }
 
     if (s.minProperties() != null && map.size() < s.minProperties()) {
-      fail(pointer, "minProperties", "fewer than " + s.minProperties() + " properties", map.size());
+      return err(
+          pointer, "minProperties", "fewer than " + s.minProperties() + " properties", map.size());
     }
     if (s.maxProperties() != null && map.size() > s.maxProperties()) {
-      fail(pointer, "maxProperties", "more than " + s.maxProperties() + " properties", map.size());
+      return err(
+          pointer, "maxProperties", "more than " + s.maxProperties() + " properties", map.size());
     }
 
     for (var entry : map.entrySet()) {
       String childPointer = pointer + "/" + entry.getKey();
       Schema propSchema = s.properties().get(entry.getKey());
+      Optional<ValidationError> result;
       if (propSchema != null) {
-        validate(entry.getValue(), propSchema, childPointer);
+        result = check(entry.getValue(), propSchema, childPointer);
       } else {
-        switch (s.additionalProperties()) {
-          case AdditionalProperties.Allowed _ -> {
-            /* no-op: additional properties are permitted by default */
-          }
-          case AdditionalProperties.Forbidden _ ->
-              fail(
-                  childPointer,
-                  "additionalProperties",
-                  "additional property not allowed",
-                  entry.getKey());
-          case AdditionalProperties.SchemaConstraint(Schema constraint) ->
-              validate(entry.getValue(), constraint, childPointer);
-        }
+        result =
+            switch (s.additionalProperties()) {
+              case AdditionalProperties.Allowed _ -> OK;
+              case AdditionalProperties.Forbidden _ ->
+                  err(
+                      childPointer,
+                      "additionalProperties",
+                      "additional property not allowed",
+                      entry.getKey());
+              case AdditionalProperties.SchemaConstraint(Schema constraint) ->
+                  check(entry.getValue(), constraint, childPointer);
+            };
+      }
+      if (result.isPresent()) {
+        return result;
       }
     }
+    return OK;
   }
 
-  private void validateArray(Object value, ArraySchema s, String pointer) {
-    require(value instanceof Iterable, pointer, "type", "expected array");
-    Iterable<?> it = (Iterable<?>) value;
+  private Optional<ValidationError> checkArray(Object value, ArraySchema s, String pointer) {
+    if (!(value instanceof Iterable<?> it)) {
+      return err(pointer, "type", "expected array", value);
+    }
     List<Object> elements = new ArrayList<>();
     for (Object o : it) {
       elements.add(o);
     }
 
     if (s.minItems() != null && elements.size() < s.minItems()) {
-      fail(pointer, "minItems", "fewer than " + s.minItems() + " items", elements.size());
+      return err(pointer, "minItems", "fewer than " + s.minItems() + " items", elements.size());
     }
     if (s.maxItems() != null && elements.size() > s.maxItems()) {
-      fail(pointer, "maxItems", "more than " + s.maxItems() + " items", elements.size());
+      return err(pointer, "maxItems", "more than " + s.maxItems() + " items", elements.size());
     }
 
     if (s.uniqueItems()) {
       Set<Object> seen = new HashSet<>();
       for (Object e : elements) {
         if (!seen.add(e)) {
-          fail(pointer, "uniqueItems", "duplicate item", e);
+          return err(pointer, "uniqueItems", "duplicate item", e);
         }
       }
     }
 
     for (int i = 0; i < elements.size(); i++) {
-      validate(elements.get(i), s.items(), pointer + "/" + i);
-    }
-  }
-
-  private static void fail(String pointer, String keyword, String message, Object rejectedValue) {
-    throw new ValidationException(new ValidationError(pointer, keyword, message, rejectedValue));
-  }
-
-  static void require(boolean condition, String pointer, String keyword, String message) {
-    if (!condition) {
-      throw new ValidationException(new ValidationError(pointer, keyword, message, null));
-    }
-  }
-
-  private void validateAnyOf(Object value, List<Schema> options, String pointer) {
-    for (Schema o : options) {
-      try {
-        validate(value, o, pointer);
-        return;
-      } catch (ValidationException ignored) {
-        // try next branch
+      Optional<ValidationError> result = check(elements.get(i), s.items(), pointer + "/" + i);
+      if (result.isPresent()) {
+        return result;
       }
     }
-    fail(pointer, "anyOf", "did not match any anyOf branch", value);
+    return OK;
   }
 
-  private void validateOneOf(Object value, List<Schema> options, String pointer) {
+  private Optional<ValidationError> checkAllOf(Object value, List<Schema> parts, String pointer) {
+    for (Schema p : parts) {
+      Optional<ValidationError> result = check(value, p, pointer);
+      if (result.isPresent()) {
+        return result;
+      }
+    }
+    return OK;
+  }
+
+  private Optional<ValidationError> checkAnyOf(Object value, List<Schema> options, String pointer) {
+    for (Schema o : options) {
+      if (check(value, o, pointer).isEmpty()) {
+        return OK;
+      }
+    }
+    return err(pointer, "anyOf", "did not match any anyOf branch", value);
+  }
+
+  private Optional<ValidationError> checkOneOf(Object value, List<Schema> options, String pointer) {
     int matched = 0;
     for (Schema o : options) {
-      try {
-        validate(value, o, pointer);
+      if (check(value, o, pointer).isEmpty()) {
         matched++;
-      } catch (ValidationException ignored) {
-        // branch did not match; continue
       }
     }
-    if (matched != 1) {
-      fail(
-          pointer,
-          "oneOf",
-          "matched " + matched + " of " + options.size() + " oneOf branches",
-          value);
+    if (matched == 1) {
+      return OK;
     }
+    return err(
+        pointer,
+        "oneOf",
+        "matched " + matched + " of " + options.size() + " oneOf branches",
+        value);
   }
 
-  private void validateNot(Object value, Schema inner, String pointer) {
-    try {
-      validate(value, inner, pointer);
-    } catch (ValidationException expected) {
-      return;
-    }
-    fail(pointer, "not", "value matched 'not' schema", value);
+  private Optional<ValidationError> checkNot(Object value, Schema inner, String pointer) {
+    return check(value, inner, pointer).isPresent()
+        ? OK
+        : err(pointer, "not", "value matched 'not' schema", value);
   }
 }
