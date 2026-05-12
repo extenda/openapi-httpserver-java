@@ -17,10 +17,13 @@ public class GetDataHandler implements HttpHandler {
     LOG.debug("GET /data");
 
     try (exchange) {
-      byte[] bytes = """
-      {
-        "id": "some-id"
-      }""".getBytes();
+      byte[] bytes =
+          """
+          {
+            "id": "some-id"
+          }\
+          """
+              .getBytes();
       try (var os = exchange.getResponseBody()) {
         var responseHeaders = exchange.getResponseHeaders();
         responseHeaders.add("content-type", "application/json");
