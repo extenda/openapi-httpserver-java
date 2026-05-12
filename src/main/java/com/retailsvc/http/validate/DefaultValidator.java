@@ -347,22 +347,11 @@ public final class DefaultValidator implements Validator {
   }
 
   private void validateInteger(Object value, IntegerSchema s, String pointer) {
-    long n;
-    switch (value) {
-      case Number num -> n = num.longValue();
-      case String str -> {
-        try {
-          n = Long.parseLong(str);
-        } catch (NumberFormatException _) {
-          fail(pointer, "type", "expected integer", value);
-          return;
-        }
-      }
-      case null, default -> {
-        fail(pointer, "type", "expected integer", value);
-        return;
-      }
+    if (!(value instanceof Number num)) {
+      fail(pointer, "type", "expected integer", value);
+      return;
     }
+    long n = num.longValue();
 
     if (s.minimum() != null && n < s.minimum()) {
       fail(pointer, "minimum", "integer below minimum " + s.minimum(), n);
@@ -385,22 +374,11 @@ public final class DefaultValidator implements Validator {
   }
 
   private void validateNumber(Object value, NumberSchema s, String pointer) {
-    double n;
-    switch (value) {
-      case Number num -> n = num.doubleValue();
-      case String str -> {
-        try {
-          n = Double.parseDouble(str);
-        } catch (NumberFormatException _) {
-          fail(pointer, "type", "expected number", value);
-          return;
-        }
-      }
-      case null, default -> {
-        fail(pointer, "type", "expected number", value);
-        return;
-      }
+    if (!(value instanceof Number num)) {
+      fail(pointer, "type", "expected number", value);
+      return;
     }
+    double n = num.doubleValue();
 
     if (s.minimum() != null && n < s.minimum().doubleValue()) {
       fail(pointer, "minimum", "number below minimum " + s.minimum(), n);

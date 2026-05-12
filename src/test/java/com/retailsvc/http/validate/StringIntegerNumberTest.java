@@ -312,4 +312,21 @@ class StringIntegerNumberTest {
             Set.of(TypeName.NUMBER), null, null, null, null, null, "definitely-not-a-format");
     assertThatCode(() -> v.validate(1.5, s, "/v")).doesNotThrowAnyException();
   }
+
+  @Test
+  void integerRejectsNumericLookingString() {
+    IntegerSchema s =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, null);
+    assertThatThrownBy(() -> v.validate("42", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("type");
+  }
+
+  @Test
+  void numberRejectsNumericLookingString() {
+    NumberSchema s = new NumberSchema(Set.of(TypeName.NUMBER), null, null, null, null, null, null);
+    assertThatThrownBy(() -> v.validate("1234567890", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("type");
+  }
 }
