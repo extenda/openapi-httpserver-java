@@ -28,7 +28,7 @@ read/write per media type, and `RequestHandler` for handlers that receive a
 In scope:
 
 - `TypeMapper` interface (read + write) and per-media-type registration on the builder.
-- Delete `JsonMapper`; the user supplies a `TypeMapper` for `application/json` instead. Default form and text mappers wired automatically.
+- Delete `JsonMapper`; the user supplies a `TypeMapper` for `application/json` instead. Default form and text mappers wired automatically. Optional Gson-backed default for `application/json` activated when Gson is on the classpath and no user-supplied JSON mapper is registered.
 - New `RequestHandler` interface; `handlers(...)` builder method changed to `Map<String, RequestHandler>` (breaking).
 - `Request` repurposed from a static-accessor utility into the per-request handle handlers receive. Read API mirrors today's `RequestContext`; adds a response gateway with one-shot and streaming terminals.
 - Internal `RequestContext` record and public `Request.CONTEXT` `ScopedValue` removed.
@@ -61,9 +61,34 @@ public interface TypeMapper {
 
 - `application/x-www-form-urlencoded` — built-in form mapper. `readFrom` parses to `Map<String,Object>`. `writeTo` throws `UnsupportedOperationException`; form-encoded responses are unusual and we won't speculate on the encoding until someone needs it.
 - `text/plain` — built-in text mapper. `readFrom` decodes bytes using the charset declared on `Content-Type` (default UTF-8). `writeTo` returns `String.valueOf(value).getBytes(UTF_8)`.
-- `application/json` — **no default**; the user must supply a `TypeMapper`. Mirrors the current contract that `jsonMapper(...)` is required.
+- `application/json` — **no static default**; if the user does not register a mapper, the builder probes the classpath for Gson and falls back to a built-in Gson-backed mapper (see below). If Gson is not on the classpath either, `build()` fails with the same "no JSON mapper registered" error.
 
 Lookup: case-insensitive on the media-type subtype (existing `ContentTypeHeader.mediaType` already lowercases).
+
+### Optional Gson fallback for `application/json`
+
+To shrink setup for callers that already use Gson, the library ships an internal Gson-backed `TypeMapper` and auto-registers it when:
+
+1. The builder reaches `build()` and no `TypeMapper` has been registered for `application/json`; and
+2. `com.google.gson.Gson` is resolvable on the classpath.
+
+Implementation:
+
+- Gson is an **optional** Maven dependency (`<optional>true</optional>` / `provided`). The library does not pull Gson into consumer classpaths.
+- One internal class — `com.retailsvc.http.internal.gson.GsonJsonMapper` — imports Gson directly. The builder loads it reflectively (`Class.forName(...)`) only after probing for Gson, so consumers without Gson never trigger class-loading of that adapter and never see `NoClassDefFoundError`.
+- Jackson is **not** auto-detected. Jackson users register a `TypeMapper` explicitly. Auto-providing a default `ObjectMapper` would pick the wrong configuration for most Jackson users (modules, naming, date formats).
+
+Number handling on read:
+
+- Gson's default `fromJson(json, Object.class)` deserialises every JSON number as `Double`. The library's validator has `IntegerSchema`, format-width checks, and NaN/Infinity rejection that assume integral values arrive as `Long`/`Integer`. To avoid surprises, `GsonJsonMapper` is constructed with a custom `TypeAdapter<Object>` that:
+  - reads integral JSON numbers (no fraction, no exponent producing a fraction) into `Long`;
+  - reads non-integral or out-of-`Long`-range numbers into `Double`;
+  - reads everything else (`String`, `Boolean`, `null`, arrays, objects) the way Gson's default does.
+- This is a well-known Gson pattern; ~30 lines, tested in isolation.
+
+Number handling on write — known caveat, documented in README:
+
+- `GsonJsonMapper.writeTo(value)` calls `gson.toJson(value)` on a default `Gson` instance and returns UTF-8 bytes. This handles `Map<String,Object>`, `List<?>`, `String`, `Number`, `Boolean`, and `null` cleanly. It does **not** serialise `java.time.Instant`, `LocalDate`, or other JSR-310 types in a useful way (Gson's default emits internal field values). Callers that return such types from handlers — or want any non-default serialization — must register their own `TypeMapper`. The fallback is intended for the "I'm already using Gson and the defaults are fine" case.
 
 ### `Request`
 
@@ -187,7 +212,8 @@ This is a pre-1.0 library; breaking changes are acceptable.
 
 Existing integration tests (`*IT.java`) exercise the full stack and will be updated to use the new handler signature. Unit tests cover:
 
-- `TypeMapper` registration: defaults wired, user overrides win, missing `application/json` mapper fails the builder.
+- `TypeMapper` registration: defaults wired, user overrides win, missing `application/json` mapper fails the builder when Gson is not on the classpath.
+- Gson fallback: with Gson on the classpath and no user JSON mapper, `build()` succeeds and `application/json` round-trips via `GsonJsonMapper`. Integer-preserving `TypeAdapter` returns `Long` for integral numbers and `Double` for fractional / out-of-range numbers. With Gson absent and no user JSON mapper, `build()` fails with the existing error.
 - Built-in text mapper: round-trip via `readFrom` and `writeTo`; charset handling.
 - Built-in form mapper: `readFrom` parses; `writeTo` throws `UnsupportedOperationException`.
 - `Request` read API: byte / parsed / operationId / pathParams round-trip.
@@ -199,6 +225,6 @@ Existing integration tests (`*IT.java`) exercise the full stack and will be upda
 
 The implementation plan will sequence this as:
 
-1. Introduce `TypeMapper`; convert form and text built-ins to implement it; delete `JsonMapper`; switch the builder to `bodyMapper(String, TypeMapper)`; rewire `RequestPreparationFilter` to use the registered mappers and drop the hardcoded media-type switch.
+1. Introduce `TypeMapper`; convert form and text built-ins to implement it; add the internal `GsonJsonMapper` (Gson as optional Maven dependency) and the builder's classpath-probe fallback; delete `JsonMapper`; switch the builder to `bodyMapper(String, TypeMapper)`; rewire `RequestPreparationFilter` to use the registered mappers and drop the hardcoded media-type switch.
 2. Move form-coercion out of `FormUrlEncodedParser` into the validator path.
 3. Build the new `Request` class (read API + response gateway), the internal `ScopedValue<Request>` handoff, and the `RequestHandler` interface; switch `handlers(...)` to `Map<String, RequestHandler>`; update example launcher and tests; delete the static `Request` accessors, the public `ScopedValue`, and the `RequestContext` record.
