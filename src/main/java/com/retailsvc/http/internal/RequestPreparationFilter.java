@@ -27,6 +27,8 @@ public final class RequestPreparationFilter extends Filter {
   private final Router router;
   private final Validator validator;
   private final JsonMapper jsonMapper;
+  private final FormUrlEncodedParser formParser = new FormUrlEncodedParser();
+  private final TextPlainParser textParser = new TextPlainParser();
 
   public RequestPreparationFilter(
       Spec spec, Router router, Validator validator, JsonMapper jsonMapper) {
@@ -140,18 +142,21 @@ public final class RequestPreparationFilter extends Filter {
       }
       return null;
     }
-    String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-    if (contentType == null) {
-      contentType = "application/json";
-    }
-    contentType = contentType.split(";", 2)[0].trim();
-    MediaType mt = rb.get().content().get(contentType);
+    String header = exchange.getRequestHeaders().getFirst("Content-Type");
+    String subtype = ContentTypeHeader.subtype(header);
+    MediaType mt = rb.get().content().get(subtype);
     if (mt == null) {
       throw new ValidationException(
           new ValidationError(
-              "/body", "content-type", "unsupported content type: " + contentType, null));
+              "/body", "content-type", "unsupported content type: " + subtype, null));
     }
-    Object parsed = jsonMapper.mapFrom(body);
+    Object parsed =
+        switch (subtype) {
+          case "application/x-www-form-urlencoded" ->
+              formParser.parseAndCoerce(body, header, mt.schema());
+          case "text/plain" -> textParser.parse(body, header);
+          default -> jsonMapper.mapFrom(body);
+        };
     validator.validate(parsed, mt.schema(), "");
     return parsed;
   }
