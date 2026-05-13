@@ -12,7 +12,7 @@ public final class ContentTypeHeader {
    * Returns the bare media type, stripping parameters and lower-casing for case-insensitive
    * matching (RFC 9110 / 2045). {@code null} → {@code application/json}.
    */
-  public static String subtype(String header) {
+  public static String mediaType(String header) {
     if (header == null) {
       return "application/json";
     }

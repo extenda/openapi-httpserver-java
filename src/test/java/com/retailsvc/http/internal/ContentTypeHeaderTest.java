@@ -7,29 +7,29 @@ import org.junit.jupiter.api.Test;
 class ContentTypeHeaderTest {
 
   @Test
-  void subtypeReturnsBareMediaType() {
-    assertThat(ContentTypeHeader.subtype("application/json")).isEqualTo("application/json");
+  void mediaTypeReturnsBareValue() {
+    assertThat(ContentTypeHeader.mediaType("application/json")).isEqualTo("application/json");
   }
 
   @Test
-  void subtypeStripsParameters() {
-    assertThat(ContentTypeHeader.subtype("text/plain; charset=utf-8")).isEqualTo("text/plain");
+  void mediaTypeStripsParameters() {
+    assertThat(ContentTypeHeader.mediaType("text/plain; charset=utf-8")).isEqualTo("text/plain");
   }
 
   @Test
-  void subtypeTrimsWhitespace() {
-    assertThat(ContentTypeHeader.subtype("  application/json  ")).isEqualTo("application/json");
+  void mediaTypeTrimsWhitespace() {
+    assertThat(ContentTypeHeader.mediaType("  application/json  ")).isEqualTo("application/json");
   }
 
   @Test
-  void subtypeDefaultsToApplicationJsonWhenNull() {
-    assertThat(ContentTypeHeader.subtype(null)).isEqualTo("application/json");
+  void mediaTypeDefaultsToApplicationJsonWhenNull() {
+    assertThat(ContentTypeHeader.mediaType(null)).isEqualTo("application/json");
   }
 
   @Test
-  void subtypeLowerCasesMediaType() {
-    assertThat(ContentTypeHeader.subtype("Application/JSON")).isEqualTo("application/json");
-    assertThat(ContentTypeHeader.subtype("Text/Plain; charset=UTF-8")).isEqualTo("text/plain");
+  void mediaTypeLowerCasesValue() {
+    assertThat(ContentTypeHeader.mediaType("Application/JSON")).isEqualTo("application/json");
+    assertThat(ContentTypeHeader.mediaType("Text/Plain; charset=UTF-8")).isEqualTo("text/plain");
   }
 
   @Test

@@ -143,15 +143,15 @@ public final class RequestPreparationFilter extends Filter {
       return null;
     }
     String header = exchange.getRequestHeaders().getFirst("Content-Type");
-    String subtype = ContentTypeHeader.subtype(header);
-    MediaType mt = rb.get().content().get(subtype);
+    String mediaType = ContentTypeHeader.mediaType(header);
+    MediaType mt = rb.get().content().get(mediaType);
     if (mt == null) {
       throw new ValidationException(
           new ValidationError(
-              "/body", "content-type", "unsupported content type: " + subtype, null));
+              "/body", "content-type", "unsupported content type: " + mediaType, null));
     }
     Object parsed =
-        switch (subtype) {
+        switch (mediaType) {
           case "application/x-www-form-urlencoded" ->
               formParser.parseAndCoerce(body, header, mt.schema());
           case "text/plain" -> textParser.parse(body, header);
