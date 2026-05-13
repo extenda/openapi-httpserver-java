@@ -18,6 +18,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -132,7 +133,7 @@ public class OpenApiServer implements AutoCloseable {
     public Builder bodyMapper(String mediaType, TypeMapper mapper) {
       requireNonNull(mediaType, "mediaType must not be null");
       requireNonNull(mapper, "mapper must not be null");
-      bodyMappers.put(mediaType.toLowerCase(java.util.Locale.ROOT), mapper);
+      bodyMappers.put(mediaType.toLowerCase(Locale.ROOT), mapper);
       return this;
     }
 
