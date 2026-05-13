@@ -171,7 +171,7 @@ import org.junit.jupiter.api.Test;
 class TypeMapperShapeTest {
 
   @Test
-  void roundTrips_viaInlineImplementation() {
+  void roundTripsViaInlineImplementation() {
     TypeMapper identity =
         new TypeMapper() {
           @Override
@@ -279,7 +279,7 @@ class FormTypeMapperTest {
   }
 
   @Test
-  void writeTo_isUnsupported() {
+  void writeToIsUnsupported() {
     assertThatThrownBy(() -> mapper.writeTo(Map.of("k", "v")))
         .isInstanceOf(UnsupportedOperationException.class);
   }
@@ -342,19 +342,19 @@ class TextTypeMapperTest {
   private final TextTypeMapper mapper = new TextTypeMapper();
 
   @Test
-  void reads_utf8_default() {
+  void readsUtf8ByDefault() {
     byte[] body = "hello".getBytes(StandardCharsets.UTF_8);
     assertThat(mapper.readFrom(body, "text/plain")).isEqualTo("hello");
   }
 
   @Test
-  void reads_explicitCharset() {
+  void readsExplicitCharset() {
     byte[] body = "räksmörgås".getBytes(StandardCharsets.ISO_8859_1);
     assertThat(mapper.readFrom(body, "text/plain; charset=ISO-8859-1")).isEqualTo("räksmörgås");
   }
 
   @Test
-  void writes_stringValueAsUtf8() {
+  void writesStringValueAsUtf8() {
     assertThat(mapper.writeTo("ok")).isEqualTo("ok".getBytes(StandardCharsets.UTF_8));
     assertThat(mapper.writeTo(42)).isEqualTo("42".getBytes(StandardCharsets.UTF_8));
     assertThat(mapper.writeTo(null)).isEqualTo("null".getBytes(StandardCharsets.UTF_8));
@@ -485,7 +485,7 @@ class GsonJsonMapperTest {
   private final GsonJsonMapper mapper = new GsonJsonMapper();
 
   @Test
-  void read_preservesIntegersAsLong() {
+  void readPreservesIntegersAsLong() {
     @SuppressWarnings("unchecked")
     Map<String, Object> parsed =
         (Map<String, Object>) mapper.readFrom(bytes("{\"n\":42}"), "application/json");
@@ -493,7 +493,7 @@ class GsonJsonMapperTest {
   }
 
   @Test
-  void read_keepsFractionalAsDouble() {
+  void readKeepsFractionalAsDouble() {
     @SuppressWarnings("unchecked")
     Map<String, Object> parsed =
         (Map<String, Object>) mapper.readFrom(bytes("{\"n\":1.5}"), "application/json");
@@ -501,7 +501,7 @@ class GsonJsonMapperTest {
   }
 
   @Test
-  void read_basicTypes() {
+  void readBasicTypes() {
     @SuppressWarnings("unchecked")
     Map<String, Object> parsed =
         (Map<String, Object>)
@@ -515,34 +515,34 @@ class GsonJsonMapperTest {
   }
 
   @Test
-  void write_mapAndList() {
+  void writesMapAndList() {
     byte[] out = mapper.writeTo(Map.of("k", List.of(1L, 2L)));
     assertThat(new String(out, StandardCharsets.UTF_8)).isEqualTo("{\"k\":[1,2]}");
   }
 
   @Test
-  void write_instantAsIso8601() {
+  void writesInstantAsIso8601() {
     Instant t = Instant.parse("2026-05-13T10:00:00Z");
     assertThat(new String(mapper.writeTo(Map.of("ts", t)), StandardCharsets.UTF_8))
         .isEqualTo("{\"ts\":\"2026-05-13T10:00:00Z\"}");
   }
 
   @Test
-  void write_offsetDateTimeAsIso8601() {
+  void writesOffsetDateTimeAsIso8601() {
     OffsetDateTime t = OffsetDateTime.of(2026, 5, 13, 10, 0, 0, 0, ZoneOffset.UTC);
     assertThat(new String(mapper.writeTo(Map.of("ts", t)), StandardCharsets.UTF_8))
         .isEqualTo("{\"ts\":\"2026-05-13T10:00Z\"}");
   }
 
   @Test
-  void write_zonedDateTimeAsIso8601() {
+  void writesZonedDateTimeAsIso8601() {
     ZonedDateTime t = ZonedDateTime.of(2026, 5, 13, 10, 0, 0, 0, ZoneOffset.UTC);
     assertThat(new String(mapper.writeTo(Map.of("ts", t)), StandardCharsets.UTF_8))
         .contains("2026-05-13T10:00Z");
   }
 
   @Test
-  void write_localDateTimeAsIso8601() {
+  void writesLocalDateTimeAsIso8601() {
     assertThat(
             new String(
                 mapper.writeTo(Map.of("ts", LocalDateTime.of(2026, 5, 13, 10, 0))),
@@ -551,7 +551,7 @@ class GsonJsonMapperTest {
   }
 
   @Test
-  void write_localDateAsIso8601() {
+  void writesLocalDateAsIso8601() {
     assertThat(
             new String(
                 mapper.writeTo(Map.of("d", LocalDate.of(2026, 5, 13))), StandardCharsets.UTF_8))
@@ -559,7 +559,7 @@ class GsonJsonMapperTest {
   }
 
   @Test
-  void write_localTimeAsIso8601() {
+  void writesLocalTimeAsIso8601() {
     assertThat(
             new String(mapper.writeTo(Map.of("t", LocalTime.of(10, 0))), StandardCharsets.UTF_8))
         .isEqualTo("{\"t\":\"10:00\"}");
@@ -807,7 +807,7 @@ import org.junit.jupiter.api.Test;
 class TypeMapperRegistrationTest extends ServerBaseTest {
 
   @Test
-  void gsonFallback_isAutoRegisteredWhenNoJsonMapperConfigured() throws Exception {
+  void gsonFallbackIsAutoRegisteredWhenNoJsonMapperConfigured() throws Exception {
     HttpHandler echo =
         ex -> {
           Object parsed = Request.parsed();
@@ -841,7 +841,7 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
   }
 
   @Test
-  void userSuppliedMapper_overridesDefault() throws Exception {
+  void userSuppliedMapperOverridesDefault() throws Exception {
     TypeMapper marker = new TypeMapper() {
       @Override public Object readFrom(byte[] b, String h) { return Map.of("from", "custom"); }
       @Override public byte[] writeTo(Object v) { return "ignored".getBytes(StandardCharsets.UTF_8); }
@@ -862,7 +862,7 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
   }
 
   @Test
-  void bodyMapper_rejectsNullArgs() {
+  void bodyMapperRejectsNullArgs() {
     var b = OpenApiServer.builder();
     assertThatThrownBy(() -> b.bodyMapper(null, new GsonOnlyMapper()))
         .isInstanceOf(NullPointerException.class);
@@ -1298,7 +1298,7 @@ import org.junit.jupiter.api.Test;
 class RequestResponseGatewayTest extends ServerBaseTest {
 
   @Test
-  void respondJson_writesBodyAndContentType() throws Exception {
+  void respondJsonWritesBodyAndContentType() throws Exception {
     RequestHandler echo =
         req -> req.respond(200).json(Map.of("op", req.operationId()));
     server =
@@ -1326,7 +1326,7 @@ class RequestResponseGatewayTest extends ServerBaseTest {
   }
 
   @Test
-  void respondEmpty_uses204Style() throws Exception {
+  void respondEmptyUses204Style() throws Exception {
     RequestHandler ok = req -> req.respond(204).empty();
     server =
         OpenApiServer.builder()
@@ -1347,7 +1347,7 @@ class RequestResponseGatewayTest extends ServerBaseTest {
   }
 
   @Test
-  void respondStream_chunkedEncoding() throws Exception {
+  void respondStreamUsesChunkedEncoding() throws Exception {
     RequestHandler streamer =
         req -> {
           try (var out = req.respond(200).contentType("text/plain").stream()) {
