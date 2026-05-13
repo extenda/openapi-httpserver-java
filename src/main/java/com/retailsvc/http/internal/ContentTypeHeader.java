@@ -8,14 +8,17 @@ public final class ContentTypeHeader {
 
   private ContentTypeHeader() {}
 
-  /** Returns the bare media type, stripping parameters. {@code null} → {@code application/json}. */
+  /**
+   * Returns the bare media type, stripping parameters and lower-casing for case-insensitive
+   * matching (RFC 9110 / 2045). {@code null} → {@code application/json}.
+   */
   public static String subtype(String header) {
     if (header == null) {
       return "application/json";
     }
     int semi = header.indexOf(';');
     String bare = (semi < 0 ? header : header.substring(0, semi));
-    return bare.trim();
+    return bare.trim().toLowerCase(Locale.ROOT);
   }
 
   /** Returns the named parameter value (e.g. {@code charset}), or empty if absent. */

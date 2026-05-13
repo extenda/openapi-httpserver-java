@@ -1,8 +1,10 @@
 package com.retailsvc.http.internal;
 
+import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.schema.ArraySchema;
 import com.retailsvc.http.spec.schema.ObjectSchema;
 import com.retailsvc.http.spec.schema.Schema;
+import com.retailsvc.http.validate.ValidationError;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
@@ -42,7 +44,9 @@ public final class FormUrlEncodedParser {
     try {
       return URLDecoder.decode(value, charset);
     } catch (IllegalArgumentException ex) {
-      throw new ValidationException("/body", "decode", "Malformed form URL encoding", ex);
+      throw new ValidationException(
+          new ValidationError(
+              "/body", "decode", "malformed form URL encoding: " + ex.getMessage(), value));
     }
   }
 

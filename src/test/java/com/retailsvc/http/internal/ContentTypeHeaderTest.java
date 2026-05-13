@@ -27,6 +27,12 @@ class ContentTypeHeaderTest {
   }
 
   @Test
+  void subtypeLowerCasesMediaType() {
+    assertThat(ContentTypeHeader.subtype("Application/JSON")).isEqualTo("application/json");
+    assertThat(ContentTypeHeader.subtype("Text/Plain; charset=UTF-8")).isEqualTo("text/plain");
+  }
+
+  @Test
   void parameterReturnsValue() {
     assertThat(ContentTypeHeader.parameter("text/plain; charset=iso-8859-1", "charset"))
         .contains("iso-8859-1");
