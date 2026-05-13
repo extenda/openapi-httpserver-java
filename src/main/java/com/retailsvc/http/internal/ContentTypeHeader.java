@@ -31,23 +31,21 @@ public final class ContentTypeHeader {
     if (semi < 0) {
       return Optional.empty();
     }
-    String[] parts = header.substring(semi + 1).split(";");
-    for (String p : parts) {
+    for (String p : header.substring(semi + 1).split(";")) {
       String trimmed = p.trim();
       int eq = trimmed.indexOf('=');
-      if (eq <= 0) {
-        continue;
+      String key = (eq <= 0) ? "" : trimmed.substring(0, eq).trim().toLowerCase(Locale.ROOT);
+      if (key.equals(target)) {
+        return Optional.of(unquote(trimmed.substring(eq + 1).trim()));
       }
-      String key = trimmed.substring(0, eq).trim().toLowerCase(Locale.ROOT);
-      if (!key.equals(target)) {
-        continue;
-      }
-      String value = trimmed.substring(eq + 1).trim();
-      if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
-        value = value.substring(1, value.length() - 1);
-      }
-      return Optional.of(value);
     }
     return Optional.empty();
+  }
+
+  private static String unquote(String value) {
+    if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+      return value.substring(1, value.length() - 1);
+    }
+    return value;
   }
 }

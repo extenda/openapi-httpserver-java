@@ -24,7 +24,7 @@ class TextPlainParserTest {
 
   @Test
   void emptyBodyDecodesToEmptyString() {
-    assertThat(parser.parse(new byte[0], null)).isEqualTo("");
+    assertThat(parser.parse(new byte[0], null)).isEmpty();
   }
 
   @Test

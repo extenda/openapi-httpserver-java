@@ -44,28 +44,31 @@ public final class FormUrlEncodedParser {
     try {
       return URLDecoder.decode(value, charset);
     } catch (IllegalArgumentException ex) {
-      throw new ValidationException(
-          new ValidationError(
-              "/body", "decode", "malformed form URL encoding: " + ex.getMessage(), value));
+      ValidationException ve =
+          new ValidationException(
+              new ValidationError(
+                  "/body", "decode", "malformed form URL encoding: " + ex.getMessage(), value));
+      ve.initCause(ex);
+      throw ve;
     }
   }
 
   private static void addEntry(Map<String, Object> out, String key, String value) {
-    Object existing = out.get(key);
-    if (existing == null) {
-      out.put(key, value);
-      return;
-    }
-    if (existing instanceof List<?> list) {
-      @SuppressWarnings("unchecked")
-      List<String> typed = (List<String>) list;
-      typed.add(value);
-      return;
-    }
-    List<String> list = new ArrayList<>();
-    list.add((String) existing);
-    list.add(value);
-    out.put(key, list);
+    out.merge(
+        key,
+        value,
+        (existing, incoming) -> {
+          if (existing instanceof List<?> list) {
+            @SuppressWarnings("unchecked")
+            List<String> typed = (List<String>) list;
+            typed.add((String) incoming);
+            return typed;
+          }
+          List<String> merged = new ArrayList<>();
+          merged.add((String) existing);
+          merged.add((String) incoming);
+          return merged;
+        });
   }
 
   /** Returns the parsed map after coercing field values against the given body schema. */
