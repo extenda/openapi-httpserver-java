@@ -31,11 +31,19 @@ public final class FormUrlEncodedParser {
       int eq = pair.indexOf('=');
       String rawKey = eq < 0 ? pair : pair.substring(0, eq);
       String rawValue = eq < 0 ? "" : pair.substring(eq + 1);
-      String key = URLDecoder.decode(rawKey, charset);
-      String value = URLDecoder.decode(rawValue, charset);
+      String key = decodeComponent(rawKey, charset);
+      String value = decodeComponent(rawValue, charset);
       addEntry(out, key, value);
     }
     return out;
+  }
+
+  private static String decodeComponent(String value, Charset charset) {
+    try {
+      return URLDecoder.decode(value, charset);
+    } catch (IllegalArgumentException ex) {
+      throw new ValidationException("/body", "decode", "Malformed form URL encoding", ex);
+    }
   }
 
   private static void addEntry(Map<String, Object> out, String key, String value) {
