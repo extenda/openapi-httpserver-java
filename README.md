@@ -114,6 +114,42 @@ Form-field coercion mirrors the rules already used at the parameter boundary: th
 
 Both built-in parsers honour the `charset=` parameter on the `Content-Type` header (default UTF-8). Unknown charsets fall back to UTF-8.
 
+### Error responses (RFC 7807)
+
+Validation failures — missing required fields, type mismatches, unsupported content types, coercion errors, malformed bodies — produce an `HTTP 400 Bad Request` response with body media type `application/problem+json`, following [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807).
+
+A single error is reported per request (first failure wins). The response body has these fields:
+
+| Field      | Type    | Description                                                                              |
+| ---------- | ------- | ---------------------------------------------------------------------------------------- |
+| `type`     | string  | Always `about:blank` (no per-error type URI).                                            |
+| `title`    | string  | Always `Bad Request`.                                                                    |
+| `status`   | integer | Always `400`.                                                                            |
+| `detail`   | string  | Human-readable description of the failure (e.g. `expected integer`).                     |
+| `pointer`  | string  | [RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901) JSON-Pointer to the failing location (e.g. `/body/age`, `/query/limit`, `/path/id`, or `/body` for body-wide errors). |
+| `keyword`  | string  | The validation rule that failed: `type`, `required`, `enum`, `pattern`, `format`, `minimum`, `maximum`, `minLength`, `maxLength`, `additionalProperties`, `oneOf`, `anyOf`, `allOf`, `not`, `const`, `content-type`, `decode`, … |
+
+Example body for `POST /form-echo` with `age=abc` (`age` is declared as `integer`):
+
+``` json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "expected integer",
+  "pointer": "/age",
+  "keyword": "type"
+}
+```
+
+Other error responses:
+
+- **404 Not Found** — no route matches the request path (no body).
+- **405 Method Not Allowed** — path matches but the HTTP method isn't declared. Includes an `Allow` header listing permitted methods (no body).
+- **500 Internal Server Error** — uncaught exception from a handler. No body by default; override `ExceptionHandler` if you need a different envelope.
+
+The error mapping is performed by `Handlers.defaultExceptionHandler()`. Pass your own `ExceptionHandler` to `OpenApiServer.builder().exceptionHandler(...)` if you need a different response shape (e.g. multi-error collection, custom problem types, locale-aware `detail`).
+
 ### Extra (non-OpenAPI) handlers
 
 Mount handlers at arbitrary paths outside the OpenAPI spec — useful for liveness probes,
