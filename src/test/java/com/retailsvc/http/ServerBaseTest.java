@@ -1,6 +1,5 @@
 package com.retailsvc.http;
 
-import static com.retailsvc.http.Handlers.defaultExceptionHandler;
 import static java.net.http.HttpClient.Version.HTTP_1_1;
 import static java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor;
 import static org.assertj.core.api.Assertions.fail;
@@ -45,13 +44,9 @@ public abstract class ServerBaseTest {
     Optional.ofNullable(server).ifPresent(OpenApiServer::close);
   }
 
-  protected JsonMapper jsonMapper() {
-    return body -> gson.fromJson(new String(body), Object.class);
-  }
-
   protected OpenApiServer newServer(Map<String, HttpHandler> handlers) {
     try {
-      server = new OpenApiServer(spec, jsonMapper(), handlers, defaultExceptionHandler(), 0);
+      server = OpenApiServer.builder().spec(spec).handlers(handlers).port(0).build();
       return server;
     } catch (Exception e) {
       fail(e);

@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
-import com.retailsvc.http.JsonMapper;
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
 import com.retailsvc.http.Request;
+import com.retailsvc.http.TypeMapper;
 import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.HttpMethod;
 import com.retailsvc.http.spec.Info;
@@ -27,6 +27,7 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayInputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,9 +62,21 @@ class RequestPreparationFilterTest {
   }
 
   private Filter newFilter(Spec spec) {
-    JsonMapper m = String::new;
+    TypeMapper textMapper =
+        new TypeMapper() {
+          @Override
+          public Object readFrom(byte[] body, String contentTypeHeader) {
+            return new String(body, StandardCharsets.UTF_8);
+          }
+
+          @Override
+          public byte[] writeTo(Object value) {
+            return String.valueOf(value).getBytes(StandardCharsets.UTF_8);
+          }
+        };
+    Map<String, TypeMapper> mappers = Map.of("application/json", textMapper);
     return new RequestPreparationFilter(
-        spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), m);
+        spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), mappers);
   }
 
   @Test

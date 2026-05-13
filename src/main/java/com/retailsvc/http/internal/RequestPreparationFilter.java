@@ -1,9 +1,9 @@
 package com.retailsvc.http.internal;
 
-import com.retailsvc.http.JsonMapper;
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
 import com.retailsvc.http.Request;
+import com.retailsvc.http.TypeMapper;
 import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.HttpMethod;
 import com.retailsvc.http.spec.MediaType;
@@ -26,16 +26,14 @@ public final class RequestPreparationFilter extends Filter {
   private final Spec spec;
   private final Router router;
   private final Validator validator;
-  private final JsonMapper jsonMapper;
-  private final FormUrlEncodedParser formParser = new FormUrlEncodedParser();
-  private final TextPlainParser textParser = new TextPlainParser();
+  private final Map<String, TypeMapper> bodyMappers;
 
   public RequestPreparationFilter(
-      Spec spec, Router router, Validator validator, JsonMapper jsonMapper) {
+      Spec spec, Router router, Validator validator, Map<String, TypeMapper> bodyMappers) {
     this.spec = spec;
     this.router = router;
     this.validator = validator;
-    this.jsonMapper = jsonMapper;
+    this.bodyMappers = Map.copyOf(bodyMappers);
   }
 
   @Override
@@ -150,13 +148,18 @@ public final class RequestPreparationFilter extends Filter {
           new ValidationError(
               "/body", "content-type", "unsupported content type: " + mediaType, null));
     }
-    Object parsed =
-        switch (mediaType) {
-          case "application/x-www-form-urlencoded" ->
-              FormBodyCoercion.coerce(formParser.parse(body, header), mt.schema());
-          case "text/plain" -> textParser.parse(body, header);
-          default -> jsonMapper.mapFrom(body);
-        };
+    TypeMapper mapper = bodyMappers.get(mediaType);
+    if (mapper == null) {
+      throw new ValidationException(
+          new ValidationError(
+              "/body", "content-type", "unsupported content type: " + mediaType, null));
+    }
+    Object parsed = mapper.readFrom(body, header);
+    if (mediaType.equals("application/x-www-form-urlencoded") && parsed instanceof Map<?, ?> map) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> typed = (Map<String, Object>) map;
+      parsed = FormBodyCoercion.coerce(typed, mt.schema());
+    }
     validator.validate(parsed, mt.schema(), "");
     return parsed;
   }
