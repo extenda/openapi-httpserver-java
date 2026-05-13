@@ -153,7 +153,7 @@ public final class RequestPreparationFilter extends Filter {
     Object parsed =
         switch (mediaType) {
           case "application/x-www-form-urlencoded" ->
-              formParser.parseAndCoerce(body, header, mt.schema());
+              FormBodyCoercion.coerce(formParser.parse(body, header), mt.schema());
           case "text/plain" -> textParser.parse(body, header);
           default -> jsonMapper.mapFrom(body);
         };
