@@ -203,7 +203,7 @@ public record Spec(
     for (var e : contentRaw.entrySet()) {
       Map<String, Object> mt = (Map<String, Object>) e.getValue();
       content.put(
-          e.getKey(),
+          e.getKey().toLowerCase(java.util.Locale.ROOT),
           new MediaType(SchemaParser.parse(mt.getOrDefault(SCHEMA_KEY, Map.of("type", "object")))));
     }
     return new RequestBody(Boolean.TRUE.equals(raw.get("required")), Map.copyOf(content));
@@ -219,7 +219,9 @@ public record Spec(
       for (var ce : contentRaw.entrySet()) {
         Map<String, Object> mt = (Map<String, Object>) ce.getValue();
         if (mt.containsKey(SCHEMA_KEY)) {
-          content.put(ce.getKey(), new MediaType(SchemaParser.parse(mt.get(SCHEMA_KEY))));
+          content.put(
+              ce.getKey().toLowerCase(java.util.Locale.ROOT),
+              new MediaType(SchemaParser.parse(mt.get(SCHEMA_KEY))));
         }
       }
       out.put(e.getKey(), new Response(Map.copyOf(content)));

@@ -11,10 +11,6 @@ import com.retailsvc.http.spec.Operation;
 import com.retailsvc.http.spec.Parameter;
 import com.retailsvc.http.spec.RequestBody;
 import com.retailsvc.http.spec.Spec;
-import com.retailsvc.http.spec.schema.BooleanSchema;
-import com.retailsvc.http.spec.schema.IntegerSchema;
-import com.retailsvc.http.spec.schema.NumberSchema;
-import com.retailsvc.http.spec.schema.Schema;
 import com.retailsvc.http.validate.ValidationError;
 import com.retailsvc.http.validate.Validator;
 import com.sun.net.httpserver.Filter;
@@ -31,6 +27,8 @@ public final class RequestPreparationFilter extends Filter {
   private final Router router;
   private final Validator validator;
   private final JsonMapper jsonMapper;
+  private final FormUrlEncodedParser formParser = new FormUrlEncodedParser();
+  private final TextPlainParser textParser = new TextPlainParser();
 
   public RequestPreparationFilter(
       Spec spec, Router router, Validator validator, JsonMapper jsonMapper) {
@@ -128,46 +126,8 @@ public final class RequestPreparationFilter extends Filter {
         }
         continue;
       }
-      validator.validate(coerceParameterValue(value, p.schema(), pointer), p.schema(), pointer);
+      validator.validate(ValueCoercion.coerce(value, p.schema(), pointer), p.schema(), pointer);
     }
-  }
-
-  /**
-   * Converts a raw parameter string into a typed value matching the schema's primitive kind, so the
-   * validator (which is faithful to JSON Schema {@code type} semantics) sees the value the spec
-   * describes rather than its string serialization. Strings that fail to parse are passed through
-   * unchanged so the validator surfaces a {@code type} error with the original input.
-   */
-  private static Object coerceParameterValue(String raw, Schema schema, String pointer) {
-    return switch (schema) {
-      case IntegerSchema _ -> {
-        try {
-          yield Long.parseLong(raw);
-        } catch (NumberFormatException _) {
-          throw new ValidationException(
-              new ValidationError(pointer, "type", "expected integer", raw));
-        }
-      }
-      case NumberSchema _ -> {
-        try {
-          yield Double.parseDouble(raw);
-        } catch (NumberFormatException _) {
-          throw new ValidationException(
-              new ValidationError(pointer, "type", "expected number", raw));
-        }
-      }
-      case BooleanSchema _ -> {
-        if ("true".equals(raw)) {
-          yield Boolean.TRUE;
-        }
-        if ("false".equals(raw)) {
-          yield Boolean.FALSE;
-        }
-        throw new ValidationException(
-            new ValidationError(pointer, "type", "expected boolean", raw));
-      }
-      default -> raw;
-    };
   }
 
   private Object validateAndParseBody(HttpExchange exchange, Operation op, byte[] body) {
@@ -182,18 +142,21 @@ public final class RequestPreparationFilter extends Filter {
       }
       return null;
     }
-    String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-    if (contentType == null) {
-      contentType = "application/json";
-    }
-    contentType = contentType.split(";", 2)[0].trim();
-    MediaType mt = rb.get().content().get(contentType);
+    String header = exchange.getRequestHeaders().getFirst("Content-Type");
+    String mediaType = ContentTypeHeader.mediaType(header);
+    MediaType mt = rb.get().content().get(mediaType);
     if (mt == null) {
       throw new ValidationException(
           new ValidationError(
-              "/body", "content-type", "unsupported content type: " + contentType, null));
+              "/body", "content-type", "unsupported content type: " + mediaType, null));
     }
-    Object parsed = jsonMapper.mapFrom(body);
+    Object parsed =
+        switch (mediaType) {
+          case "application/x-www-form-urlencoded" ->
+              formParser.parseAndCoerce(body, header, mt.schema());
+          case "text/plain" -> textParser.parse(body, header);
+          default -> jsonMapper.mapFrom(body);
+        };
     validator.validate(parsed, mt.schema(), "");
     return parsed;
   }
