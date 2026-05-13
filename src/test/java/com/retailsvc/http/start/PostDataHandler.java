@@ -1,22 +1,21 @@
 package com.retailsvc.http.start;
 
-import com.retailsvc.http.internal.LegacyRequestAccess;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
+import com.retailsvc.http.Request;
+import com.retailsvc.http.RequestHandler;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class PostDataHandler implements HttpHandler {
+public class PostDataHandler implements RequestHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   @Override
-  public void handle(HttpExchange exchange) throws IOException {
+  public void handle(Request request) throws IOException {
     LOG.debug("POST /data");
 
-    byte[] bytes = LegacyRequestAccess.bytes();
+    byte[] bytes = request.bytes();
 
     if (bytes.length == 0) {
       LOG.debug("No bytes available to read from the request body");
@@ -27,12 +26,6 @@ public class PostDataHandler implements HttpHandler {
     String requestBody = new String(bytes);
     LOG.debug("Request body: {}", requestBody);
 
-    try (exchange;
-        var os = exchange.getResponseBody()) {
-      exchange.getResponseHeaders().add("Content-Type", "application/json");
-      exchange.sendResponseHeaders(200, requestBody.length());
-
-      os.write(requestBody.getBytes());
-    }
+    request.respond(200).contentType("application/json").bytes(requestBody.getBytes());
   }
 }

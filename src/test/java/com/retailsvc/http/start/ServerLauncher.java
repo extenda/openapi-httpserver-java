@@ -3,8 +3,8 @@ package com.retailsvc.http.start;
 import com.retailsvc.http.ExceptionHandler;
 import com.retailsvc.http.Handlers;
 import com.retailsvc.http.OpenApiServer;
+import com.retailsvc.http.RequestHandler;
 import com.retailsvc.http.spec.Spec;
-import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -30,7 +30,7 @@ public class ServerLauncher {
     }
     Spec spec = Spec.from(raw);
 
-    Map<String, HttpHandler> handlers = new HashMap<>();
+    Map<String, RequestHandler> handlers = new HashMap<>();
     handlers.put("get-data", new GetDataHandler());
     handlers.put("post-data", new PostDataHandler());
     handlers.put("post-list-objects", new PostListObjectsHandler());

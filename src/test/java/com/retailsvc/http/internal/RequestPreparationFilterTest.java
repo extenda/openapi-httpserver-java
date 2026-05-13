@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
+import com.retailsvc.http.Request;
 import com.retailsvc.http.TypeMapper;
 import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.HttpMethod;
@@ -99,8 +100,9 @@ class RequestPreparationFilterTest {
     Filter.Chain chain = mock(Filter.Chain.class);
     Mockito.doAnswer(
             inv -> {
-              seenOpId.set(LegacyRequestAccess.operationId());
-              seenPathParams.set(LegacyRequestAccess.pathParams());
+              Request req = DispatchHandler.CURRENT.get();
+              seenOpId.set(req.operationId());
+              seenPathParams.set(req.pathParams());
               return null;
             })
         .when(chain)

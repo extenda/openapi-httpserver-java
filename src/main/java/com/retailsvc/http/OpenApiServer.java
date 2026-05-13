@@ -43,7 +43,7 @@ public class OpenApiServer implements AutoCloseable {
   OpenApiServer(
       Spec spec,
       Map<String, TypeMapper> bodyMappers,
-      Map<String, HttpHandler> handlers,
+      Map<String, RequestHandler> handlers,
       ExceptionHandler exceptionHandler,
       int port,
       Map<String, HttpHandler> extras,
@@ -117,7 +117,7 @@ public class OpenApiServer implements AutoCloseable {
 
     private Spec spec;
     private final LinkedHashMap<String, TypeMapper> bodyMappers = new LinkedHashMap<>();
-    private Map<String, HttpHandler> handlers;
+    private Map<String, RequestHandler> handlers;
     private ExceptionHandler exceptionHandler;
     private int port = DEFAULT_PORT;
     private int shutdownTimeoutSeconds = 0;
@@ -137,7 +137,7 @@ public class OpenApiServer implements AutoCloseable {
       return this;
     }
 
-    public Builder handlers(Map<String, HttpHandler> handlers) {
+    public Builder handlers(Map<String, RequestHandler> handlers) {
       this.handlers = handlers;
       return this;
     }

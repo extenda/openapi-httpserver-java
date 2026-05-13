@@ -1,37 +1,26 @@
 package com.retailsvc.http.start;
 
-import static java.net.HttpURLConnection.HTTP_OK;
-
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
+import com.retailsvc.http.Request;
+import com.retailsvc.http.RequestHandler;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class GetDataHandler implements HttpHandler {
+public class GetDataHandler implements RequestHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(GetDataHandler.class);
 
   @Override
-  public void handle(HttpExchange exchange) throws IOException {
+  public void handle(Request request) throws IOException {
     LOG.debug("GET /data");
 
-    try (exchange) {
-      byte[] bytes =
-          """
-          {
-            "id": "some-id"
-          }\
-          """
-              .getBytes();
-      try (var os = exchange.getResponseBody()) {
-        var responseHeaders = exchange.getResponseHeaders();
-        responseHeaders.add("content-type", "application/json");
-
-        exchange.sendResponseHeaders(HTTP_OK, bytes.length);
-
-        os.write(bytes);
-      }
-    }
+    byte[] bytes =
+        """
+        {
+          "id": "some-id"
+        }\
+        """
+            .getBytes();
+    request.respond(200).contentType("application/json").bytes(bytes);
   }
 }

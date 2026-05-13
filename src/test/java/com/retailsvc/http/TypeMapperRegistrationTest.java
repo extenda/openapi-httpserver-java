@@ -6,8 +6,6 @@ import static java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.retailsvc.http.internal.LegacyRequestAccess;
-import com.sun.net.httpserver.HttpHandler;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -23,14 +21,11 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
 
   @Test
   void gsonFallbackIsAutoRegisteredWhenNoJsonMapperConfigured() throws Exception {
-    HttpHandler echo =
-        ex -> {
-          Object parsed = LegacyRequestAccess.parsed();
+    RequestHandler echo =
+        req -> {
+          Object parsed = req.parsed();
           byte[] out = gson.toJson(parsed).getBytes(StandardCharsets.UTF_8);
-          ex.getResponseHeaders().add("Content-Type", "application/json");
-          ex.sendResponseHeaders(200, out.length);
-          ex.getResponseBody().write(out);
-          ex.close();
+          req.respond(200).contentType("application/json").bytes(out);
         };
     server =
         OpenApiServer.builder()
@@ -69,11 +64,7 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
             return "ignored".getBytes(StandardCharsets.UTF_8);
           }
         };
-    HttpHandler echo =
-        ex -> {
-          ex.sendResponseHeaders(200, -1);
-          ex.close();
-        };
+    RequestHandler echo = req -> req.respond(200).empty();
     OpenApiServer s =
         OpenApiServer.builder()
             .spec(spec)

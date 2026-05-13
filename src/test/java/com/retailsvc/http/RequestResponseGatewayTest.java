@@ -10,23 +10,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.util.Map;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-// TODO Task 9: remove @Disabled once Builder.handlers() accepts Map<String, RequestHandler>
-@Disabled("Enabled in Task 9 once handlers() takes RequestHandler")
 class RequestResponseGatewayTest extends ServerBaseTest {
-
-  /**
-   * Casts a {@code Map<String, RequestHandler>} to the raw {@code Map} type so callers compile
-   * against the existing {@code Builder.handlers(Map<String, HttpHandler>)} signature. This cast is
-   * safe to write here because the class is {@link Disabled} — it never runs until Task 9 replaces
-   * the stub with a real {@code handlers(Map<String, RequestHandler>)} overload.
-   */
-  @SuppressWarnings("unchecked")
-  private static Map asRawHandlers(Map<String, RequestHandler> handlers) {
-    return handlers;
-  }
 
   @Test
   void respondJsonWritesBodyAndContentType() throws Exception {
@@ -34,7 +20,7 @@ class RequestResponseGatewayTest extends ServerBaseTest {
     server =
         OpenApiServer.builder()
             .spec(spec)
-            .handlers(asRawHandlers(Map.of("getRoot", echo, "postData", echo)))
+            .handlers(Map.of("get-data", echo, "post-data", echo))
             .port(0)
             .build();
     HttpClient client =
@@ -47,12 +33,12 @@ class RequestResponseGatewayTest extends ServerBaseTest {
             HttpRequest.newBuilder()
                 .uri(URI.create("http://localhost:%d/api/v1/data".formatted(server.listenPort())))
                 .header("Content-Type", "application/json")
-                .POST(BodyPublishers.ofString("{\"n\":1}"))
+                .POST(BodyPublishers.ofString("{\"aList\":[\"x\"],\"feelingGood\":true}"))
                 .build(),
             ofString());
     assertThat(resp.statusCode()).isEqualTo(200);
     assertThat(resp.headers().firstValue("Content-Type")).contains("application/json");
-    assertThat(resp.body()).contains("\"op\":\"postData\"");
+    assertThat(resp.body()).contains("\"op\":\"post-data\"");
   }
 
   @Test
@@ -61,14 +47,16 @@ class RequestResponseGatewayTest extends ServerBaseTest {
     server =
         OpenApiServer.builder()
             .spec(spec)
-            .handlers(asRawHandlers(Map.of("getRoot", ok, "postData", ok)))
+            .handlers(Map.of("get-data", ok, "post-data", ok))
             .port(0)
             .build();
     var resp =
         HttpClient.newHttpClient()
             .send(
                 HttpRequest.newBuilder()
-                    .uri(URI.create("http://localhost:%d/api/v1/".formatted(server.listenPort())))
+                    .uri(
+                        URI.create(
+                            "http://localhost:%d/api/v1/data".formatted(server.listenPort())))
                     .GET()
                     .build(),
                 ofString());
@@ -88,14 +76,16 @@ class RequestResponseGatewayTest extends ServerBaseTest {
     server =
         OpenApiServer.builder()
             .spec(spec)
-            .handlers(asRawHandlers(Map.of("getRoot", streamer, "postData", streamer)))
+            .handlers(Map.of("get-data", streamer, "post-data", streamer))
             .port(0)
             .build();
     var resp =
         HttpClient.newHttpClient()
             .send(
                 HttpRequest.newBuilder()
-                    .uri(URI.create("http://localhost:%d/api/v1/".formatted(server.listenPort())))
+                    .uri(
+                        URI.create(
+                            "http://localhost:%d/api/v1/data".formatted(server.listenPort())))
                     .GET()
                     .build(),
                 ofString());

@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.retailsvc.http.start.FormEchoHandler;
 import com.retailsvc.http.start.TextEchoHandler;
-import com.sun.net.httpserver.HttpHandler;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse.BodyHandlers;
@@ -16,7 +15,7 @@ class NonJsonBodyIT extends ServerBaseTest {
 
   @Test
   void formUrlEncodedBodyParsedAndCoerced() throws Exception {
-    Map<String, HttpHandler> handlers = Map.of("form-echo", new FormEchoHandler());
+    Map<String, RequestHandler> handlers = Map.of("form-echo", new FormEchoHandler());
     try (var s = newServer(handlers);
         var client = httpClient()) {
       var req = postForm(s, "/form-echo", "name=foo&age=30");
@@ -28,7 +27,7 @@ class NonJsonBodyIT extends ServerBaseTest {
 
   @Test
   void formArrayProperty() throws Exception {
-    Map<String, HttpHandler> handlers = Map.of("form-echo", new FormEchoHandler());
+    Map<String, RequestHandler> handlers = Map.of("form-echo", new FormEchoHandler());
     try (var s = newServer(handlers);
         var client = httpClient()) {
       var req = postForm(s, "/form-echo", "tags=a&tags=b");
@@ -40,7 +39,7 @@ class NonJsonBodyIT extends ServerBaseTest {
 
   @Test
   void formCoercionFailureReturns400() throws Exception {
-    Map<String, HttpHandler> handlers = Map.of("form-echo", new FormEchoHandler());
+    Map<String, RequestHandler> handlers = Map.of("form-echo", new FormEchoHandler());
     try (var s = newServer(handlers);
         var client = httpClient()) {
       var req = postForm(s, "/form-echo", "age=abc");
@@ -52,7 +51,7 @@ class NonJsonBodyIT extends ServerBaseTest {
 
   @Test
   void textPlainBodyParsedAsString() throws Exception {
-    Map<String, HttpHandler> handlers = Map.of("text-echo", new TextEchoHandler());
+    Map<String, RequestHandler> handlers = Map.of("text-echo", new TextEchoHandler());
     try (var s = newServer(handlers);
         var client = httpClient()) {
       var req = postWithContentType(s, "/text-echo", "hello", "text/plain; charset=utf-8");

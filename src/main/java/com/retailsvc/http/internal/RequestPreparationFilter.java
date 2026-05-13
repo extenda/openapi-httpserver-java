@@ -2,6 +2,7 @@ package com.retailsvc.http.internal;
 
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
+import com.retailsvc.http.Request;
 import com.retailsvc.http.TypeMapper;
 import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.HttpMethod;
@@ -61,32 +62,22 @@ public final class RequestPreparationFilter extends Filter {
     validateParameters(exchange, op, match.pathParameters());
     Object parsedBody = validateAndParseBody(exchange, op, body);
 
-    RequestContext ctx =
-        new RequestContext(body, parsedBody, op.operationId(), match.pathParameters());
+    Request request =
+        new Request(
+            exchange, body, parsedBody, op.operationId(), match.pathParameters(), bodyMappers);
 
-    runWithRequestContext(ctx, () -> chain.doFilter(exchange));
-  }
-
-  private static void runWithRequestContext(RequestContext ctx, IORunnable work)
-      throws IOException {
     try {
-      ScopedValue.where(LegacyRequestAccess.CONTEXT, ctx)
+      ScopedValue.where(DispatchHandler.CURRENT, request)
           .call(
               () -> {
-                work.run();
+                chain.doFilter(exchange);
                 return null;
               });
     } catch (IOException | RuntimeException e) {
       throw e;
     } catch (Exception e) {
-      // Callable.call() throws Exception; nothing else can actually be thrown by the chain.
       throw new IOException(e);
     }
-  }
-
-  @FunctionalInterface
-  private interface IORunnable {
-    void run() throws IOException;
   }
 
   private String stripBasePath(String path) {

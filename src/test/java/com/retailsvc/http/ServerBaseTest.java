@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.fail;
 
 import com.google.gson.Gson;
 import com.retailsvc.http.spec.Spec;
-import com.sun.net.httpserver.HttpHandler;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -44,7 +43,7 @@ public abstract class ServerBaseTest {
     Optional.ofNullable(server).ifPresent(OpenApiServer::close);
   }
 
-  protected OpenApiServer newServer(Map<String, HttpHandler> handlers) {
+  protected OpenApiServer newServer(Map<String, RequestHandler> handlers) {
     try {
       server = OpenApiServer.builder().spec(spec).handlers(handlers).port(0).build();
       return server;
