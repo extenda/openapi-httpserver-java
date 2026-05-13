@@ -86,9 +86,15 @@ Number handling on read:
   - reads everything else (`String`, `Boolean`, `null`, arrays, objects) the way Gson's default does.
 - This is a well-known Gson pattern; ~30 lines, tested in isolation.
 
-Number handling on write — known caveat, documented in README:
+JSR-310 handling on write:
 
-- `GsonJsonMapper.writeTo(value)` calls `gson.toJson(value)` on a default `Gson` instance and returns UTF-8 bytes. This handles `Map<String,Object>`, `List<?>`, `String`, `Number`, `Boolean`, and `null` cleanly. It does **not** serialise `java.time.Instant`, `LocalDate`, or other JSR-310 types in a useful way (Gson's default emits internal field values). Callers that return such types from handlers — or want any non-default serialization — must register their own `TypeMapper`. The fallback is intended for the "I'm already using Gson and the defaults are fine" case.
+- The default `Gson` instance is built with `TypeAdapter`s for `Instant`, `OffsetDateTime`, `ZonedDateTime`, `LocalDateTime`, `LocalDate`, and `LocalTime`. Each adapter writes `value.toString()` — every JSR-310 type's `toString()` already emits ISO-8601, so adapters are ~5 lines each.
+- Without these adapters Gson's default would serialise these types using internal field values, which is never what handlers want.
+- Read direction is unaffected: the library parses bodies into raw `Object` (`Map<String,Object>` / `List<?>` / `String` / `Long` / `Double` / `Boolean` / `null`). Gson is never asked to construct an `Instant`, so an ISO-8601 datetime in incoming JSON stays a `String` and is validated against `format: date-time` by `DefaultValidator`. The JSR-310 adapters are therefore effectively write-only in this codebase. That is the intended behaviour.
+
+Write caveat — documented in README:
+
+- `GsonJsonMapper.writeTo(value)` calls `gson.toJson(value)` and returns UTF-8 bytes. With the integer-preserving and JSR-310 adapters above, this handles `Map<String,Object>`, `List<?>`, `String`, `Number`, `Boolean`, `null`, and the listed JSR-310 types correctly. For non-ISO date formats, locale-specific serialization, custom naming strategies, or any custom Java type, register a user-supplied `TypeMapper` for `application/json`. The fallback is intended for the "I'm already using Gson and the defaults are fine" case.
 
 ### `Request`
 
@@ -214,6 +220,7 @@ Existing integration tests (`*IT.java`) exercise the full stack and will be upda
 
 - `TypeMapper` registration: defaults wired, user overrides win, missing `application/json` mapper fails the builder when Gson is not on the classpath.
 - Gson fallback: with Gson on the classpath and no user JSON mapper, `build()` succeeds and `application/json` round-trips via `GsonJsonMapper`. Integer-preserving `TypeAdapter` returns `Long` for integral numbers and `Double` for fractional / out-of-range numbers. With Gson absent and no user JSON mapper, `build()` fails with the existing error.
+- JSR-310 write adapters: serializing `Map.of("ts", Instant.now())`, an `OffsetDateTime`, a `LocalDate`, etc. emits the ISO-8601 string form. One assertion per type.
 - Built-in text mapper: round-trip via `readFrom` and `writeTo`; charset handling.
 - Built-in form mapper: `readFrom` parses; `writeTo` throws `UnsupportedOperationException`.
 - `Request` read API: byte / parsed / operationId / pathParams round-trip.
