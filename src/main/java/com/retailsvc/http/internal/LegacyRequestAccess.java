@@ -1,6 +1,5 @@
-package com.retailsvc.http;
+package com.retailsvc.http.internal;
 
-import com.retailsvc.http.internal.RequestContext;
 import java.util.Map;
 
 /**
@@ -13,13 +12,16 @@ import java.util.Map;
  * <p>If a handler dispatches work to a non-structured executor (i.e. not a {@code
  * StructuredTaskScope}-managed thread), it must capture the values it needs before submitting — the
  * {@link ScopedValue} is not visible from arbitrary worker threads.
+ *
+ * @deprecated Temporary scaffolding; will be deleted in a future task.
  */
-public final class Request {
+@Deprecated
+public final class LegacyRequestAccess {
 
   /** Bound by {@code RequestPreparationFilter} for the duration of each request. */
   public static final ScopedValue<RequestContext> CONTEXT = ScopedValue.newInstance();
 
-  private Request() {}
+  private LegacyRequestAccess() {}
 
   /**
    * Returns the full per-request context. Use this when a handler reads more than one field — every

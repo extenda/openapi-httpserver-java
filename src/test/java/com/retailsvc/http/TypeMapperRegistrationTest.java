@@ -6,6 +6,7 @@ import static java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.retailsvc.http.internal.LegacyRequestAccess;
 import com.sun.net.httpserver.HttpHandler;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -24,7 +25,7 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
   void gsonFallbackIsAutoRegisteredWhenNoJsonMapperConfigured() throws Exception {
     HttpHandler echo =
         ex -> {
-          Object parsed = Request.parsed();
+          Object parsed = LegacyRequestAccess.parsed();
           byte[] out = gson.toJson(parsed).getBytes(StandardCharsets.UTF_8);
           ex.getResponseHeaders().add("Content-Type", "application/json");
           ex.sendResponseHeaders(200, out.length);

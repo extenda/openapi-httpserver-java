@@ -3,6 +3,7 @@ package com.retailsvc.http;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.retailsvc.http.internal.LegacyRequestAccess;
 import com.retailsvc.http.internal.RequestContext;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -21,13 +22,13 @@ class RequestTest {
     AtomicReference<String> seenOpId = new AtomicReference<>();
     AtomicReference<Map<String, String>> seenPathParams = new AtomicReference<>();
 
-    ScopedValue.where(Request.CONTEXT, ctx)
+    ScopedValue.where(LegacyRequestAccess.CONTEXT, ctx)
         .call(
             () -> {
-              seenBytes.set(Request.bytes());
-              seenParsed.set(Request.parsed());
-              seenOpId.set(Request.operationId());
-              seenPathParams.set(Request.pathParams());
+              seenBytes.set(LegacyRequestAccess.bytes());
+              seenParsed.set(LegacyRequestAccess.parsed());
+              seenOpId.set(LegacyRequestAccess.operationId());
+              seenPathParams.set(LegacyRequestAccess.pathParams());
               return null;
             });
 
@@ -39,6 +40,6 @@ class RequestTest {
 
   @Test
   void readingOutsideScopeThrows() {
-    assertThrows(NoSuchElementException.class, Request::bytes);
+    assertThrows(NoSuchElementException.class, LegacyRequestAccess::bytes);
   }
 }

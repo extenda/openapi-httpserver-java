@@ -2,7 +2,7 @@ package com.retailsvc.http.start;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 
-import com.retailsvc.http.Request;
+import com.retailsvc.http.internal.LegacyRequestAccess;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
@@ -13,7 +13,7 @@ public class FormEchoHandler implements HttpHandler {
 
   @Override
   public void handle(HttpExchange exchange) throws IOException {
-    Object parsed = Request.parsed();
+    Object parsed = LegacyRequestAccess.parsed();
     byte[] body = String.valueOf(parsed).getBytes(StandardCharsets.UTF_8);
     try (exchange) {
       exchange.getResponseHeaders().add("Content-Type", "text/plain; charset=utf-8");

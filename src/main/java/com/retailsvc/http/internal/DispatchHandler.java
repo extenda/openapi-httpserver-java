@@ -1,7 +1,6 @@
 package com.retailsvc.http.internal;
 
 import com.retailsvc.http.MissingOperationHandlerException;
-import com.retailsvc.http.Request;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
@@ -16,7 +15,7 @@ public final class DispatchHandler implements HttpHandler {
 
   @Override
   public void handle(HttpExchange exchange) throws IOException {
-    String opId = Request.operationId();
+    String opId = LegacyRequestAccess.operationId();
     HttpHandler h = handlers.get(opId);
     if (h == null) {
       throw new MissingOperationHandlerException(opId);

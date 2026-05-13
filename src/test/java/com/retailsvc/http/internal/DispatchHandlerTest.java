@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 import com.retailsvc.http.MissingOperationHandlerException;
-import com.retailsvc.http.Request;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.util.Map;
@@ -16,7 +15,7 @@ class DispatchHandlerTest {
   private static void withOperationId(
       String operationId, ScopedValue.CallableOp<Void, Exception> body) throws Exception {
     RequestContext ctx = new RequestContext(new byte[0], null, operationId, Map.of());
-    ScopedValue.where(Request.CONTEXT, ctx).call(body);
+    ScopedValue.where(LegacyRequestAccess.CONTEXT, ctx).call(body);
   }
 
   @Test

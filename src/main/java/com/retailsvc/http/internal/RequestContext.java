@@ -6,8 +6,8 @@ import java.util.Objects;
 
 /**
  * Immutable per-request data populated by {@link RequestPreparationFilter} and read by handlers via
- * {@link com.retailsvc.http.Request}. Bound to a {@link ScopedValue} for the duration of a single
- * request — never written to the {@code HttpExchange}'s context-shared attribute map.
+ * {@link LegacyRequestAccess}. Bound to a {@link ScopedValue} for the duration of a single request
+ * — never written to the {@code HttpExchange}'s context-shared attribute map.
  *
  * <p>{@code equals}, {@code hashCode}, and {@code toString} are overridden because the record
  * carries a {@code byte[]} component: the auto-generated implementations use reference equality on

@@ -2,7 +2,6 @@ package com.retailsvc.http.internal;
 
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
-import com.retailsvc.http.Request;
 import com.retailsvc.http.TypeMapper;
 import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.HttpMethod;
@@ -71,7 +70,7 @@ public final class RequestPreparationFilter extends Filter {
   private static void runWithRequestContext(RequestContext ctx, IORunnable work)
       throws IOException {
     try {
-      ScopedValue.where(Request.CONTEXT, ctx)
+      ScopedValue.where(LegacyRequestAccess.CONTEXT, ctx)
           .call(
               () -> {
                 work.run();

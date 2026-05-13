@@ -1,6 +1,6 @@
 package com.retailsvc.http.start;
 
-import com.retailsvc.http.Request;
+import com.retailsvc.http.internal.LegacyRequestAccess;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
@@ -16,7 +16,7 @@ public class PostListObjectsHandler implements HttpHandler {
   public void handle(HttpExchange exchange) throws IOException {
     LOG.debug("POST /list/objects");
 
-    byte[] bytes = Request.bytes();
+    byte[] bytes = LegacyRequestAccess.bytes();
 
     if (bytes.length == 0) {
       LOG.debug("No bytes available to read from the request body");
