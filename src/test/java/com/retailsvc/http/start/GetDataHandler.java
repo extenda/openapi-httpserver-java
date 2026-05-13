@@ -3,6 +3,7 @@ package com.retailsvc.http.start;
 import com.retailsvc.http.Request;
 import com.retailsvc.http.RequestHandler;
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,6 +22,6 @@ public class GetDataHandler implements RequestHandler {
         }\
         """
             .getBytes();
-    request.respond(200).contentType("application/json").bytes(bytes);
+    request.respond(HttpURLConnection.HTTP_OK).contentType("application/json").bytes(bytes);
   }
 }
