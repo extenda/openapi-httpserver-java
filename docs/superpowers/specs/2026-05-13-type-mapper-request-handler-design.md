@@ -28,7 +28,7 @@ read/write per media type, and `RequestHandler` for handlers that receive a
 In scope:
 
 - `TypeMapper` interface (read + write) and per-media-type registration on the builder.
-- Rename `JsonMapper` → user-supplied `TypeMapper` for `application/json`; default form and text mappers wired automatically.
+- Delete `JsonMapper`; the user supplies a `TypeMapper` for `application/json` instead. Default form and text mappers wired automatically.
 - New `RequestHandler` interface; `handlers(...)` builder method changed to `Map<String, RequestHandler>` (breaking).
 - `Request` repurposed from a static-accessor utility into the per-request handle handlers receive. Read API mirrors today's `RequestContext`; adds a response gateway with one-shot and streaming terminals.
 - Internal `RequestContext` record and public `Request.CONTEXT` `ScopedValue` removed.
@@ -178,7 +178,7 @@ final class DispatchHandler implements HttpHandler {
 
 This is a pre-1.0 library; breaking changes are acceptable.
 
-- `JsonMapper` removed; replaced by `TypeMapper`. Builder method `jsonMapper(JsonMapper)` becomes `bodyMapper("application/json", TypeMapper)`.
+- `JsonMapper` removed; replaced by `TypeMapper`. Builder method `jsonMapper(JsonMapper)` becomes `bodyMapper("application/json", TypeMapper)`. No deprecated adapter is kept — the cutover happens in a single PR.
 - Builder method `handlers(Map<String, HttpHandler>)` becomes `handlers(Map<String, RequestHandler>)`.
 - Static accessors `Request.bytes()` / `Request.parsed()` / `Request.operationId()` / `Request.pathParams()` / `Request.current()` and the `Request.CONTEXT` `ScopedValue` are removed. Handlers read this data from the `Request` parameter.
 - The example launcher under `src/test/java/.../start/` is updated as part of this change.
@@ -199,8 +199,6 @@ Existing integration tests (`*IT.java`) exercise the full stack and will be upda
 
 The implementation plan will sequence this as:
 
-1. Introduce `TypeMapper`; convert form and text built-ins to implement it; convert `JsonMapper` to a deprecated adapter that wraps a `TypeMapper`.
+1. Introduce `TypeMapper`; convert form and text built-ins to implement it; delete `JsonMapper`; switch the builder to `bodyMapper(String, TypeMapper)`; rewire `RequestPreparationFilter` to use the registered mappers and drop the hardcoded media-type switch.
 2. Move form-coercion out of `FormUrlEncodedParser` into the validator path.
-3. Build the new `Request` class (read API + response gateway) and the internal `ScopedValue<Request>` handoff; keep the old static `Request` accessors alive temporarily.
-4. Introduce `RequestHandler`; update the builder (`bodyMapper(...)`, `handlers(Map<String,RequestHandler>)`); update example launcher and tests.
-5. Remove `JsonMapper`, the static `Request` accessors, and the `RequestContext` record.
+3. Build the new `Request` class (read API + response gateway), the internal `ScopedValue<Request>` handoff, and the `RequestHandler` interface; switch `handlers(...)` to `Map<String, RequestHandler>`; update example launcher and tests; delete the static `Request` accessors, the public `ScopedValue`, and the `RequestContext` record.
