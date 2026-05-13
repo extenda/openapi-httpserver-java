@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Built-in {@link TypeMapper} for {@code application/json} backed by Gson. Auto-registered by
@@ -102,7 +103,7 @@ public final class GsonJsonMapper implements TypeMapper {
     throw new IllegalStateException("Unexpected JsonElement type: " + element.getClass());
   }
 
-  private static <T> TypeAdapter<T> isoStringWriter(java.util.function.Function<T, String> toIso) {
+  private static <T> TypeAdapter<T> isoStringWriter(Function<T, String> toIso) {
     return new TypeAdapter<T>() {
       @Override
       public void write(JsonWriter out, T value) throws IOException {
