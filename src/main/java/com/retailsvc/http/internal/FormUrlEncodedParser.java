@@ -1,0 +1,78 @@
+package com.retailsvc.http.internal;
+
+import com.retailsvc.http.spec.schema.Schema;
+import java.net.URLDecoder;
+import java.nio.charset.Charset;
+import java.nio.charset.IllegalCharsetNameException;
+import java.nio.charset.StandardCharsets;
+import java.nio.charset.UnsupportedCharsetException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/** Parses an {@code application/x-www-form-urlencoded} request body. */
+public final class FormUrlEncodedParser {
+
+  /** Parses the body to a {@code Map<String, Object>} ({@code String} or {@code List<String>}). */
+  public Map<String, Object> parse(byte[] body, String contentTypeHeader) {
+    Charset charset = resolveCharset(contentTypeHeader);
+    if (body.length == 0) {
+      return new LinkedHashMap<>();
+    }
+    String text = new String(body, charset);
+    Map<String, Object> out = new LinkedHashMap<>();
+    for (String pair : text.split("&")) {
+      if (pair.isEmpty()) {
+        continue;
+      }
+      int eq = pair.indexOf('=');
+      String rawKey = eq < 0 ? pair : pair.substring(0, eq);
+      String rawValue = eq < 0 ? "" : pair.substring(eq + 1);
+      String key = URLDecoder.decode(rawKey, charset);
+      String value = URLDecoder.decode(rawValue, charset);
+      addEntry(out, key, value);
+    }
+    return out;
+  }
+
+  private static void addEntry(Map<String, Object> out, String key, String value) {
+    Object existing = out.get(key);
+    if (existing == null) {
+      out.put(key, value);
+      return;
+    }
+    if (existing instanceof List<?> list) {
+      @SuppressWarnings("unchecked")
+      List<String> typed = (List<String>) list;
+      typed.add(value);
+      return;
+    }
+    List<String> list = new ArrayList<>();
+    list.add((String) existing);
+    list.add(value);
+    out.put(key, list);
+  }
+
+  /**
+   * Returns the parsed map after coercing field values against the given body schema. Coercion is
+   * added in a subsequent task; for now this delegates to {@link #parse}.
+   */
+  public Map<String, Object> parseAndCoerce(byte[] body, String contentTypeHeader, Schema schema) {
+    return parse(body, contentTypeHeader);
+  }
+
+  private static Charset resolveCharset(String header) {
+    return ContentTypeHeader.parameter(header, "charset")
+        .map(FormUrlEncodedParser::safeCharset)
+        .orElse(StandardCharsets.UTF_8);
+  }
+
+  private static Charset safeCharset(String name) {
+    try {
+      return Charset.forName(name);
+    } catch (IllegalCharsetNameException | UnsupportedCharsetException _) {
+      return StandardCharsets.UTF_8;
+    }
+  }
+}
