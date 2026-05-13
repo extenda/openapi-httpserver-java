@@ -13,9 +13,9 @@ import java.util.Map;
  * StructuredTaskScope}-managed thread), it must capture the values it needs before submitting — the
  * {@link ScopedValue} is not visible from arbitrary worker threads.
  *
- * @deprecated Temporary scaffolding; will be deleted in a future task.
+ * <p>Temporary scaffolding bridging the static-accessor era to the per-request {@code Request}
+ * handle. Removed in a follow-up task once the new handler API replaces all consumers.
  */
-@Deprecated
 public final class LegacyRequestAccess {
 
   /** Bound by {@code RequestPreparationFilter} for the duration of each request. */
