@@ -100,6 +100,20 @@ Map<String, Object> raw = new Yaml().load(Files.newInputStream(Path.of("openapi.
 ```
 The rest is identical.
 
+### Request body content types
+
+The server reads `requestBody.content` from the spec and selects a parser by `Content-Type` subtype:
+
+| Content type                          | Parser                                                                       | Coercion |
+| ------------------------------------- | ---------------------------------------------------------------------------- | -------- |
+| `application/json`                    | Caller-supplied `JsonMapper`                                                 | No — strict against the schema |
+| `application/x-www-form-urlencoded`   | Built-in. `Map<String, Object>` (string or `List<String>` for repeated keys) | Yes — field values coerced to the property schema type (integer / number / boolean / array of those) |
+| `text/plain`                          | Built-in. Decoded `String`                                                   | No — schema should be `type: string` |
+
+Form-field coercion mirrors the rules already used at the parameter boundary: the wire is string-only by definition, so a property typed as `integer` accepts `"42"` and yields `42`. Coercion failures surface as RFC-7807 `400` responses with a JSON-pointer to the failing field.
+
+Both built-in parsers honour the `charset=` parameter on the `Content-Type` header (default UTF-8). Unknown charsets fall back to UTF-8.
+
 ### Extra (non-OpenAPI) handlers
 
 Mount handlers at arbitrary paths outside the OpenAPI spec — useful for liveness probes,
