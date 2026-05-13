@@ -1,6 +1,7 @@
 package com.retailsvc.http.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.retailsvc.http.spec.schema.ArraySchema;
 import com.retailsvc.http.spec.schema.IntegerSchema;
@@ -108,7 +109,7 @@ class FormUrlEncodedParserTest {
     IntegerSchema intSchema = anIntegerSchema();
     ObjectSchema bodySchema = anObjectSchema(Map.of("age", intSchema));
 
-    org.assertj.core.api.Assertions.assertThatThrownBy(
+    assertThatThrownBy(
             () ->
                 FormBodyCoercion.coerce(
                     parser.parse("age=abc".getBytes(StandardCharsets.UTF_8), null), bodySchema))
