@@ -23,12 +23,18 @@ public final class ValueCoercion {
         }
       }
       case NumberSchema _ -> {
+        double d;
         try {
-          yield Double.parseDouble(raw);
+          d = Double.parseDouble(raw);
         } catch (NumberFormatException _) {
           throw new ValidationException(
               new ValidationError(pointer, "type", "expected number", raw));
         }
+        if (!Double.isFinite(d)) {
+          throw new ValidationException(
+              new ValidationError(pointer, "type", "expected number", raw));
+        }
+        yield d;
       }
       case BooleanSchema _ -> {
         if ("true".equals(raw)) {

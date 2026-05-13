@@ -61,6 +61,30 @@ class ValueCoercionTest {
   }
 
   @Test
+  void rejectsNaNAsNumber() {
+    assertThatThrownBy(() -> ValueCoercion.coerce("NaN", numSchema, "/x"))
+        .isInstanceOf(ValidationException.class)
+        .extracting("error.pointer", "error.keyword")
+        .containsExactly("/x", "type");
+  }
+
+  @Test
+  void rejectsPositiveInfinityAsNumber() {
+    assertThatThrownBy(() -> ValueCoercion.coerce("Infinity", numSchema, "/x"))
+        .isInstanceOf(ValidationException.class)
+        .extracting("error.pointer", "error.keyword")
+        .containsExactly("/x", "type");
+  }
+
+  @Test
+  void rejectsNegativeInfinityAsNumber() {
+    assertThatThrownBy(() -> ValueCoercion.coerce("-Infinity", numSchema, "/x"))
+        .isInstanceOf(ValidationException.class)
+        .extracting("error.pointer", "error.keyword")
+        .containsExactly("/x", "type");
+  }
+
+  @Test
   void booleanCoercionFailureThrowsValidationException() {
     assertThatThrownBy(() -> ValueCoercion.coerce("yes", boolSchema, "/b"))
         .isInstanceOf(ValidationException.class);
