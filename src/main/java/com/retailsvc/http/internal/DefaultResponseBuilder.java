@@ -49,7 +49,7 @@ public final class DefaultResponseBuilder implements ResponseBuilder {
   public void bytes(byte[] body) throws IOException {
     terminate();
     applyHeaders();
-    exchange.sendResponseHeaders(status, body.length);
+    exchange.sendResponseHeaders(status, body.length == 0 ? -1 : body.length);
     if (body.length > 0) {
       try (OutputStream out = exchange.getResponseBody()) {
         out.write(body);
