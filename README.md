@@ -173,6 +173,61 @@ OpenApiServer.builder()
 
 Each interceptor must call `next.proceed()` to continue the chain. Exceptions propagate to the library's standard `ExceptionFilter` and `ExceptionHandler` pipeline.
 
+### Combining interceptors and decorators
+
+The two collaborate naturally: the interceptor binds per-request context once, and the decorator reads that context when stamping response headers. Handlers stay free of cross-cutting code.
+
+``` java
+// Per-request context populated by the interceptor, read by the decorator and handlers.
+ScopedValue<String> CORRELATION_ID = ScopedValue.newInstance();
+ScopedValue<String> TENANT_ID = ScopedValue.newInstance();
+
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    // 1. Resolve once per request and bind to ScopedValues.
+    .interceptor(
+        (request, next) -> {
+          String correlationId =
+              Optional.ofNullable(request.header("X-Correlation-Id"))
+                  .orElseGet(() -> UUID.randomUUID().toString());
+          String tenantId = resolveTenant(request);
+          ScopedValue.where(CORRELATION_ID, correlationId)
+              .where(TENANT_ID, tenantId)
+              .call(
+                  () -> {
+                    next.proceed();
+                    return null;
+                  });
+        })
+    // 2. Stamp those values on every response.
+    .responseDecorator(
+        (request, response) -> {
+          response.header("X-Correlation-Id", CORRELATION_ID.get());
+          response.header("X-Tenant-Id", TENANT_ID.get());
+        })
+    .build();
+```
+
+Inside any handler, `CORRELATION_ID.get()` / `TENANT_ID.get()` return the resolved values — no parameter threading, no static accessors. Because the decorator runs *inside* the interceptor's `ScopedValue` binding (decorators fire on `request.respond(...)`, which the handler calls while the interceptor's `proceed()` is still on the stack), the `get()` calls always see the bound value.
+
+A handler in this setup is just business logic:
+
+``` java
+public class GetPromotionHandler implements RequestHandler {
+  @Override
+  public void handle(Request request) throws IOException {
+    String id = request.pathParams().get("id");
+    String tenant = TENANT_ID.get();
+    promotionService
+        .find(tenant, id)
+        .ifPresentOrElse(
+            promotion -> request.respond(HTTP_OK).json(promotion),
+            () -> request.respond(HTTP_NOT_FOUND).empty());
+  }
+}
+```
+
 ### Request body content types
 
 The server reads `requestBody.content` from the spec and selects a mapper by the request's media type (the bare `type/subtype` from `Content-Type`, e.g. `application/json`; lookup is case-insensitive):
