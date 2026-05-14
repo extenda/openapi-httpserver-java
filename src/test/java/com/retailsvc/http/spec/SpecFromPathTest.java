@@ -1,9 +1,12 @@
 package com.retailsvc.http.spec;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class SpecFromPathTest {
 
@@ -29,11 +32,11 @@ class SpecFromPathTest {
   }
 
   @Test
-  void rejectsUnknownExtension(@org.junit.jupiter.api.io.TempDir Path tmp) throws Exception {
+  void rejectsUnknownExtension(@TempDir Path tmp) throws Exception {
     Path unknown = tmp.resolve("spec.txt");
-    java.nio.file.Files.writeString(unknown, "{}");
+    Files.writeString(unknown, "{}");
 
-    org.assertj.core.api.Assertions.assertThatThrownBy(() -> Spec.fromPath(unknown))
+    assertThatThrownBy(() -> Spec.fromPath(unknown))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Unrecognised OpenAPI spec extension");
   }

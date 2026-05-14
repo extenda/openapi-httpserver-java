@@ -7,8 +7,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
 
 class DecoratorAndInterceptorIT extends ServerBaseTest {
@@ -66,7 +68,7 @@ class DecoratorAndInterceptorIT extends ServerBaseTest {
 
   @Test
   void interceptorsRunInRegistrationOrder() throws Exception {
-    List<String> trace = new java.util.concurrent.CopyOnWriteArrayList<>();
+    List<String> trace = new CopyOnWriteArrayList<>();
     RequestHandler ok =
         req -> {
           trace.add("handler");
@@ -99,7 +101,7 @@ class DecoratorAndInterceptorIT extends ServerBaseTest {
         .containsExactly("outer-before", "inner-before", "handler", "inner-after", "outer-after");
   }
 
-  private java.net.http.HttpResponse<String> call(String path) throws Exception {
+  private HttpResponse<String> call(String path) throws Exception {
     return HttpClient.newHttpClient()
         .send(
             HttpRequest.newBuilder()

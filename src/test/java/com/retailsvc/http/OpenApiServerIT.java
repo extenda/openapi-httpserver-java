@@ -605,8 +605,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatEmailShouldReturnBadRequestOnInvalidEmail() {
-      try (var server =
-              newServer(Map.of("format-email", req -> com.retailsvc.http.Response.status(200)));
+      try (var server = newServer(Map.of("format-email", req -> Response.status(200)));
           var client = httpClient()) {
 
         var request = newRequest(server, path + "?addr=not-an-email", "GET", noBody());
@@ -630,8 +629,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatEmailShouldReturnOkOnValidEmail() {
-      try (var server =
-              newServer(Map.of("format-email", req -> com.retailsvc.http.Response.status(200)));
+      try (var server = newServer(Map.of("format-email", req -> Response.status(200)));
           var client = httpClient()) {
 
         var request = newRequest(server, path + "?addr=user%40example.com", "GET", noBody());
@@ -657,8 +655,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatByteShouldReturnBadRequestOnInvalidBase64() {
-      try (var server =
-              newServer(Map.of("format-byte", req -> com.retailsvc.http.Response.status(200)));
+      try (var server = newServer(Map.of("format-byte", req -> Response.status(200)));
           var client = httpClient()) {
 
         var request = newRequest(server, path + "?data=not%20base64!!", "GET", noBody());
@@ -682,8 +679,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatByteShouldReturnOkOnValidBase64() {
-      try (var server =
-              newServer(Map.of("format-byte", req -> com.retailsvc.http.Response.status(200)));
+      try (var server = newServer(Map.of("format-byte", req -> Response.status(200)));
           var client = httpClient()) {
 
         var request = newRequest(server, path + "?data=aGVsbG8%3D", "GET", noBody());
@@ -709,8 +705,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatInt32ShouldReturnBadRequestOnOverflow() {
-      try (var server =
-              newServer(Map.of("format-int32", req -> com.retailsvc.http.Response.status(200)));
+      try (var server = newServer(Map.of("format-int32", req -> Response.status(200)));
           var client = httpClient()) {
 
         var request = newRequest(server, path + "?n=2147483648", "GET", noBody());
@@ -734,8 +729,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatInt32ShouldReturnOkOnValidValue() {
-      try (var server =
-              newServer(Map.of("format-int32", req -> com.retailsvc.http.Response.status(200)));
+      try (var server = newServer(Map.of("format-int32", req -> Response.status(200)));
           var client = httpClient()) {
 
         var request = newRequest(server, path + "?n=42", "GET", noBody());

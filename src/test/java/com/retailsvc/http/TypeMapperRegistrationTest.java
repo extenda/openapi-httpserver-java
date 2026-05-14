@@ -11,6 +11,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
@@ -59,7 +60,7 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
           @Override
           public Object readFrom(byte[] b, String h) {
             readFromCalled.set(true);
-            return Map.of("aList", java.util.List.of("x"), "feelingGood", true);
+            return Map.of("aList", List.of("x"), "feelingGood", true);
           }
 
           @Override
