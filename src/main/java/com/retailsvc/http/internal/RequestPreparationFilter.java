@@ -23,6 +23,8 @@ import java.util.Optional;
 
 public final class RequestPreparationFilter extends Filter {
 
+  private static final String BODY_POINTER = "/body";
+
   private final Spec spec;
   private final Router router;
   private final Validator validator;
@@ -126,7 +128,7 @@ public final class RequestPreparationFilter extends Filter {
     if (body.length == 0) {
       if (rb.get().required()) {
         throw new ValidationException(
-            new ValidationError("/body", "required", "request body is required", null));
+            new ValidationError(BODY_POINTER, "required", "request body is required", null));
       }
       return null;
     }
@@ -136,13 +138,13 @@ public final class RequestPreparationFilter extends Filter {
     if (mt == null) {
       throw new ValidationException(
           new ValidationError(
-              "/body", "content-type", "unsupported content type: " + mediaType, null));
+              BODY_POINTER, "content-type", "unsupported content type: " + mediaType, null));
     }
     TypeMapper mapper = bodyMappers.get(mediaType);
     if (mapper == null) {
       throw new ValidationException(
           new ValidationError(
-              "/body", "content-type", "unsupported content type: " + mediaType, null));
+              BODY_POINTER, "content-type", "unsupported content type: " + mediaType, null));
     }
     Object parsed = mapper.readFrom(body, header);
     if (mediaType.equals("application/x-www-form-urlencoded") && parsed instanceof Map<?, ?> map) {

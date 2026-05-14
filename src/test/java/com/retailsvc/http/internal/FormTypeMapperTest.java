@@ -23,7 +23,9 @@ class FormTypeMapperTest {
 
   @Test
   void writeToIsUnsupported() {
-    assertThatThrownBy(() -> mapper.writeTo(Map.of("k", "v")))
+    Map<String, String> value = Map.of("k", "v");
+
+    assertThatThrownBy(() -> mapper.writeTo(value))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 }

@@ -41,10 +41,11 @@ class GsonJsonMapperTest {
         (Map<String, Object>)
             mapper.readFrom(
                 bytes("{\"s\":\"hi\",\"b\":true,\"n\":null,\"a\":[1,2]}"), "application/json");
-    assertThat(parsed.get("s")).isEqualTo("hi");
-    assertThat(parsed.get("b")).isEqualTo(Boolean.TRUE);
-    assertThat(parsed.get("n")).isNull();
-    assertThat(parsed.get("a")).isEqualTo(List.of(1L, 2L));
+    assertThat(parsed)
+        .containsEntry("s", "hi")
+        .containsEntry("b", Boolean.TRUE)
+        .containsEntry("n", null)
+        .containsEntry("a", List.of(1L, 2L));
   }
 
   @Test

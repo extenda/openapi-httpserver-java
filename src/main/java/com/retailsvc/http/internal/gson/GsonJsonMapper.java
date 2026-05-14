@@ -70,37 +70,54 @@ public final class GsonJsonMapper implements TypeMapper {
   private static Object toJavaObject(JsonElement element) {
     if (element == null || element instanceof JsonNull) {
       return null;
-    } else if (element instanceof JsonObject obj) {
-      Map<String, Object> map = new LinkedHashMap<>();
-      for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-        map.put(entry.getKey(), toJavaObject(entry.getValue()));
-      }
-      return map;
-    } else if (element instanceof JsonArray arr) {
-      List<Object> list = new ArrayList<>(arr.size());
-      for (JsonElement item : arr) {
-        list.add(toJavaObject(item));
-      }
-      return list;
-    } else if (element instanceof JsonPrimitive prim) {
-      if (prim.isBoolean()) {
-        return prim.getAsBoolean();
-      } else if (prim.isString()) {
-        return prim.getAsString();
-      } else {
-        // Number
-        String raw = prim.getAsString();
-        if (raw.indexOf('.') < 0 && raw.indexOf('e') < 0 && raw.indexOf('E') < 0) {
-          try {
-            return Long.parseLong(raw);
-          } catch (NumberFormatException _) {
-            // falls through to Double for out-of-range integers
-          }
-        }
-        return Double.parseDouble(raw);
-      }
+    }
+    if (element instanceof JsonObject obj) {
+      return toMap(obj);
+    }
+    if (element instanceof JsonArray arr) {
+      return toList(arr);
+    }
+    if (element instanceof JsonPrimitive prim) {
+      return toPrimitive(prim);
     }
     throw new IllegalStateException("Unexpected JsonElement type: " + element.getClass());
+  }
+
+  private static Map<String, Object> toMap(JsonObject obj) {
+    Map<String, Object> map = new LinkedHashMap<>();
+    for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+      map.put(entry.getKey(), toJavaObject(entry.getValue()));
+    }
+    return map;
+  }
+
+  private static List<Object> toList(JsonArray arr) {
+    List<Object> list = new ArrayList<>(arr.size());
+    for (JsonElement item : arr) {
+      list.add(toJavaObject(item));
+    }
+    return list;
+  }
+
+  private static Object toPrimitive(JsonPrimitive prim) {
+    if (prim.isBoolean()) {
+      return prim.getAsBoolean();
+    }
+    if (prim.isString()) {
+      return prim.getAsString();
+    }
+    return toNumber(prim.getAsString());
+  }
+
+  private static Object toNumber(String raw) {
+    if (raw.indexOf('.') < 0 && raw.indexOf('e') < 0 && raw.indexOf('E') < 0) {
+      try {
+        return Long.parseLong(raw);
+      } catch (NumberFormatException _) {
+        // Falls through to Double for out-of-Long-range integers.
+      }
+    }
+    return Double.parseDouble(raw);
   }
 
   private static <T> TypeAdapter<T> isoStringWriter(Function<T, String> toIso) {

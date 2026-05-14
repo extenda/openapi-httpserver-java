@@ -29,27 +29,28 @@ class OpenApiServerTest {
 
   @Test
   void shouldThrowExceptionWhenSpecIsNull() {
-    assertThatThrownBy(() -> OpenApiServer.builder().handlers(emptyMap()).port(0).build())
+    OpenApiServer.Builder builder = OpenApiServer.builder().handlers(emptyMap()).port(0);
+
+    assertThatThrownBy(builder::build)
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("Spec must not be null");
   }
 
   @Test
   void shouldThrowExceptionWhenHandlersMapIsNull() {
-    Spec validSpec = testSpec();
+    OpenApiServer.Builder builder = OpenApiServer.builder().spec(testSpec()).port(0);
 
-    assertThatThrownBy(() -> OpenApiServer.builder().spec(validSpec).port(0).build())
+    assertThatThrownBy(builder::build)
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("handlers must not be null");
   }
 
   @Test
   void testExceptionIsThrownOnInvalidHttpPort() {
-    Spec validSpec = testSpec();
+    OpenApiServer.Builder builder =
+        OpenApiServer.builder().spec(testSpec()).handlers(emptyMap()).port(-1);
 
-    assertThatThrownBy(
-            () -> OpenApiServer.builder().spec(validSpec).handlers(emptyMap()).port(-1).build())
-        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(builder::build).isInstanceOf(IllegalArgumentException.class);
   }
 
   private Spec testSpec() {

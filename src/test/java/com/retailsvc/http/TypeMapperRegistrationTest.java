@@ -12,6 +12,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
 class TypeMapperRegistrationTest extends ServerBaseTest {
@@ -52,10 +53,12 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
 
   @Test
   void userSuppliedMapperOverridesDefault() throws Exception {
+    AtomicBoolean readFromCalled = new AtomicBoolean();
     TypeMapper marker =
         new TypeMapper() {
           @Override
           public Object readFrom(byte[] b, String h) {
+            readFromCalled.set(true);
             return Map.of("aList", java.util.List.of("x"), "feelingGood", true);
           }
 
@@ -65,20 +68,31 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
           }
         };
     RequestHandler echo = req -> req.respond(200).empty();
-    OpenApiServer s =
+    server =
         OpenApiServer.builder()
             .spec(spec)
             .bodyMapper("application/json", marker)
             .handlers(Map.of("get-data", echo, "post-data", echo))
             .port(0)
             .build();
-    s.close();
+    HttpClient.newHttpClient()
+        .send(
+            HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:%d/api/v1/data".formatted(server.listenPort())))
+                .header("Content-Type", "application/json")
+                .POST(BodyPublishers.ofString("{\"anything\":\"goes\"}"))
+                .build(),
+            ofString());
+
+    assertThat(readFromCalled).isTrue();
   }
 
   @Test
   void bodyMapperRejectsNullArgs() {
-    var b = OpenApiServer.builder();
-    assertThatThrownBy(() -> b.bodyMapper(null, new GsonOnlyMapper()))
+    OpenApiServer.Builder b = OpenApiServer.builder();
+    TypeMapper anyMapper = new GsonOnlyMapper();
+
+    assertThatThrownBy(() -> b.bodyMapper(null, anyMapper))
         .isInstanceOf(NullPointerException.class);
     assertThatThrownBy(() -> b.bodyMapper("application/json", null))
         .isInstanceOf(NullPointerException.class);
