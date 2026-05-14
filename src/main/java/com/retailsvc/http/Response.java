@@ -1,5 +1,12 @@
 package com.retailsvc.http;
 
+import static java.net.HttpURLConnection.HTTP_ACCEPTED;
+import static java.net.HttpURLConnection.HTTP_CREATED;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static java.net.HttpURLConnection.HTTP_NOT_IMPLEMENTED;
+import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
+import static java.net.HttpURLConnection.HTTP_OK;
+
 import com.retailsvc.http.internal.BodyWriter;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -33,7 +40,7 @@ public record Response(int status, Object body, String contentType, Map<String, 
 
   /** {@code 204 No Content} with no body. */
   public static Response empty() {
-    return new Response(204, null, null, Map.of());
+    return new Response(HTTP_NO_CONTENT, null, null, Map.of());
   }
 
   /** Given status, no body. Use for {@code 200 OK} no body, {@code 404}, {@code 405}, etc. */
@@ -45,12 +52,12 @@ public record Response(int status, Object body, String contentType, Map<String, 
 
   /** {@code 200 OK} with {@code body} serialised as JSON. */
   public static Response ok(Object body) {
-    return new Response(200, body, null, Map.of());
+    return new Response(HTTP_OK, body, null, Map.of());
   }
 
   /** {@code 201 Created} with {@code body} serialised as JSON. */
   public static Response created(Object body) {
-    return new Response(201, body, null, Map.of());
+    return new Response(HTTP_CREATED, body, null, Map.of());
   }
 
   /**
@@ -58,32 +65,32 @@ public record Response(int status, Object body, String contentType, Map<String, 
    * shape for a POST that creates a new resource.
    */
   public static Response created(Object body, String location) {
-    return new Response(201, body, null, Map.of("Location", location));
+    return new Response(HTTP_CREATED, body, null, Map.of("Location", location));
   }
 
   /** {@code 202 Accepted} with no body. Use for fire-and-forget async work. */
   public static Response accepted() {
-    return new Response(202, null, null, Map.of());
+    return new Response(HTTP_ACCEPTED, null, null, Map.of());
   }
 
   /** {@code 202 Accepted} with {@code body} serialised as JSON (typically a job/poll URL). */
   public static Response accepted(Object body) {
-    return new Response(202, body, null, Map.of());
+    return new Response(HTTP_ACCEPTED, body, null, Map.of());
   }
 
   /** {@code 404 Not Found} with no body. */
   public static Response notFound() {
-    return new Response(404, null, null, Map.of());
+    return new Response(HTTP_NOT_FOUND, null, null, Map.of());
   }
 
   /** {@code 404 Not Found} with {@code body} serialised as JSON (e.g. a ProblemDetail). */
   public static Response notFound(Object body) {
-    return new Response(404, body, null, Map.of());
+    return new Response(HTTP_NOT_FOUND, body, null, Map.of());
   }
 
   /** {@code 501 Not Implemented} with no body. */
   public static Response notImplemented() {
-    return new Response(501, null, null, Map.of());
+    return new Response(HTTP_NOT_IMPLEMENTED, null, null, Map.of());
   }
 
   /** {@code status} with {@code body} serialised by the content-type's {@link TypeMapper}. */

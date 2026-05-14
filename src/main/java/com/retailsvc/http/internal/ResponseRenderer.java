@@ -14,6 +14,7 @@ public final class ResponseRenderer {
 
   private static final String CONTENT_TYPE = "Content-Type";
   private static final String DEFAULT_JSON = "application/json";
+  private static final String OCTET_STREAM = "application/octet-stream";
 
   private final Map<String, TypeMapper> mappers;
 
@@ -31,47 +32,55 @@ public final class ResponseRenderer {
 
       if (body == null) {
         exchange.sendResponseHeaders(status, -1);
-        return;
-      }
-
-      if (body instanceof BodyWriter writer) {
-        long length = writer instanceof BodyWriter.Sized sized ? sized.length() : 0;
-        if (response.contentType() != null && !headers.containsKey(CONTENT_TYPE)) {
-          headers.add(CONTENT_TYPE, response.contentType());
-        }
-        exchange.sendResponseHeaders(status, length);
-        try (OutputStream out = exchange.getResponseBody()) {
-          writer.writeTo(out);
-        }
-        return;
-      }
-
-      byte[] bytes;
-      String contentType = response.contentType();
-      if (body instanceof byte[] raw) {
-        bytes = raw;
-        if (contentType == null) {
-          contentType = "application/octet-stream";
-        }
+      } else if (body instanceof BodyWriter writer) {
+        renderStream(exchange, headers, status, response.contentType(), writer);
       } else {
-        if (contentType == null) {
-          contentType = DEFAULT_JSON;
-        }
-        TypeMapper mapper = mappers.get(contentType.toLowerCase(Locale.ROOT));
-        if (mapper == null) {
-          throw new IllegalStateException("No TypeMapper registered for " + contentType);
-        }
-        bytes = mapper.writeTo(body);
-      }
-      if (!headers.containsKey(CONTENT_TYPE)) {
-        headers.add(CONTENT_TYPE, contentType);
-      }
-      exchange.sendResponseHeaders(status, bytes.length == 0 ? -1 : bytes.length);
-      if (bytes.length > 0) {
-        try (OutputStream out = exchange.getResponseBody()) {
-          out.write(bytes);
-        }
+        renderBytes(exchange, headers, status, response.contentType(), body);
       }
     }
+  }
+
+  private static void renderStream(
+      HttpExchange exchange, Headers headers, int status, String contentType, BodyWriter writer)
+      throws IOException {
+    if (contentType != null && !headers.containsKey(CONTENT_TYPE)) {
+      headers.add(CONTENT_TYPE, contentType);
+    }
+    long length = writer instanceof BodyWriter.Sized sized ? sized.length() : 0;
+    exchange.sendResponseHeaders(status, length);
+    try (OutputStream out = exchange.getResponseBody()) {
+      writer.writeTo(out);
+    }
+  }
+
+  private void renderBytes(
+      HttpExchange exchange, Headers headers, int status, String contentType, Object body)
+      throws IOException {
+    byte[] bytes;
+    String effectiveContentType;
+    if (body instanceof byte[] raw) {
+      bytes = raw;
+      effectiveContentType = contentType != null ? contentType : OCTET_STREAM;
+    } else {
+      effectiveContentType = contentType != null ? contentType : DEFAULT_JSON;
+      bytes = serialize(body, effectiveContentType);
+    }
+    if (!headers.containsKey(CONTENT_TYPE)) {
+      headers.add(CONTENT_TYPE, effectiveContentType);
+    }
+    exchange.sendResponseHeaders(status, bytes.length == 0 ? -1 : bytes.length);
+    if (bytes.length > 0) {
+      try (OutputStream out = exchange.getResponseBody()) {
+        out.write(bytes);
+      }
+    }
+  }
+
+  private byte[] serialize(Object body, String contentType) {
+    TypeMapper mapper = mappers.get(contentType.toLowerCase(Locale.ROOT));
+    if (mapper == null) {
+      throw new IllegalStateException("No TypeMapper registered for " + contentType);
+    }
+    return mapper.writeTo(body);
   }
 }
