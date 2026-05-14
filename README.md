@@ -228,6 +228,70 @@ public class GetPromotionHandler implements RequestHandler {
 }
 ```
 
+### End-to-end example
+
+Gson on the classpath for request/response JSON, SnakeYAML on the classpath for the spec, one interceptor binding a request-scoped tenant + correlation id, one decorator stamping the correlation id on every response, one handler. No extra wiring.
+
+``` java
+package com.example.promotions;
+
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static java.net.HttpURLConnection.HTTP_OK;
+
+import com.retailsvc.http.OpenApiServer;
+import com.retailsvc.http.Request;
+import com.retailsvc.http.RequestHandler;
+import com.retailsvc.http.Response;
+import com.retailsvc.http.spec.Spec;
+import java.nio.file.Path;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+public final class App {
+
+  static final ScopedValue<String> TENANT = ScopedValue.newInstance();
+  static final ScopedValue<String> CORRELATION_ID = ScopedValue.newInstance();
+
+  public static void main(String[] args) throws Exception {
+    Spec spec = Spec.fromPath(Path.of("openapi.yaml"));         // SnakeYAML parses the spec
+
+    RequestHandler getPromotion = req -> {
+      String id = req.pathParams().get("id");
+      return PromotionService.find(TENANT.get(), id)            // uses bound tenant
+          .<Response>map(p -> Response.of(HTTP_OK, p))           // 200 + JSON via Gson
+          .orElseGet(() -> Response.status(HTTP_NOT_FOUND));     // 404, no body
+    };
+
+    OpenApiServer.builder()
+        .spec(spec)
+        .handlers(Map.of("get-promotion", getPromotion))
+        // Bind tenant + correlation id once per request.
+        .interceptor((req, next) -> {
+          String tenant = req.header("X-Tenant-Id");
+          String correlationId =
+              Optional.ofNullable(req.header("X-Correlation-Id"))
+                  .orElseGet(() -> UUID.randomUUID().toString());
+          return ScopedValue.where(TENANT, tenant)
+              .where(CORRELATION_ID, correlationId)
+              .call(next::proceed);
+        })
+        // Stamp the correlation id on every response.
+        .responseDecorator((req, resp) -> resp.withHeader("X-Correlation-Id", CORRELATION_ID.get()))
+        .port(8080)
+        .build();
+  }
+}
+```
+
+What the example demonstrates:
+
+- **Gson is the default JSON serializer.** No explicit `bodyMapper(...)` call — the library auto-registers `GsonJsonMapper` for request and response JSON because Gson is on the classpath.
+- **SnakeYAML parses the spec.** `Spec.fromPath(...)` picks the parser by file extension; `.yaml` here means SnakeYAML, and Gson would handle `.json` the same way.
+- **One interceptor sets cross-cutting context.** `ScopedValue.where(...).call(next::proceed)` runs the handler (and any inner interceptors and decorators) inside the binding, so `TENANT.get()` and `CORRELATION_ID.get()` work anywhere they're called.
+- **One decorator stamps a response header.** `Response.withHeader(...)` is non-destructive — the handler's `Response` is replaced with one that has the extra header.
+- **Handler is a pure function.** Reads from `Request`, returns a `Response` value. No `HttpExchange`, no try/catch IOException, no builder.
+
 ### Request body content types
 
 The server reads `requestBody.content` from the spec and selects a mapper by the request's media type (the bare `type/subtype` from `Content-Type`, e.g. `application/json`; lookup is case-insensitive):
