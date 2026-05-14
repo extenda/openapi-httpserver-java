@@ -28,9 +28,9 @@ class OpenApiServerBuilderTest {
   void rejectsDuplicateExtraPathOnSecondAddHandler() {
     HttpHandler duplicate = Handlers.aliveHandler();
     OpenApiServer.Builder b =
-        OpenApiServer.builder().spec(spec).handlers(emptyMap()).addHandler("/alive", duplicate);
+        OpenApiServer.builder().spec(spec).handlers(emptyMap()).extraRoute("/alive", duplicate);
 
-    assertThatThrownBy(() -> b.addHandler("/alive", duplicate))
+    assertThatThrownBy(() -> b.extraRoute("/alive", duplicate))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("/alive");
   }
@@ -42,7 +42,7 @@ class OpenApiServerBuilderTest {
         OpenApiServer.builder()
             .spec(spec)
             .handlers(emptyMap())
-            .addHandler("/api", Handlers.aliveHandler())
+            .extraRoute("/api", Handlers.aliveHandler())
             .port(0);
 
     assertThatThrownBy(b::build)

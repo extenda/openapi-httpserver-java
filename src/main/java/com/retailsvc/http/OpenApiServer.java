@@ -197,11 +197,17 @@ public class OpenApiServer implements AutoCloseable {
       return this;
     }
 
-    public Builder addHandler(String path, HttpHandler handler) {
+    /**
+     * Registers an extra HTTP route at {@code path} that bypasses OpenAPI validation and routing.
+     * Use for side concerns like {@code /alive}, {@code /health}, or serving the spec itself —
+     * anything that isn't an OpenAPI {@code operationId}. For OpenAPI-described operations use
+     * {@link #handlers(Map)}.
+     */
+    public Builder extraRoute(String path, HttpHandler handler) {
       requireNonNull(path, "path must not be null");
       requireNonNull(handler, "handler must not be null");
       if (extras.containsKey(path)) {
-        throw new IllegalStateException("duplicate extra handler path: " + path);
+        throw new IllegalStateException("duplicate extra route path: " + path);
       }
       extras.put(path, handler);
       return this;

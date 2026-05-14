@@ -364,8 +364,8 @@ to OpenAPI parameter / body validation.
 var server = OpenApiServer.builder()
     .spec(spec)
     .handlers(handlers)
-    .addHandler("/alive", Handlers.aliveHandler())
-    .addHandler("/schemas/v1/openapi.yaml",
+    .extraRoute("/alive", Handlers.aliveHandler())
+    .extraRoute("/schemas/v1/openapi.yaml",
                 Handlers.specHandler("/schemas/v1/openapi.yaml"))
     .build();
 ```

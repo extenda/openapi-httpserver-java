@@ -19,7 +19,7 @@ class ExtraHandlersIT extends ServerBaseTest {
                 .handlers(Map.of())
                 .exceptionHandler(defaultExceptionHandler())
                 .port(0)
-                .addHandler("/alive", Handlers.aliveHandler())
+                .extraRoute("/alive", Handlers.aliveHandler())
                 .build();
         var client = httpClient()) {
 
@@ -43,7 +43,7 @@ class ExtraHandlersIT extends ServerBaseTest {
                 .handlers(Map.of())
                 .exceptionHandler(defaultExceptionHandler())
                 .port(0)
-                .addHandler("/openapi.yaml", Handlers.specHandler("/openapi.yaml"))
+                .extraRoute("/openapi.yaml", Handlers.specHandler("/openapi.yaml"))
                 .build();
         var client = httpClient()) {
 
@@ -73,7 +73,7 @@ class ExtraHandlersIT extends ServerBaseTest {
                 .handlers(Map.of())
                 .exceptionHandler(defaultExceptionHandler())
                 .port(0)
-                .addHandler("/boom", boom)
+                .extraRoute("/boom", boom)
                 .build();
         var client = httpClient()) {
 
