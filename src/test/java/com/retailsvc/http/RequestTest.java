@@ -130,9 +130,9 @@ class RequestTest {
     Request req = new Request(exchange, new byte[0], null, null, "op", Map.of());
 
     assertThat(req.rawQuery()).isEqualTo("name=Alice%20Smith&active=true&active=false");
-    assertThat(req.queryParam("name")).isEqualTo("Alice Smith");
-    assertThat(req.queryParam("active")).isEqualTo("true");
-    assertThat(req.queryParam("missing")).isNull();
+    assertThat(req.queryParam("name")).contains("Alice Smith");
+    assertThat(req.queryParam("active")).contains("true");
+    assertThat(req.queryParam("missing")).isEmpty();
     assertThat(req.queryParams())
         .containsEntry("name", "Alice Smith")
         .containsEntry("active", "true");
@@ -146,6 +146,30 @@ class RequestTest {
 
     assertThat(req.rawQuery()).isNull();
     assertThat(req.queryParams()).isEmpty();
-    assertThat(req.queryParam("anything")).isNull();
+    assertThat(req.queryParam("anything")).isEmpty();
+  }
+
+  @Test
+  void queryParamBlankIsTreatedAsAbsent() {
+    HttpExchange exchange = mock(HttpExchange.class);
+    when(exchange.getRequestURI()).thenReturn(URI.create("http://h/x?limit=&offset=%20"));
+    Request req = new Request(exchange, new byte[0], null, null, "op", Map.of());
+
+    assertThat(req.queryParam("limit")).isEmpty();
+    assertThat(req.queryParam("offset")).isEmpty();
+  }
+
+  @Test
+  void headerReturnsOptionalAndBlankIsAbsent() {
+    HttpExchange exchange = mock(HttpExchange.class);
+    com.sun.net.httpserver.Headers h = new com.sun.net.httpserver.Headers();
+    h.add("X-Trace", "abc");
+    h.add("X-Empty", "   ");
+    when(exchange.getRequestHeaders()).thenReturn(h);
+    Request req = new Request(exchange, new byte[0], null, null, "op", Map.of());
+
+    assertThat(req.header("X-Trace")).contains("abc");
+    assertThat(req.header("X-Empty")).isEmpty();
+    assertThat(req.header("Missing")).isEmpty();
   }
 }

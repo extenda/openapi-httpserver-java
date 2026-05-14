@@ -48,9 +48,9 @@ public class PostDataHandler implements RequestHandler {
     // TypedTypeMapper).
     MyDto dto = request.asPojo(MyDto.class);
     // Path parameters, query parameters, and headers are also available.
-    String id = request.pathParam("id");
-    String filter = request.queryParam("filter");
-    String corr = request.header("correlation-id");
+    String id = request.pathParam("id");                     // null if absent
+    Optional<String> filter = request.queryParam("filter");  // empty if absent or blank
+    Optional<String> corr = request.header("correlation-id");
 
     return Response.ok(dto);
   }
@@ -182,7 +182,7 @@ OpenApiServer.builder()
     .handlers(handlers)
     .interceptor((request, next) -> {
       // Resolve once per request; bind to a ScopedValue for the rest of the chain.
-      String tenant = request.header("X-Tenant-Id");
+      String tenant = request.header("X-Tenant-Id").orElse("public");
       return ScopedValue.where(TENANT, tenant).call(next::proceed);
     })
     .interceptor((request, next) -> {
@@ -213,8 +213,7 @@ OpenApiServer.builder()
     // 1. Resolve once per request and bind to ScopedValues.
     .interceptor((request, next) -> {
       String correlationId =
-          Optional.ofNullable(request.header("X-Correlation-Id"))
-              .orElseGet(() -> UUID.randomUUID().toString());
+          request.header("X-Correlation-Id").orElseGet(() -> UUID.randomUUID().toString());
       String tenantId = resolveTenant(request);
       return ScopedValue.where(CORRELATION_ID, correlationId)
           .where(TENANT_ID, tenantId)
@@ -282,10 +281,9 @@ public final class App {
         .handlers(Map.of("get-promotion", getPromotion))
         // Bind tenant + correlation id once per request.
         .interceptor((req, next) -> {
-          String tenant = req.header("X-Tenant-Id");
+          String tenant = req.header("X-Tenant-Id").orElse("public");
           String correlationId =
-              Optional.ofNullable(req.header("X-Correlation-Id"))
-                  .orElseGet(() -> UUID.randomUUID().toString());
+              req.header("X-Correlation-Id").orElseGet(() -> UUID.randomUUID().toString());
           return ScopedValue.where(TENANT, tenant)
               .where(CORRELATION_ID, correlationId)
               .call(next::proceed);

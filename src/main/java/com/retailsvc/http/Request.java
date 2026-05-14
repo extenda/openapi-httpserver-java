@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Read-only per-request handle passed to {@link RequestHandler}. Carries the parsed body, path
@@ -70,12 +71,13 @@ public final class Request {
     if (parsed != null && type.isInstance(parsed)) {
       return type.cast(parsed);
     }
+    String contentType = exchange.getRequestHeaders().getFirst(CONTENT_TYPE);
     if (bodyMapper instanceof TypedTypeMapper typed) {
-      return typed.readAs(body, header(CONTENT_TYPE), type);
+      return typed.readAs(body, contentType, type);
     }
     throw new IllegalStateException(
         "body mapper for "
-            + header(CONTENT_TYPE)
+            + contentType
             + " does not support typed conversion; the mapper must implement TypedTypeMapper");
   }
 
@@ -92,8 +94,14 @@ public final class Request {
     return pathParameters.get(name);
   }
 
-  public String header(String name) {
-    return exchange.getRequestHeaders().getFirst(name);
+  /**
+   * First value of the request header {@code name}, or {@link Optional#empty()} if absent or blank.
+   * Blank values are treated as missing so callers can write {@code req.header("X").map(...)}
+   * without the extra {@code filter(v -> !v.isBlank())} step.
+   */
+  public Optional<String> header(String name) {
+    String raw = exchange.getRequestHeaders().getFirst(name);
+    return raw == null || raw.isBlank() ? Optional.empty() : Optional.of(raw);
   }
 
   /**
@@ -115,9 +123,15 @@ public final class Request {
     return queryParamCache;
   }
 
-  /** First decoded value for {@code name}, or {@code null} if absent. */
-  public String queryParam(String name) {
-    return queryParams().get(name);
+  /**
+   * First decoded value for query parameter {@code name}, or {@link Optional#empty()} if absent or
+   * blank. Blank values are treated as missing so callers can write {@code
+   * req.queryParam("limit").map(Integer::parseInt).orElse(DEFAULT)} without the extra {@code
+   * filter(v -> !v.isBlank())} step.
+   */
+  public Optional<String> queryParam(String name) {
+    String raw = queryParams().get(name);
+    return raw == null || raw.isBlank() ? Optional.empty() : Optional.of(raw);
   }
 
   private static Map<String, String> parseQuery(String query) {
