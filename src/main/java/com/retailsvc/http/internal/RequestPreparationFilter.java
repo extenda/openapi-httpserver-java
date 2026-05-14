@@ -3,6 +3,7 @@ package com.retailsvc.http.internal;
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
 import com.retailsvc.http.Request;
+import com.retailsvc.http.ResponseDecorator;
 import com.retailsvc.http.TypeMapper;
 import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.HttpMethod;
@@ -17,6 +18,7 @@ import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -29,13 +31,19 @@ public final class RequestPreparationFilter extends Filter {
   private final Router router;
   private final Validator validator;
   private final Map<String, TypeMapper> bodyMappers;
+  private final List<ResponseDecorator> decorators;
 
   public RequestPreparationFilter(
-      Spec spec, Router router, Validator validator, Map<String, TypeMapper> bodyMappers) {
+      Spec spec,
+      Router router,
+      Validator validator,
+      Map<String, TypeMapper> bodyMappers,
+      List<ResponseDecorator> decorators) {
     this.spec = spec;
     this.router = router;
     this.validator = validator;
     this.bodyMappers = Map.copyOf(bodyMappers);
+    this.decorators = List.copyOf(decorators);
   }
 
   @Override
@@ -66,7 +74,13 @@ public final class RequestPreparationFilter extends Filter {
 
     Request request =
         new Request(
-            exchange, body, parsedBody, op.operationId(), match.pathParameters(), bodyMappers);
+            exchange,
+            body,
+            parsedBody,
+            op.operationId(),
+            match.pathParameters(),
+            bodyMappers,
+            decorators);
 
     try {
       ScopedValue.where(DispatchHandler.CURRENT, request)

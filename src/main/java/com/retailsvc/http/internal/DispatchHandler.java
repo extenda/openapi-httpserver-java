@@ -3,9 +3,11 @@ package com.retailsvc.http.internal;
 import com.retailsvc.http.MissingOperationHandlerException;
 import com.retailsvc.http.Request;
 import com.retailsvc.http.RequestHandler;
+import com.retailsvc.http.RequestInterceptor;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 public final class DispatchHandler implements HttpHandler {
@@ -13,9 +15,12 @@ public final class DispatchHandler implements HttpHandler {
   public static final ScopedValue<Request> CURRENT = ScopedValue.newInstance();
 
   private final Map<String, RequestHandler> handlers;
+  private final List<RequestInterceptor> interceptors;
 
-  public DispatchHandler(Map<String, RequestHandler> handlers) {
+  public DispatchHandler(
+      Map<String, RequestHandler> handlers, List<RequestInterceptor> interceptors) {
     this.handlers = Map.copyOf(handlers);
+    this.interceptors = List.copyOf(interceptors);
   }
 
   @Override
@@ -25,6 +30,14 @@ public final class DispatchHandler implements HttpHandler {
     if (h == null) {
       throw new MissingOperationHandlerException(request.operationId());
     }
-    h.handle(request);
+    invoke(0, request, h);
+  }
+
+  private void invoke(int idx, Request request, RequestHandler handler) throws IOException {
+    if (idx == interceptors.size()) {
+      handler.handle(request);
+      return;
+    }
+    interceptors.get(idx).around(request, () -> invoke(idx + 1, request, handler));
   }
 }

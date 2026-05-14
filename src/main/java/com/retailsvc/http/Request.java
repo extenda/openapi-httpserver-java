@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpExchange;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -19,6 +20,7 @@ public final class Request {
   private final String operationId;
   private final Map<String, String> pathParameters;
   private final Map<String, TypeMapper> bodyMappers;
+  private final List<ResponseDecorator> decorators;
   private Map<String, String> queryParamCache;
   private boolean responseSent;
 
@@ -28,13 +30,15 @@ public final class Request {
       Object parsed,
       String operationId,
       Map<String, String> pathParameters,
-      Map<String, TypeMapper> bodyMappers) {
+      Map<String, TypeMapper> bodyMappers,
+      List<ResponseDecorator> decorators) {
     this.exchange = exchange;
     this.body = body;
     this.parsed = parsed;
     this.operationId = operationId;
     this.pathParameters = pathParameters;
     this.bodyMappers = bodyMappers;
+    this.decorators = List.copyOf(decorators);
   }
 
   public byte[] bytes() {
@@ -104,6 +108,11 @@ public final class Request {
     if (responseSent) {
       throw new IllegalStateException("Response already sent");
     }
-    return new DefaultResponseBuilder(exchange, status, bodyMappers, () -> responseSent = true);
+    ResponseBuilder builder =
+        new DefaultResponseBuilder(exchange, status, bodyMappers, () -> responseSent = true);
+    for (ResponseDecorator decorator : decorators) {
+      decorator.decorate(this, builder);
+    }
+    return builder;
   }
 }

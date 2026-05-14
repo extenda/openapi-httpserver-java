@@ -8,6 +8,7 @@ import com.retailsvc.http.MissingOperationHandlerException;
 import com.retailsvc.http.Request;
 import com.retailsvc.http.RequestHandler;
 import com.sun.net.httpserver.HttpExchange;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
@@ -17,7 +18,8 @@ class DispatchHandlerTest {
   private static void withRequest(String operationId, ScopedValue.CallableOp<Void, Exception> body)
       throws Exception {
     HttpExchange exchange = mock(HttpExchange.class);
-    Request req = new Request(exchange, new byte[0], null, operationId, Map.of(), Map.of());
+    Request req =
+        new Request(exchange, new byte[0], null, operationId, Map.of(), Map.of(), List.of());
     ScopedValue.where(DispatchHandler.CURRENT, req).call(body);
   }
 
@@ -30,7 +32,7 @@ class DispatchHandlerTest {
     withRequest(
         "get-x",
         () -> {
-          new DispatchHandler(Map.of("get-x", handler)).handle(ex);
+          new DispatchHandler(Map.of("get-x", handler), List.of()).handle(ex);
           return null;
         });
 
@@ -39,7 +41,7 @@ class DispatchHandlerTest {
 
   @Test
   void throwsWhenHandlerMissing() {
-    DispatchHandler d = new DispatchHandler(Map.of());
+    DispatchHandler d = new DispatchHandler(Map.of(), List.of());
     HttpExchange ex = mock(HttpExchange.class);
 
     assertThatThrownBy(

@@ -120,6 +120,59 @@ Register a custom mapper for any media type via `Builder.bodyMapper(mediaType, m
 
 User-supplied mappers take precedence over built-in defaults, so you can override any of the above.
 
+### Response decorators
+
+`Builder.responseDecorator(...)` registers a `ResponseDecorator` that runs whenever a handler calls `request.respond(status)`. Decorators set headers (or other pre-terminal state) before the handler reaches a terminal call. They run in registration order, and handler-supplied headers override decorator-supplied ones (last write wins).
+
+Use cases: stamping correlation IDs, tenant IDs, server identifiers, or any cross-cutting header on every response.
+
+``` java
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .responseDecorator(
+        (request, response) ->
+            response.header("X-Correlation-Id", CorrelationId.current()))
+    .responseDecorator(
+        (request, response) -> response.header("X-Tenant-Id", TenantId.current()))
+    .build();
+```
+
+`ResponseDecorator` is a `@FunctionalInterface`; the lambda receives the `Request` and the `ResponseBuilder` that's about to be returned from `respond(...)`. Don't call a terminal method (`empty()` / `bytes()` / `json()` / ...) from a decorator — terminals belong to the handler.
+
+### Request interceptors
+
+`Builder.interceptor(...)` registers a `RequestInterceptor` that wraps every handler invocation. Use it for `ScopedValue` bindings, MDC, authentication, tracing, or any concern that needs to run uniformly around handlers. Interceptors compose in registration order: the first registered runs outermost.
+
+``` java
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .interceptor(
+        (request, next) -> {
+          // Resolve once per request.
+          String tenant = request.header("X-Tenant-Id");
+          ScopedValue.where(TENANT, tenant)
+              .call(
+                  () -> {
+                    next.proceed();
+                    return null;
+                  });
+        })
+    .interceptor(
+        (request, next) -> {
+          MDC.put("op", request.operationId());
+          try {
+            next.proceed();
+          } finally {
+            MDC.remove("op");
+          }
+        })
+    .build();
+```
+
+Each interceptor must call `next.proceed()` to continue the chain. Exceptions propagate to the library's standard `ExceptionFilter` and `ExceptionHandler` pipeline.
+
 ### Request body content types
 
 The server reads `requestBody.content` from the spec and selects a mapper by the request's media type (the bare `type/subtype` from `Content-Type`, e.g. `application/json`; lookup is case-insensitive):
@@ -224,6 +277,7 @@ try (var server = OpenApiServer.builder()
 - `RequestHandler` functional interface — a single `handle(Request)` method replaces raw `HttpExchange` manipulation
 - Fluent `ResponseBuilder` via `request.respond(status)` with terminals: `empty()`, `bytes()`, `text()`, `json()`, `body()`, `stream()`
 - Built-in `GsonJsonMapper` auto-registered when Gson is on the classpath (no explicit wiring needed)
+- `ResponseDecorator` for cross-cutting response headers and `RequestInterceptor` for around-style ScopedValue / MDC / auth concerns
 - Built on Java's native `HttpServer` with Thread-Per-Request behaviour using Virtual Threads
 
 

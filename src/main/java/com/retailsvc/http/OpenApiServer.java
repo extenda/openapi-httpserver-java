@@ -17,7 +17,9 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -44,6 +46,8 @@ public class OpenApiServer implements AutoCloseable {
       Spec spec,
       Map<String, TypeMapper> bodyMappers,
       Map<String, RequestHandler> handlers,
+      List<ResponseDecorator> decorators,
+      List<RequestInterceptor> interceptors,
       ExceptionHandler exceptionHandler,
       int port,
       Map<String, HttpHandler> extras,
@@ -67,8 +71,9 @@ public class OpenApiServer implements AutoCloseable {
 
     HttpContext ctx = httpServer.createContext(Optional.ofNullable(spec.basePath()).orElse("/"));
     ctx.getFilters().add(new ExceptionFilter(exceptionHandler));
-    ctx.getFilters().add(new RequestPreparationFilter(spec, router, validator, bodyMappers));
-    ctx.setHandler(new DispatchHandler(handlers));
+    ctx.getFilters()
+        .add(new RequestPreparationFilter(spec, router, validator, bodyMappers, decorators));
+    ctx.setHandler(new DispatchHandler(handlers, interceptors));
 
     for (Map.Entry<String, HttpHandler> e : extras.entrySet()) {
       HttpContext extraCtx = httpServer.createContext(e.getKey());
@@ -118,6 +123,8 @@ public class OpenApiServer implements AutoCloseable {
     private Spec spec;
     private final LinkedHashMap<String, TypeMapper> bodyMappers = new LinkedHashMap<>();
     private Map<String, RequestHandler> handlers;
+    private final List<ResponseDecorator> decorators = new ArrayList<>();
+    private final List<RequestInterceptor> interceptors = new ArrayList<>();
     private ExceptionHandler exceptionHandler;
     private int port = DEFAULT_PORT;
     private int shutdownTimeoutSeconds = 0;
@@ -139,6 +146,25 @@ public class OpenApiServer implements AutoCloseable {
 
     public Builder handlers(Map<String, RequestHandler> handlers) {
       this.handlers = handlers;
+      return this;
+    }
+
+    /**
+     * Registers a {@link ResponseDecorator} that mutates the {@link ResponseBuilder} returned by
+     * {@link Request#respond(int)} before the handler receives it. Decorators run in registration
+     * order; handler-supplied headers override decorator-supplied ones.
+     */
+    public Builder responseDecorator(ResponseDecorator decorator) {
+      decorators.add(requireNonNull(decorator, "decorator must not be null"));
+      return this;
+    }
+
+    /**
+     * Registers a {@link RequestInterceptor} that wraps the handler invocation. Interceptors run in
+     * registration order; the first registered is the outermost.
+     */
+    public Builder interceptor(RequestInterceptor interceptor) {
+      interceptors.add(requireNonNull(interceptor, "interceptor must not be null"));
       return this;
     }
 
@@ -188,7 +214,15 @@ public class OpenApiServer implements AutoCloseable {
       }
       Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
       return new OpenApiServer(
-          spec, resolved, handlers, exceptionHandler, port, extras, shutdownTimeoutSeconds);
+          spec,
+          resolved,
+          handlers,
+          decorators,
+          interceptors,
+          exceptionHandler,
+          port,
+          extras,
+          shutdownTimeoutSeconds);
     }
 
     private static Map<String, TypeMapper> resolveBodyMappers(

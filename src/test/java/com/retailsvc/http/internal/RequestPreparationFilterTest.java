@@ -76,7 +76,11 @@ class RequestPreparationFilterTest {
         };
     Map<String, TypeMapper> mappers = Map.of("application/json", textMapper);
     return new RequestPreparationFilter(
-        spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), mappers);
+        spec,
+        new Router(spec.operations()),
+        new DefaultValidator(spec::resolveSchema),
+        mappers,
+        List.of());
   }
 
   @Test
