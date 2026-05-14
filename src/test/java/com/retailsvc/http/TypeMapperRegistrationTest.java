@@ -89,6 +89,48 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
   }
 
   @Test
+  void jsonMapperShortcutRegistersUnderApplicationJson() throws Exception {
+    AtomicBoolean readFromCalled = new AtomicBoolean();
+    TypeMapper marker =
+        new TypeMapper() {
+          @Override
+          public Object readFrom(byte[] b, String h) {
+            readFromCalled.set(true);
+            return Map.of("aList", List.of("x"), "feelingGood", true);
+          }
+
+          @Override
+          public byte[] writeTo(Object v) {
+            return new byte[0];
+          }
+        };
+    RequestHandler echo = req -> Response.status(200);
+    server =
+        OpenApiServer.builder()
+            .spec(spec)
+            .jsonMapper(marker)
+            .handlers(Map.of("get-data", echo, "post-data", echo))
+            .port(0)
+            .build();
+    HttpClient.newHttpClient()
+        .send(
+            HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:%d/api/v1/data".formatted(server.listenPort())))
+                .header("Content-Type", "application/json")
+                .POST(BodyPublishers.ofString("{\"anything\":\"goes\"}"))
+                .build(),
+            ofString());
+
+    assertThat(readFromCalled).isTrue();
+  }
+
+  @Test
+  void jsonMapperRejectsNullMapper() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+    assertThatThrownBy(() -> b.jsonMapper(null)).isInstanceOf(NullPointerException.class);
+  }
+
+  @Test
   void bodyMapperRejectsNullArgs() {
     OpenApiServer.Builder b = OpenApiServer.builder();
     TypeMapper anyMapper = new GsonOnlyMapper();

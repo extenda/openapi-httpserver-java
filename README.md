@@ -25,7 +25,7 @@ It is designed to be simple to use while providing the essential features needed
 - For `application/json` request/response bodies, either:
   - Gson on the classpath — auto-registered via the built-in `GsonJsonMapper` (integer-preserving, JSR-310 written as ISO-8601), or
   - Jackson via the built-in `JacksonJsonTypeMapper(ObjectMapper)` adapter (caller supplies a configured `ObjectMapper`), or
-  - any other `TypeMapper` you register via `Builder.bodyMapper("application/json", mapper)`.
+  - any other `TypeMapper` you register via `Builder.jsonMapper(mapper)` (shortcut for `bodyMapper("application/json", mapper)`).
 - Built-in mappers for `application/x-www-form-urlencoded` and `text/plain` need no configuration. Any other media type (`application/xml`, `application/cbor`, etc.) requires registering its own `TypeMapper`.
 
 
@@ -131,7 +131,7 @@ ObjectMapper objectMapper = new ObjectMapper()
 
 var server = OpenApiServer.builder()
     .spec(spec)
-    .bodyMapper("application/json", new JacksonJsonTypeMapper(objectMapper))
+    .jsonMapper(new JacksonJsonTypeMapper(objectMapper))
     .handlers(handlers)
     .build();
 ```

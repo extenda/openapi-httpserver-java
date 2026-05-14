@@ -145,6 +145,10 @@ public class OpenApiServer implements AutoCloseable {
       return this;
     }
 
+    public Builder jsonMapper(TypeMapper mapper) {
+      return bodyMapper("application/json", mapper);
+    }
+
     public Builder handlers(Map<String, RequestHandler> handlers) {
       this.handlers = handlers;
       return this;
