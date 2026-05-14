@@ -32,7 +32,7 @@ class DispatchHandlerTest {
   private static void withRequest(
       HttpExchange exchange, String operationId, ScopedValue.CallableOp<Void, Exception> body)
       throws Exception {
-    Request req = new Request(exchange, new byte[0], null, operationId, Map.of());
+    Request req = new Request(exchange, new byte[0], null, null, operationId, Map.of());
     ScopedValue.where(DispatchHandler.CURRENT, req).call(body);
   }
 

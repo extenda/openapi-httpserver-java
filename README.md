@@ -36,20 +36,22 @@ It is designed to be simple to use while providing the essential features needed
 // Inline lambda — returns JSON using the built-in Gson mapper.
 RequestHandler getDataHandler = req -> Response.ok(Map.of("id", "some-id"));
 
-// Class form — reads raw bytes or the pre-parsed body object.
+// Class form — reads raw bytes, the loose Map view, or a typed POJO.
 public class PostDataHandler implements RequestHandler {
   @Override
   public Response handle(Request request) {
     // Access the raw request body bytes.
     byte[] body = request.bytes();
-    // Or get the already-parsed object (Map / List) produced by the registered TypeMapper.
+    // Loose structural view (Map / List / boxed primitives), produced by the registered TypeMapper.
     Object parsed = request.parsed();
+    // Or, when the JSON mapper is Jackson (a TypedTypeMapper), get a typed POJO directly.
+    MyDto dto = request.asPojo(MyDto.class);
     // Path parameters, query parameters, and headers are also available.
     String id = request.pathParam("id");
     String filter = request.queryParam("filter");
     String corr = request.header("correlation-id");
 
-    return Response.ok(parsed);
+    return Response.ok(dto);
   }
 }
 ```
@@ -132,7 +134,7 @@ var server = OpenApiServer.builder()
     .build();
 ```
 
-The same shape applies to any custom mapper — implement `TypeMapper` and register it.
+The same shape applies to any custom mapper — implement `TypeMapper` (and optionally `TypedTypeMapper` if you can deserialise directly into a target type, so handlers can call `request.asPojo(MyDto.class)`).
 
 If neither Gson is on the classpath nor any `application/json` mapper is registered, `build()` throws `IllegalStateException`.
 

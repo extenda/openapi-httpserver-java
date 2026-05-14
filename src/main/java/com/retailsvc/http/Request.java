@@ -5,6 +5,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Read-only per-request handle passed to {@link RequestHandler}. Carries the parsed body, path
@@ -13,9 +14,12 @@ import java.util.Map;
  */
 public final class Request {
 
+  private static final String CONTENT_TYPE = "Content-Type";
+
   private final HttpExchange exchange;
   private final byte[] body;
   private final Object parsed;
+  private final TypeMapper bodyMapper;
   private final String operationId;
   private final Map<String, String> pathParameters;
   private Map<String, String> queryParamCache;
@@ -24,11 +28,13 @@ public final class Request {
       HttpExchange exchange,
       byte[] body,
       Object parsed,
+      TypeMapper bodyMapper,
       String operationId,
       Map<String, String> pathParameters) {
     this.exchange = exchange;
     this.body = body;
     this.parsed = parsed;
+    this.bodyMapper = bodyMapper;
     this.operationId = operationId;
     this.pathParameters = pathParameters;
   }
@@ -37,8 +43,40 @@ public final class Request {
     return body;
   }
 
+  /**
+   * Loose structural view of the body (typically a {@code Map} / {@code List} / boxed primitive).
+   */
   public Object parsed() {
     return parsed;
+  }
+
+  /**
+   * Typed view of the body, deserialised into {@code type} by the request's body mapper.
+   *
+   * <p>Requires the registered {@link TypeMapper} for the request's {@code Content-Type} to
+   * implement {@link TypedTypeMapper} — Jackson does, the built-in form and text mappers do not. If
+   * the loose {@link #parsed()} value already is an instance of {@code type}, it is returned
+   * directly without re-deserialising.
+   *
+   * @throws NullPointerException if {@code type} is null
+   * @throws IllegalStateException if there is no body, or if the body mapper does not implement
+   *     {@link TypedTypeMapper}
+   */
+  public <T> T asPojo(Class<T> type) {
+    Objects.requireNonNull(type, "type must not be null");
+    if (body == null || body.length == 0) {
+      throw new IllegalStateException("request has no body");
+    }
+    if (parsed != null && type.isInstance(parsed)) {
+      return type.cast(parsed);
+    }
+    if (bodyMapper instanceof TypedTypeMapper typed) {
+      return typed.readAs(body, header(CONTENT_TYPE), type);
+    }
+    throw new IllegalStateException(
+        "body mapper for "
+            + header(CONTENT_TYPE)
+            + " does not support typed conversion; the mapper must implement TypedTypeMapper");
   }
 
   public String operationId() {

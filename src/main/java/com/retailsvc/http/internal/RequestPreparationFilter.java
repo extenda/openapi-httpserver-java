@@ -62,10 +62,16 @@ public final class RequestPreparationFilter extends Filter {
 
     Operation op = match.operation();
     validateParameters(exchange, op, match.pathParameters());
-    Object parsedBody = validateAndParseBody(exchange, op, body);
+    ParsedBody parsedBody = validateAndParseBody(exchange, op, body);
 
     Request request =
-        new Request(exchange, body, parsedBody, op.operationId(), match.pathParameters());
+        new Request(
+            exchange,
+            body,
+            parsedBody.value(),
+            parsedBody.mapper(),
+            op.operationId(),
+            match.pathParameters());
 
     try {
       ScopedValue.where(DispatchHandler.CURRENT, request)
@@ -119,17 +125,22 @@ public final class RequestPreparationFilter extends Filter {
     }
   }
 
-  private Object validateAndParseBody(HttpExchange exchange, Operation op, byte[] body) {
+  /** Result of {@link #validateAndParseBody}: parsed payload plus the mapper that produced it. */
+  private record ParsedBody(Object value, TypeMapper mapper) {
+    static final ParsedBody EMPTY = new ParsedBody(null, null);
+  }
+
+  private ParsedBody validateAndParseBody(HttpExchange exchange, Operation op, byte[] body) {
     Optional<RequestBody> rb = op.requestBody();
     if (rb.isEmpty()) {
-      return null;
+      return ParsedBody.EMPTY;
     }
     if (body.length == 0) {
       if (rb.get().required()) {
         throw new ValidationException(
             new ValidationError(BODY_POINTER, "required", "request body is required", null));
       }
-      return null;
+      return ParsedBody.EMPTY;
     }
     String header = exchange.getRequestHeaders().getFirst("Content-Type");
     String mediaType = ContentTypeHeader.mediaType(header);
@@ -152,7 +163,7 @@ public final class RequestPreparationFilter extends Filter {
       parsed = FormBodyCoercion.coerce(typed, mt.schema());
     }
     validator.validate(parsed, mt.schema(), "");
-    return parsed;
+    return new ParsedBody(parsed, mapper);
   }
 
   private static Map<String, String> parseQuery(String query) {

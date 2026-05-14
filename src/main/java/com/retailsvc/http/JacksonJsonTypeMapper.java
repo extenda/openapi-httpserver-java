@@ -10,6 +10,9 @@ import java.util.Objects;
  * fully-configured {@link ObjectMapper}; this class never adds modules or changes settings — the
  * mapper you pass is the mapper you get.
  *
+ * <p>Implements {@link TypedTypeMapper}, so handlers can ask for a typed view of the body via
+ * {@link Request#parsed(Class)}.
+ *
  * <p>Typical wiring:
  *
  * <pre>{@code
@@ -24,7 +27,7 @@ import java.util.Objects;
  * must declare {@code jackson-databind} themselves. Consumers that use Gson can rely on the
  * built-in {@code GsonJsonMapper} auto-fallback instead.
  */
-public final class JacksonJsonTypeMapper implements TypeMapper {
+public final class JacksonJsonTypeMapper implements TypedTypeMapper {
 
   private final ObjectMapper mapper;
 
@@ -34,8 +37,13 @@ public final class JacksonJsonTypeMapper implements TypeMapper {
 
   @Override
   public Object readFrom(byte[] body, String contentTypeHeader) {
+    return readAs(body, contentTypeHeader, Object.class);
+  }
+
+  @Override
+  public <T> T readAs(byte[] body, String contentTypeHeader, Class<T> type) {
     try {
-      return mapper.readValue(body, Object.class);
+      return mapper.readValue(body, type);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
