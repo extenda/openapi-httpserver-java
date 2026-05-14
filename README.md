@@ -26,16 +26,15 @@ It is designed to be simple to use while providing the essential features needed
 
 ### Basic Usage
 1. Create an OpenAPI specification file named `openapi.json` in your project resources.
-2. Define your handlers using the `RequestHandler` functional interface:
+2. Define your handlers using the `RequestHandler` functional interface. Handlers are pure functions: they consume a `Request` and return a `Response`. The framework renders the response (status code, headers, body) for you.
 ``` java
 // Inline lambda — returns JSON using the built-in Gson mapper.
-RequestHandler getDataHandler = req ->
-    req.respond(200).json(Map.of("id", "some-id"));
+RequestHandler getDataHandler = req -> Response.ok(Map.of("id", "some-id"));
 
 // Class form — reads raw bytes or the pre-parsed body object.
 public class PostDataHandler implements RequestHandler {
   @Override
-  public void handle(Request request) throws IOException {
+  public Response handle(Request request) {
     // Access the raw request body bytes.
     byte[] body = request.bytes();
     // Or get the already-parsed object (Map / List) produced by the registered TypeMapper.
@@ -45,10 +44,38 @@ public class PostDataHandler implements RequestHandler {
     String filter = request.queryParam("filter");
     String corr = request.header("correlation-id");
 
-    request.respond(200).json(parsed);
+    return Response.ok(parsed);
   }
 }
 ```
+
+### Building responses
+
+`Response` is an immutable record built via static factories. Pick the one that fits:
+
+``` java
+Response.empty();                                 // 204 No Content, no body
+Response.status(404);                             // 404, no body
+Response.status(200);                             // 200 OK, no body
+Response.ok(Map.of("id", "42"));                  // 200 OK, JSON body via TypeMapper
+Response.of(201, newResource);                    // any status, JSON body
+Response.text(200, "hello");                      // text/plain; UTF-8
+Response.bytes(200, pdf, "application/pdf");      // pre-serialised bytes
+Response.stream(200, "application/octet-stream",  // chunked streaming
+    out -> out.write(largeBlob));
+Response.stream(200, length, "application/pdf",   // sized streaming
+    out -> pipeFromBackend(out));
+```
+
+Add or modify pieces non-destructively:
+
+``` java
+return Response.ok(payload)
+    .withHeader("X-Tenant-Id", tenant)
+    .withContentType("application/vnd.example+json");
+```
+
+A `null` body always produces a status-only response (`Content-Length: 0`, no body bytes), regardless of status code. Streaming bodies bypass `TypeMapper` entirely; one-shot object bodies (`ok`, `of`) are serialised by the `TypeMapper` registered for the response's content type (default `application/json`).
 
 3. Initialize the server:
 ``` java
@@ -122,60 +149,46 @@ User-supplied mappers take precedence over built-in defaults, so you can overrid
 
 ### Response decorators
 
-`Builder.responseDecorator(...)` registers a `ResponseDecorator` that runs whenever a handler calls `request.respond(status)`. Decorators set headers (or other pre-terminal state) before the handler reaches a terminal call. They run in registration order, and handler-supplied headers override decorator-supplied ones (last write wins).
-
-Use cases: stamping correlation IDs, tenant IDs, server identifiers, or any cross-cutting header on every response.
+`Builder.responseDecorator(...)` registers a `ResponseDecorator` — a `(Request, Response) -> Response` transform applied to every handler's return value before rendering. Decorators compose in registration order: the result of one is fed to the next. Decorator-supplied headers override handler-supplied ones; if you want the opposite, set the header inside the handler with `Response.withHeader(...)`.
 
 ``` java
 OpenApiServer.builder()
     .spec(spec)
     .handlers(handlers)
-    .responseDecorator(
-        (request, response) ->
-            response.header("X-Correlation-Id", CorrelationId.current()))
-    .responseDecorator(
-        (request, response) -> response.header("X-Tenant-Id", TenantId.current()))
+    .responseDecorator((req, resp) -> resp.withHeader("X-Correlation-Id", CorrelationId.current()))
+    .responseDecorator((req, resp) -> resp.withHeader("X-Tenant-Id", TenantId.current()))
     .build();
 ```
-
-`ResponseDecorator` is a `@FunctionalInterface`; the lambda receives the `Request` and the `ResponseBuilder` that's about to be returned from `respond(...)`. Don't call a terminal method (`empty()` / `bytes()` / `json()` / ...) from a decorator — terminals belong to the handler.
 
 ### Request interceptors
 
-`Builder.interceptor(...)` registers a `RequestInterceptor` that wraps every handler invocation. Use it for `ScopedValue` bindings, MDC, authentication, tracing, or any concern that needs to run uniformly around handlers. Interceptors compose in registration order: the first registered runs outermost.
+`Builder.interceptor(...)` registers a `RequestInterceptor` that wraps every handler invocation. Use it for `ScopedValue` bindings, MDC, authentication, tracing, or any concern that needs to run uniformly around handlers. Interceptors compose in registration order: the first registered runs outermost. Each interceptor must call `next.proceed()` and return the result (or a transformed `Response`).
 
 ``` java
 OpenApiServer.builder()
     .spec(spec)
     .handlers(handlers)
-    .interceptor(
-        (request, next) -> {
-          // Resolve once per request.
-          String tenant = request.header("X-Tenant-Id");
-          ScopedValue.where(TENANT, tenant)
-              .call(
-                  () -> {
-                    next.proceed();
-                    return null;
-                  });
-        })
-    .interceptor(
-        (request, next) -> {
-          MDC.put("op", request.operationId());
-          try {
-            next.proceed();
-          } finally {
-            MDC.remove("op");
-          }
-        })
+    .interceptor((request, next) -> {
+      // Resolve once per request; bind to a ScopedValue for the rest of the chain.
+      String tenant = request.header("X-Tenant-Id");
+      return ScopedValue.where(TENANT, tenant).call(next::proceed);
+    })
+    .interceptor((request, next) -> {
+      MDC.put("op", request.operationId());
+      try {
+        return next.proceed();
+      } finally {
+        MDC.remove("op");
+      }
+    })
     .build();
 ```
 
-Each interceptor must call `next.proceed()` to continue the chain. Exceptions propagate to the library's standard `ExceptionFilter` and `ExceptionHandler` pipeline.
+Exceptions propagate to the library's standard `ExceptionFilter` and `ExceptionHandler` pipeline.
 
 ### Combining interceptors and decorators
 
-The two collaborate naturally: the interceptor binds per-request context once, and the decorator reads that context when stamping response headers. Handlers stay free of cross-cutting code.
+The two collaborate naturally: the interceptor binds per-request context once, and the decorator reads that context when stamping response headers. Handlers stay pure business logic.
 
 ``` java
 // Per-request context populated by the interceptor, read by the decorator and handlers.
@@ -186,44 +199,36 @@ OpenApiServer.builder()
     .spec(spec)
     .handlers(handlers)
     // 1. Resolve once per request and bind to ScopedValues.
-    .interceptor(
-        (request, next) -> {
-          String correlationId =
-              Optional.ofNullable(request.header("X-Correlation-Id"))
-                  .orElseGet(() -> UUID.randomUUID().toString());
-          String tenantId = resolveTenant(request);
-          ScopedValue.where(CORRELATION_ID, correlationId)
-              .where(TENANT_ID, tenantId)
-              .call(
-                  () -> {
-                    next.proceed();
-                    return null;
-                  });
-        })
+    .interceptor((request, next) -> {
+      String correlationId =
+          Optional.ofNullable(request.header("X-Correlation-Id"))
+              .orElseGet(() -> UUID.randomUUID().toString());
+      String tenantId = resolveTenant(request);
+      return ScopedValue.where(CORRELATION_ID, correlationId)
+          .where(TENANT_ID, tenantId)
+          .call(next::proceed);
+    })
     // 2. Stamp those values on every response.
-    .responseDecorator(
-        (request, response) -> {
-          response.header("X-Correlation-Id", CORRELATION_ID.get());
-          response.header("X-Tenant-Id", TENANT_ID.get());
-        })
+    .responseDecorator((req, resp) -> resp
+        .withHeader("X-Correlation-Id", CORRELATION_ID.get())
+        .withHeader("X-Tenant-Id", TENANT_ID.get()))
     .build();
 ```
 
-Inside any handler, `CORRELATION_ID.get()` / `TENANT_ID.get()` return the resolved values — no parameter threading, no static accessors. Because the decorator runs *inside* the interceptor's `ScopedValue` binding (decorators fire on `request.respond(...)`, which the handler calls while the interceptor's `proceed()` is still on the stack), the `get()` calls always see the bound value.
+Decorators run inside the interceptor's `ScopedValue` binding (the decorator transforms the `Response` returned by `next.proceed()`, which is still on the call stack), so `CORRELATION_ID.get()` / `TENANT_ID.get()` see the bound values.
 
 A handler in this setup is just business logic:
 
 ``` java
 public class GetPromotionHandler implements RequestHandler {
   @Override
-  public void handle(Request request) throws IOException {
+  public Response handle(Request request) {
     String id = request.pathParams().get("id");
     String tenant = TENANT_ID.get();
-    promotionService
+    return promotionService
         .find(tenant, id)
-        .ifPresentOrElse(
-            promotion -> request.respond(HTTP_OK).json(promotion),
-            () -> request.respond(HTTP_NOT_FOUND).empty());
+        .map(p -> Response.of(HTTP_OK, p))
+        .orElse(Response.status(HTTP_NOT_FOUND));
   }
 }
 ```
@@ -330,7 +335,7 @@ try (var server = OpenApiServer.builder()
 - OpenAPI specification support
 - Automatic request body parsing and response writing per media type via `TypeMapper`
 - `RequestHandler` functional interface — a single `handle(Request)` method replaces raw `HttpExchange` manipulation
-- Fluent `ResponseBuilder` via `request.respond(status)` with terminals: `empty()`, `bytes()`, `text()`, `json()`, `body()`, `stream()`
+- Handlers are pure functions: `Response handle(Request)`. Factories cover `empty()` / `status(int)` / `ok(Object)` / `of(int, Object)` / `text(int, String)` / `bytes(int, byte[], String)` / `stream(...)`
 - Built-in `GsonJsonMapper` auto-registered when Gson is on the classpath (no explicit wiring needed)
 - `ResponseDecorator` for cross-cutting response headers and `RequestInterceptor` for around-style ScopedValue / MDC / auth concerns
 - Built on Java's native `HttpServer` with Thread-Per-Request behaviour using Virtual Threads
@@ -358,6 +363,6 @@ A few things to know:
 - **Single-process model.** No horizontal scaling primitives are bundled; run multiple instances behind a load balancer for production scale.
 - **JDK HttpServer is the throughput ceiling.** It's documented as a low-throughput / dev-test server. If you need to go materially above the rates above, deploy the same filter/validator/router stack on Jetty, Helidon Níma, or Netty — the spec and validation code is server-agnostic.
 - **Per-request state uses `ScopedValue`** (Java 25, JEP 506). This matters if a handler offloads work to an executor that's not a `StructuredTaskScope`-managed child thread: the `ScopedValue` is not visible there, so the handler must capture the values it needs (e.g. `byte[] body = request.bytes();`) before submitting.
-- **Empty responses must use `request.respond(status).empty()`**, which sends `responseLength = -1` (`Content-Length: 0`, no body). Passing `0` produces a chunked response with zero chunks, which is technically non-conformant.
+- **Empty responses use `Response.empty()` (204) or `Response.status(code)` for other no-body statuses.** The renderer sends `responseLength = -1` (`Content-Length: 0`, no body) for any `Response` with `body() == null`, regardless of status code. Passing `0` to the JDK directly produces a chunked response with zero chunks, which is technically non-conformant — `Response` factories handle this for you.
 
 ## Known limitations or missing features

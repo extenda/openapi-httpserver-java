@@ -23,11 +23,11 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
   @Test
   void gsonFallbackIsAutoRegisteredWhenNoJsonMapperConfigured() throws Exception {
     RequestHandler echo =
-        req -> {
-          Object parsed = req.parsed();
-          byte[] out = gson.toJson(parsed).getBytes(StandardCharsets.UTF_8);
-          req.respond(200).contentType("application/json").bytes(out);
-        };
+        req ->
+            Response.bytes(
+                200,
+                gson.toJson(req.parsed()).getBytes(StandardCharsets.UTF_8),
+                "application/json");
     server =
         OpenApiServer.builder()
             .spec(spec)
@@ -67,7 +67,7 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
             return "ignored".getBytes(StandardCharsets.UTF_8);
           }
         };
-    RequestHandler echo = req -> req.respond(200).empty();
+    RequestHandler echo = req -> Response.status(200);
     server =
         OpenApiServer.builder()
             .spec(spec)

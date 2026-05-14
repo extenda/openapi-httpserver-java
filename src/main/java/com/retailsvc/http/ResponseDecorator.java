@@ -1,14 +1,15 @@
 package com.retailsvc.http;
 
 /**
- * Mutates the {@link ResponseBuilder} returned by {@link Request#respond(int)} before the handler
- * receives it. Decorators run in registration order. They may set headers (including {@code
- * Content-Type}) but must not call a terminal method — terminals belong to the handler.
+ * Transforms the {@link Response} returned by a handler before the framework renders it. Decorators
+ * run in registration order; the result of each is fed to the next. Use for cross-cutting headers
+ * (correlation id, tenant id, server identifier) or any other uniform response shaping.
  *
- * <p>Decorators fire before the handler runs, so any headers the handler sets via the returned
- * builder override decorator-supplied values.
+ * <p>Because decorators run <em>after</em> the handler, decorator-supplied headers override
+ * handler-supplied ones on conflict. If you need the opposite semantics, use {@link
+ * Response#withHeaders(java.util.Map)} inside the handler instead.
  */
 @FunctionalInterface
 public interface ResponseDecorator {
-  void decorate(Request request, ResponseBuilder builder);
+  Response decorate(Request request, Response response);
 }

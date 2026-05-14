@@ -1,15 +1,12 @@
 package com.retailsvc.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.retailsvc.http.internal.DispatchHandler;
-import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.net.URI;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -20,14 +17,7 @@ class RequestTest {
   void readsBoundContext() throws Exception {
     HttpExchange exchange = mock(HttpExchange.class);
     Request req =
-        new Request(
-            exchange,
-            new byte[] {1, 2, 3},
-            Map.of("k", "v"),
-            "get-x",
-            Map.of("id", "42"),
-            Map.of(),
-            List.of());
+        new Request(exchange, new byte[] {1, 2, 3}, Map.of("k", "v"), "get-x", Map.of("id", "42"));
 
     AtomicReference<byte[]> seenBytes = new AtomicReference<>();
     AtomicReference<Object> seenParsed = new AtomicReference<>();
@@ -56,7 +46,7 @@ class RequestTest {
     HttpExchange exchange = mock(HttpExchange.class);
     when(exchange.getRequestURI())
         .thenReturn(URI.create("http://h/x?name=Alice%20Smith&active=true&active=false"));
-    Request req = new Request(exchange, new byte[0], null, "op", Map.of(), Map.of(), List.of());
+    Request req = new Request(exchange, new byte[0], null, "op", Map.of());
 
     assertThat(req.rawQuery()).isEqualTo("name=Alice%20Smith&active=true&active=false");
     assertThat(req.queryParam("name")).isEqualTo("Alice Smith");
@@ -71,23 +61,10 @@ class RequestTest {
   void queryParamsEmptyWhenNoQuery() {
     HttpExchange exchange = mock(HttpExchange.class);
     when(exchange.getRequestURI()).thenReturn(URI.create("http://h/x"));
-    Request req = new Request(exchange, new byte[0], null, "op", Map.of(), Map.of(), List.of());
+    Request req = new Request(exchange, new byte[0], null, "op", Map.of());
 
     assertThat(req.rawQuery()).isNull();
     assertThat(req.queryParams()).isEmpty();
     assertThat(req.queryParam("anything")).isNull();
-  }
-
-  @Test
-  void respondAfterTerminalThrows() throws Exception {
-    HttpExchange exchange = mock(HttpExchange.class);
-    when(exchange.getResponseHeaders()).thenReturn(new Headers());
-    Request req = new Request(exchange, new byte[0], null, "op", Map.of(), Map.of(), List.of());
-
-    req.respond(204).empty();
-
-    assertThatThrownBy(() -> req.respond(200))
-        .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("already sent");
   }
 }

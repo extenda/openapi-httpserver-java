@@ -8,6 +8,7 @@ import com.retailsvc.http.internal.DispatchHandler;
 import com.retailsvc.http.internal.ExceptionFilter;
 import com.retailsvc.http.internal.FormTypeMapper;
 import com.retailsvc.http.internal.RequestPreparationFilter;
+import com.retailsvc.http.internal.ResponseRenderer;
 import com.retailsvc.http.internal.Router;
 import com.retailsvc.http.internal.TextTypeMapper;
 import com.retailsvc.http.spec.Spec;
@@ -71,9 +72,9 @@ public class OpenApiServer implements AutoCloseable {
 
     HttpContext ctx = httpServer.createContext(Optional.ofNullable(spec.basePath()).orElse("/"));
     ctx.getFilters().add(new ExceptionFilter(exceptionHandler));
-    ctx.getFilters()
-        .add(new RequestPreparationFilter(spec, router, validator, bodyMappers, decorators));
-    ctx.setHandler(new DispatchHandler(handlers, interceptors));
+    ctx.getFilters().add(new RequestPreparationFilter(spec, router, validator, bodyMappers));
+    ctx.setHandler(
+        new DispatchHandler(handlers, interceptors, decorators, new ResponseRenderer(bodyMappers)));
 
     for (Map.Entry<String, HttpHandler> e : extras.entrySet()) {
       HttpContext extraCtx = httpServer.createContext(e.getKey());
@@ -150,9 +151,9 @@ public class OpenApiServer implements AutoCloseable {
     }
 
     /**
-     * Registers a {@link ResponseDecorator} that mutates the {@link ResponseBuilder} returned by
-     * {@link Request#respond(int)} before the handler receives it. Decorators run in registration
-     * order; handler-supplied headers override decorator-supplied ones.
+     * Registers a {@link ResponseDecorator} that transforms the {@link Response} returned by the
+     * handler before it is rendered. Decorators compose in registration order; decorator-supplied
+     * headers override handler-supplied ones on conflict.
      */
     public Builder responseDecorator(ResponseDecorator decorator) {
       decorators.add(requireNonNull(decorator, "decorator must not be null"));

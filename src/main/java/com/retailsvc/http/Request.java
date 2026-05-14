@@ -1,16 +1,15 @@
 package com.retailsvc.http;
 
-import com.retailsvc.http.internal.DefaultResponseBuilder;
 import com.sun.net.httpserver.HttpExchange;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
- * The per-request handle passed to {@link RequestHandler}. Carries the parsed body, path
- * parameters, operation ID, and a fluent {@link ResponseBuilder} for writing the response.
+ * Read-only per-request handle passed to {@link RequestHandler}. Carries the parsed body, path
+ * parameters, query parameters, headers, and operation ID. Handlers consume a {@code Request} and
+ * return a {@link Response}.
  */
 public final class Request {
 
@@ -19,26 +18,19 @@ public final class Request {
   private final Object parsed;
   private final String operationId;
   private final Map<String, String> pathParameters;
-  private final Map<String, TypeMapper> bodyMappers;
-  private final List<ResponseDecorator> decorators;
   private Map<String, String> queryParamCache;
-  private boolean responseSent;
 
   public Request(
       HttpExchange exchange,
       byte[] body,
       Object parsed,
       String operationId,
-      Map<String, String> pathParameters,
-      Map<String, TypeMapper> bodyMappers,
-      List<ResponseDecorator> decorators) {
+      Map<String, String> pathParameters) {
     this.exchange = exchange;
     this.body = body;
     this.parsed = parsed;
     this.operationId = operationId;
     this.pathParameters = pathParameters;
-    this.bodyMappers = bodyMappers;
-    this.decorators = List.copyOf(decorators);
   }
 
   public byte[] bytes() {
@@ -102,17 +94,5 @@ public final class Request {
           URLDecoder.decode(rawValue, StandardCharsets.UTF_8));
     }
     return out;
-  }
-
-  public ResponseBuilder respond(int status) {
-    if (responseSent) {
-      throw new IllegalStateException("Response already sent");
-    }
-    ResponseBuilder builder =
-        new DefaultResponseBuilder(exchange, status, bodyMappers, () -> responseSent = true);
-    for (ResponseDecorator decorator : decorators) {
-      decorator.decorate(this, builder);
-    }
-    return builder;
   }
 }

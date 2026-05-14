@@ -4,6 +4,8 @@ import com.retailsvc.http.MissingOperationHandlerException;
 import com.retailsvc.http.Request;
 import com.retailsvc.http.RequestHandler;
 import com.retailsvc.http.RequestInterceptor;
+import com.retailsvc.http.Response;
+import com.retailsvc.http.ResponseDecorator;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
@@ -16,28 +18,38 @@ public final class DispatchHandler implements HttpHandler {
 
   private final Map<String, RequestHandler> handlers;
   private final List<RequestInterceptor> interceptors;
+  private final List<ResponseDecorator> decorators;
+  private final ResponseRenderer renderer;
 
   public DispatchHandler(
-      Map<String, RequestHandler> handlers, List<RequestInterceptor> interceptors) {
+      Map<String, RequestHandler> handlers,
+      List<RequestInterceptor> interceptors,
+      List<ResponseDecorator> decorators,
+      ResponseRenderer renderer) {
     this.handlers = Map.copyOf(handlers);
     this.interceptors = List.copyOf(interceptors);
+    this.decorators = List.copyOf(decorators);
+    this.renderer = renderer;
   }
 
   @Override
   public void handle(HttpExchange exchange) throws IOException {
     Request request = CURRENT.get();
-    RequestHandler h = handlers.get(request.operationId());
-    if (h == null) {
+    RequestHandler handler = handlers.get(request.operationId());
+    if (handler == null) {
       throw new MissingOperationHandlerException(request.operationId());
     }
-    invoke(0, request, h);
+    Response response = invoke(0, request, handler);
+    for (ResponseDecorator decorator : decorators) {
+      response = decorator.decorate(request, response);
+    }
+    renderer.render(exchange, response);
   }
 
-  private void invoke(int idx, Request request, RequestHandler handler) throws IOException {
+  private Response invoke(int idx, Request request, RequestHandler handler) {
     if (idx == interceptors.size()) {
-      handler.handle(request);
-      return;
+      return handler.handle(request);
     }
-    interceptors.get(idx).around(request, () -> invoke(idx + 1, request, handler));
+    return interceptors.get(idx).around(request, () -> invoke(idx + 1, request, handler));
   }
 }

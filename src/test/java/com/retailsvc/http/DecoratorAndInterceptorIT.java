@@ -17,14 +17,13 @@ class DecoratorAndInterceptorIT extends ServerBaseTest {
 
   @Test
   void responseDecoratorAddsHeadersOnEveryResponse() throws Exception {
-    RequestHandler ok = req -> req.respond(HTTP_OK).text("ok");
+    RequestHandler ok = req -> Response.text(HTTP_OK, "ok");
     server =
         OpenApiServer.builder()
             .spec(spec)
             .handlers(Map.of("get-data", ok, "post-data", ok))
-            .responseDecorator(
-                (request, builder) -> builder.header("X-Correlation-Id", "decorator-cid"))
-            .responseDecorator((request, builder) -> builder.header("X-Op", request.operationId()))
+            .responseDecorator((req, resp) -> resp.withHeader("X-Correlation-Id", "decorator-cid"))
+            .responseDecorator((req, resp) -> resp.withHeader("X-Op", req.operationId()))
             .port(0)
             .build();
 
@@ -36,36 +35,29 @@ class DecoratorAndInterceptorIT extends ServerBaseTest {
   }
 
   @Test
-  void handlerHeaderOverridesDecoratorHeader() throws Exception {
-    RequestHandler ok = req -> req.respond(HTTP_OK).header("X-Op", "handler-wins").text("ok");
+  void decoratorHeaderOverridesHandlerHeader() throws Exception {
+    RequestHandler ok = req -> Response.text(HTTP_OK, "ok").withHeader("X-Op", "handler-set");
     server =
         OpenApiServer.builder()
             .spec(spec)
             .handlers(Map.of("get-data", ok, "post-data", ok))
-            .responseDecorator((request, builder) -> builder.header("X-Op", "decorator"))
+            .responseDecorator((req, resp) -> resp.withHeader("X-Op", "decorator-wins"))
             .port(0)
             .build();
 
     var resp = call("/api/v1/data");
 
-    assertThat(resp.headers().firstValue("X-Op")).contains("handler-wins");
+    assertThat(resp.headers().firstValue("X-Op")).contains("decorator-wins");
   }
 
   @Test
   void interceptorBindsScopedValueVisibleToHandler() throws Exception {
-    RequestHandler echoTenant = req -> req.respond(HTTP_OK).text(TENANT.get());
+    RequestHandler echoTenant = req -> Response.text(HTTP_OK, TENANT.get());
     server =
         OpenApiServer.builder()
             .spec(spec)
             .handlers(Map.of("get-data", echoTenant, "post-data", echoTenant))
-            .interceptor(
-                (request, next) ->
-                    ScopedValue.where(TENANT, "acme")
-                        .call(
-                            () -> {
-                              next.proceed();
-                              return null;
-                            }))
+            .interceptor((request, next) -> ScopedValue.where(TENANT, "acme").call(next::proceed))
             .port(0)
             .build();
 
@@ -78,7 +70,7 @@ class DecoratorAndInterceptorIT extends ServerBaseTest {
     RequestHandler ok =
         req -> {
           trace.add("handler");
-          req.respond(HTTP_OK).empty();
+          return Response.status(HTTP_OK);
         };
     server =
         OpenApiServer.builder()
@@ -87,14 +79,16 @@ class DecoratorAndInterceptorIT extends ServerBaseTest {
             .interceptor(
                 (request, next) -> {
                   trace.add("outer-before");
-                  next.proceed();
+                  Response r = next.proceed();
                   trace.add("outer-after");
+                  return r;
                 })
             .interceptor(
                 (request, next) -> {
                   trace.add("inner-before");
-                  next.proceed();
+                  Response r = next.proceed();
                   trace.add("inner-after");
+                  return r;
                 })
             .port(0)
             .build();
