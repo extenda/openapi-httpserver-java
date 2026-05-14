@@ -10,8 +10,9 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
-import com.retailsvc.http.TypeMapper;
+import com.retailsvc.http.TypedTypeMapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -27,28 +28,36 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * Built-in {@link TypeMapper} for {@code application/json} backed by Gson. Auto-registered by
+ * Built-in {@link TypedTypeMapper} for {@code application/json} backed by Gson. Auto-registered by
  * {@link com.retailsvc.http.OpenApiServer.Builder} when Gson is on the classpath and no
  * user-supplied JSON mapper has been registered.
  *
- * <p>JSON numbers without a decimal point or exponent are returned as {@code Long}; fractional
- * numbers are returned as {@code Double}. JSR-310 types ({@code Instant}, {@code OffsetDateTime},
- * {@code ZonedDateTime}, {@code LocalDateTime}, {@code LocalDate}, {@code LocalTime}) are written
- * as their ISO-8601 string form.
+ * <p>The loose {@link #readFrom(byte[], String)} path returns JSON numbers without a decimal point
+ * or exponent as {@code Long} and fractional numbers as {@code Double}. The typed {@link
+ * #readAs(byte[], String, Class)} path delegates to Gson, so target-type fields determine the
+ * resulting Java types (an {@code int} field gets an {@code int}, an {@code Instant} field gets an
+ * {@code Instant}, etc.).
+ *
+ * <p>JSR-310 types ({@code Instant}, {@code OffsetDateTime}, {@code ZonedDateTime}, {@code
+ * LocalDateTime}, {@code LocalDate}, {@code LocalTime}) are round-tripped as their ISO-8601 string
+ * form.
  */
-public final class GsonJsonMapper implements TypeMapper {
+public final class GsonJsonMapper implements TypedTypeMapper {
 
   private final Gson gson;
 
   public GsonJsonMapper() {
     this.gson =
         new GsonBuilder()
-            .registerTypeAdapter(Instant.class, isoStringWriter(Instant::toString))
-            .registerTypeAdapter(OffsetDateTime.class, isoStringWriter(OffsetDateTime::toString))
-            .registerTypeAdapter(ZonedDateTime.class, isoStringWriter(ZonedDateTime::toString))
-            .registerTypeAdapter(LocalDateTime.class, isoStringWriter(LocalDateTime::toString))
-            .registerTypeAdapter(LocalDate.class, isoStringWriter(LocalDate::toString))
-            .registerTypeAdapter(LocalTime.class, isoStringWriter(LocalTime::toString))
+            .registerTypeAdapter(Instant.class, iso(Instant::toString, Instant::parse))
+            .registerTypeAdapter(
+                OffsetDateTime.class, iso(OffsetDateTime::toString, OffsetDateTime::parse))
+            .registerTypeAdapter(
+                ZonedDateTime.class, iso(ZonedDateTime::toString, ZonedDateTime::parse))
+            .registerTypeAdapter(
+                LocalDateTime.class, iso(LocalDateTime::toString, LocalDateTime::parse))
+            .registerTypeAdapter(LocalDate.class, iso(LocalDate::toString, LocalDate::parse))
+            .registerTypeAdapter(LocalTime.class, iso(LocalTime::toString, LocalTime::parse))
             .create();
   }
 
@@ -56,6 +65,11 @@ public final class GsonJsonMapper implements TypeMapper {
   public Object readFrom(byte[] body, String contentTypeHeader) {
     JsonElement element = JsonParser.parseString(new String(body, StandardCharsets.UTF_8));
     return toJavaObject(element);
+  }
+
+  @Override
+  public <T> T readAs(byte[] body, String contentTypeHeader, Class<T> type) {
+    return gson.fromJson(new String(body, StandardCharsets.UTF_8), type);
   }
 
   @Override
@@ -120,7 +134,8 @@ public final class GsonJsonMapper implements TypeMapper {
     return Double.parseDouble(raw);
   }
 
-  private static <T> TypeAdapter<T> isoStringWriter(Function<T, String> toIso) {
+  /** Round-trips a JSR-310 type as an ISO-8601 string. */
+  private static <T> TypeAdapter<T> iso(Function<T, String> toIso, Function<String, T> fromIso) {
     return new TypeAdapter<T>() {
       @Override
       public void write(JsonWriter out, T value) throws IOException {
@@ -132,9 +147,12 @@ public final class GsonJsonMapper implements TypeMapper {
       }
 
       @Override
-      public T read(JsonReader in) {
-        throw new UnsupportedOperationException(
-            "GsonJsonMapper does not parse JSR-310 types; values arrive as String");
+      public T read(JsonReader in) throws IOException {
+        if (in.peek() == JsonToken.NULL) {
+          in.nextNull();
+          return null;
+        }
+        return fromIso.apply(in.nextString());
       }
     };
   }

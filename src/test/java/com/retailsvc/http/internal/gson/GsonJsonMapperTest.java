@@ -98,6 +98,36 @@ class GsonJsonMapperTest {
         .isEqualTo("{\"t\":\"10:00\"}");
   }
 
+  @Test
+  void readAsDeserialisesPojo() {
+    Item item = mapper.readAs(bytes("{\"id\":\"x-1\",\"qty\":7}"), "application/json", Item.class);
+
+    assertThat(item.id).isEqualTo("x-1");
+    assertThat(item.qty).isEqualTo(7);
+  }
+
+  @Test
+  void readAsRoundTripsJsr310Fields() {
+    WithDates value =
+        mapper.readAs(
+            bytes("{\"ts\":\"2026-05-13T10:00:00Z\",\"day\":\"2026-05-13\"}"),
+            "application/json",
+            WithDates.class);
+
+    assertThat(value.ts).isEqualTo(Instant.parse("2026-05-13T10:00:00Z"));
+    assertThat(value.day).isEqualTo(LocalDate.of(2026, 5, 13));
+  }
+
+  static final class Item {
+    String id;
+    int qty;
+  }
+
+  static final class WithDates {
+    Instant ts;
+    LocalDate day;
+  }
+
   private static byte[] bytes(String s) {
     return s.getBytes(StandardCharsets.UTF_8);
   }

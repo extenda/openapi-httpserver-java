@@ -44,7 +44,8 @@ public class PostDataHandler implements RequestHandler {
     byte[] body = request.bytes();
     // Loose structural view (Map / List / boxed primitives), produced by the registered TypeMapper.
     Object parsed = request.parsed();
-    // Or, when the JSON mapper is Jackson (a TypedTypeMapper), get a typed POJO directly.
+    // Or get a typed POJO directly (works with the Gson and Jackson built-ins; both implement
+    // TypedTypeMapper).
     MyDto dto = request.asPojo(MyDto.class);
     // Path parameters, query parameters, and headers are also available.
     String id = request.pathParam("id");
@@ -117,8 +118,9 @@ public class YourServerLauncher {
 
 The library ships an internal `GsonJsonMapper` that is auto-registered for `application/json` when Gson is on the classpath and no user-supplied JSON mapper has been registered. It:
 
-- Returns JSON integers as `Long` and fractional numbers as `Double`.
-- Writes JSR-310 types (`Instant`, `OffsetDateTime`, `ZonedDateTime`, `LocalDateTime`, `LocalDate`, `LocalTime`) as ISO-8601 strings.
+- Returns JSON integers as `Long` and fractional numbers as `Double` for the loose `request.parsed()` view.
+- For `request.asPojo(MyDto.class)`, delegates to Gson — the target type's fields determine the Java types (`int`, `long`, `Instant`, etc.).
+- Round-trips JSR-310 types (`Instant`, `OffsetDateTime`, `ZonedDateTime`, `LocalDateTime`, `LocalDate`, `LocalTime`) as their ISO-8601 string form.
 
 For Jackson, the library ships a `JacksonJsonTypeMapper` adapter that wraps an `ObjectMapper` you configure (modules, naming strategy, JSR-310, date formats — all your call):
 
