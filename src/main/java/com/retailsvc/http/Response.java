@@ -48,6 +48,16 @@ public record Response(int status, Object body, String contentType, Map<String, 
     return new Response(200, body, null, Map.of());
   }
 
+  /** {@code 202 Accepted} with no body. Use for fire-and-forget async work. */
+  public static Response accepted() {
+    return new Response(202, null, null, Map.of());
+  }
+
+  /** {@code 202 Accepted} with {@code body} serialised as JSON (typically a job/poll URL). */
+  public static Response accepted(Object body) {
+    return new Response(202, body, null, Map.of());
+  }
+
   /** {@code status} with {@code body} serialised by the content-type's {@link TypeMapper}. */
   public static Response of(int status, Object body) {
     return new Response(status, body, null, Map.of());

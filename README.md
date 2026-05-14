@@ -62,6 +62,8 @@ Response.empty();                                 // 204 No Content, no body
 Response.status(404);                             // 404, no body
 Response.status(200);                             // 200 OK, no body
 Response.ok(Map.of("id", "42"));                  // 200 OK, JSON body via TypeMapper
+Response.accepted();                              // 202 Accepted, no body
+Response.accepted(Map.of("jobId", "job-42"));     // 202 Accepted, JSON body
 Response.of(201, newResource);                    // any status, JSON body
 Response.text(200, "hello");                      // text/plain; UTF-8
 Response.bytes(200, pdf, "application/pdf");      // pre-serialised bytes
