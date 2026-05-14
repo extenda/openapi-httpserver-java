@@ -24,7 +24,8 @@ It is designed to be simple to use while providing the essential features needed
 - An OpenAPI 3.1.x specification (`openapi.json` or `openapi.yaml`).
 - For `application/json` request/response bodies, either:
   - Gson on the classpath — auto-registered via the built-in `GsonJsonMapper` (integer-preserving, JSR-310 written as ISO-8601), or
-  - a user-supplied `TypeMapper` registered via `Builder.bodyMapper("application/json", mapper)` (e.g. backed by Jackson).
+  - Jackson via the built-in `JacksonJsonTypeMapper(ObjectMapper)` adapter (caller supplies a configured `ObjectMapper`), or
+  - any other `TypeMapper` you register via `Builder.bodyMapper("application/json", mapper)`.
 - Built-in mappers for `application/x-www-form-urlencoded` and `text/plain` need no configuration. Any other media type (`application/xml`, `application/cbor`, etc.) requires registering its own `TypeMapper`.
 
 
@@ -117,17 +118,23 @@ The library ships an internal `GsonJsonMapper` that is auto-registered for `appl
 - Returns JSON integers as `Long` and fractional numbers as `Double`.
 - Writes JSR-310 types (`Instant`, `OffsetDateTime`, `ZonedDateTime`, `LocalDateTime`, `LocalDate`, `LocalTime`) as ISO-8601 strings.
 
-For non-ISO date formats, custom naming strategies, or other custom serialization, register your own `TypeMapper`:
+For Jackson, the library ships a `JacksonJsonTypeMapper` adapter that wraps an `ObjectMapper` you configure (modules, naming strategy, JSR-310, date formats — all your call):
 
 ``` java
+ObjectMapper objectMapper = new ObjectMapper()
+    .registerModule(new JavaTimeModule())
+    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
 var server = OpenApiServer.builder()
     .spec(spec)
-    .bodyMapper("application/json", new MyCustomJsonMapper())
+    .bodyMapper("application/json", new JacksonJsonTypeMapper(objectMapper))
     .handlers(handlers)
     .build();
 ```
 
-If Gson is not on the classpath and no `application/json` mapper is registered, `build()` throws `IllegalStateException`.
+The same shape applies to any custom mapper — implement `TypeMapper` and register it.
+
+If neither Gson is on the classpath nor any `application/json` mapper is registered, `build()` throws `IllegalStateException`.
 
 ### Body parsers and response writers
 
