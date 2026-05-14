@@ -59,12 +59,16 @@ public class PostDataHandler implements RequestHandler {
 
 ``` java
 Response.empty();                                 // 204 No Content, no body
-Response.status(404);                             // 404, no body
 Response.status(200);                             // 200 OK, no body
 Response.ok(Map.of("id", "42"));                  // 200 OK, JSON body via TypeMapper
+Response.created(newResource);                    // 201 Created, JSON body
+Response.created(newResource, "/things/42");      // 201 Created + Location header
 Response.accepted();                              // 202 Accepted, no body
 Response.accepted(Map.of("jobId", "job-42"));     // 202 Accepted, JSON body
-Response.of(201, newResource);                    // any status, JSON body
+Response.notFound();                              // 404 Not Found, no body
+Response.notFound(problemDetail);                 // 404 Not Found, JSON body
+Response.notImplemented();                        // 501 Not Implemented, no body
+Response.of(409, conflictDetail);                 // any status, JSON body
 Response.text(200, "hello");                      // text/plain; UTF-8
 Response.bytes(200, pdf, "application/pdf");      // pre-serialised bytes
 Response.stream(200, "application/octet-stream",  // chunked streaming
@@ -224,8 +228,8 @@ public class GetPromotionHandler implements RequestHandler {
     String tenant = TENANT_ID.get();
     return promotionService
         .find(tenant, id)
-        .map(p -> Response.of(HTTP_OK, p))
-        .orElse(Response.status(HTTP_NOT_FOUND));
+        .<Response>map(Response::ok)
+        .orElseGet(Response::notFound);
   }
 }
 ```
@@ -236,9 +240,6 @@ Gson on the classpath for request/response JSON, SnakeYAML on the classpath for 
 
 ``` java
 package com.example.promotions;
-
-import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
-import static java.net.HttpURLConnection.HTTP_OK;
 
 import com.retailsvc.http.OpenApiServer;
 import com.retailsvc.http.Request;
@@ -261,8 +262,8 @@ public final class App {
     RequestHandler getPromotion = req -> {
       String id = req.pathParam("id");
       return PromotionService.find(TENANT.get(), id)            // uses bound tenant
-          .<Response>map(p -> Response.of(HTTP_OK, p))           // 200 + JSON via Gson
-          .orElseGet(() -> Response.status(HTTP_NOT_FOUND));     // 404, no body
+          .<Response>map(Response::ok)                           // 200 + JSON via Gson
+          .orElseGet(Response::notFound);                        // 404, no body
     };
 
     OpenApiServer.builder()

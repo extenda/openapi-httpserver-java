@@ -48,6 +48,19 @@ public record Response(int status, Object body, String contentType, Map<String, 
     return new Response(200, body, null, Map.of());
   }
 
+  /** {@code 201 Created} with {@code body} serialised as JSON. */
+  public static Response created(Object body) {
+    return new Response(201, body, null, Map.of());
+  }
+
+  /**
+   * {@code 201 Created} with {@code body} as JSON and a {@code Location} header — the canonical
+   * shape for a POST that creates a new resource.
+   */
+  public static Response created(Object body, String location) {
+    return new Response(201, body, null, Map.of("Location", location));
+  }
+
   /** {@code 202 Accepted} with no body. Use for fire-and-forget async work. */
   public static Response accepted() {
     return new Response(202, null, null, Map.of());
@@ -56,6 +69,21 @@ public record Response(int status, Object body, String contentType, Map<String, 
   /** {@code 202 Accepted} with {@code body} serialised as JSON (typically a job/poll URL). */
   public static Response accepted(Object body) {
     return new Response(202, body, null, Map.of());
+  }
+
+  /** {@code 404 Not Found} with no body. */
+  public static Response notFound() {
+    return new Response(404, null, null, Map.of());
+  }
+
+  /** {@code 404 Not Found} with {@code body} serialised as JSON (e.g. a ProblemDetail). */
+  public static Response notFound(Object body) {
+    return new Response(404, body, null, Map.of());
+  }
+
+  /** {@code 501 Not Implemented} with no body. */
+  public static Response notImplemented() {
+    return new Response(501, null, null, Map.of());
   }
 
   /** {@code status} with {@code body} serialised by the content-type's {@link TypeMapper}. */
