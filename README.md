@@ -19,9 +19,13 @@ It is designed to be simple to use while providing the essential features needed
 ## Getting Started
 
 ### Prerequisites
-- Java SDK 25 or later
-- A serialization library, e.g. Gson or Jackson
-- OpenAPI specification file in JSON format (`openapi.json`)
+- Java SDK 25 or later.
+- A JSON library to parse the spec into a `Map<String, Object>`: any of Gson, Jackson, SnakeYAML (for YAML specs), or another mapper of your choice. The library itself doesn't bundle one.
+- An OpenAPI 3.1.x specification (`openapi.json` or `openapi.yaml`).
+- For `application/json` request/response bodies, either:
+  - Gson on the classpath — auto-registered via the built-in `GsonJsonMapper` (integer-preserving, JSR-310 written as ISO-8601), or
+  - a user-supplied `TypeMapper` registered via `Builder.bodyMapper("application/json", mapper)` (e.g. backed by Jackson).
+- Built-in mappers for `application/x-www-form-urlencoded` and `text/plain` need no configuration. Any other media type (`application/xml`, `application/cbor`, etc.) requires registering its own `TypeMapper`.
 
 
 ### Basic Usage
