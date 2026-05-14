@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.retailsvc.http.internal.DispatchHandler;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
+import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,33 @@ class RequestTest {
     assertThat(seenParsed.get()).isEqualTo(Map.of("k", "v"));
     assertThat(seenOpId.get()).isEqualTo("get-x");
     assertThat(seenPathParams.get()).containsEntry("id", "42");
+  }
+
+  @Test
+  void exposesQueryParams() {
+    HttpExchange exchange = mock(HttpExchange.class);
+    when(exchange.getRequestURI())
+        .thenReturn(URI.create("http://h/x?name=Alice%20Smith&active=true&active=false"));
+    Request req = new Request(exchange, new byte[0], null, "op", Map.of(), Map.of());
+
+    assertThat(req.rawQuery()).isEqualTo("name=Alice%20Smith&active=true&active=false");
+    assertThat(req.queryParam("name")).isEqualTo("Alice Smith");
+    assertThat(req.queryParam("active")).isEqualTo("true");
+    assertThat(req.queryParam("missing")).isNull();
+    assertThat(req.queryParams())
+        .containsEntry("name", "Alice Smith")
+        .containsEntry("active", "true");
+  }
+
+  @Test
+  void queryParamsEmptyWhenNoQuery() {
+    HttpExchange exchange = mock(HttpExchange.class);
+    when(exchange.getRequestURI()).thenReturn(URI.create("http://h/x"));
+    Request req = new Request(exchange, new byte[0], null, "op", Map.of(), Map.of());
+
+    assertThat(req.rawQuery()).isNull();
+    assertThat(req.queryParams()).isEmpty();
+    assertThat(req.queryParam("anything")).isNull();
   }
 
   @Test

@@ -2,6 +2,9 @@ package com.retailsvc.http;
 
 import com.retailsvc.http.internal.DefaultResponseBuilder;
 import com.sun.net.httpserver.HttpExchange;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -16,6 +19,7 @@ public final class Request {
   private final String operationId;
   private final Map<String, String> pathParameters;
   private final Map<String, TypeMapper> bodyMappers;
+  private Map<String, String> queryParamCache;
   private boolean responseSent;
 
   public Request(
@@ -51,6 +55,49 @@ public final class Request {
 
   public String header(String name) {
     return exchange.getRequestHeaders().getFirst(name);
+  }
+
+  /**
+   * Raw (percent-encoded) query string from the request URI, or {@code null} if the URI has no
+   * query component.
+   */
+  public String rawQuery() {
+    return exchange.getRequestURI().getRawQuery();
+  }
+
+  /**
+   * Decoded query parameters keyed by name. Empty if the URI has no query. For repeated keys, the
+   * first occurrence wins. Values are URL-decoded with UTF-8.
+   */
+  public Map<String, String> queryParams() {
+    if (queryParamCache == null) {
+      queryParamCache = parseQuery(rawQuery());
+    }
+    return queryParamCache;
+  }
+
+  /** First decoded value for {@code name}, or {@code null} if absent. */
+  public String queryParam(String name) {
+    return queryParams().get(name);
+  }
+
+  private static Map<String, String> parseQuery(String query) {
+    if (query == null || query.isBlank()) {
+      return Map.of();
+    }
+    Map<String, String> out = new LinkedHashMap<>();
+    for (String pair : query.split("&")) {
+      if (pair.isEmpty()) {
+        continue;
+      }
+      int eq = pair.indexOf('=');
+      String rawKey = eq < 0 ? pair : pair.substring(0, eq);
+      String rawValue = eq < 0 ? "" : pair.substring(eq + 1);
+      out.putIfAbsent(
+          URLDecoder.decode(rawKey, StandardCharsets.UTF_8),
+          URLDecoder.decode(rawValue, StandardCharsets.UTF_8));
+    }
+    return out;
   }
 
   public ResponseBuilder respond(int status) {
