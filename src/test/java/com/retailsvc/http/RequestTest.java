@@ -1,9 +1,12 @@
 package com.retailsvc.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.retailsvc.http.internal.DispatchHandler;
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -43,5 +46,18 @@ class RequestTest {
     assertThat(seenParsed.get()).isEqualTo(Map.of("k", "v"));
     assertThat(seenOpId.get()).isEqualTo("get-x");
     assertThat(seenPathParams.get()).containsEntry("id", "42");
+  }
+
+  @Test
+  void respondAfterTerminalThrows() throws Exception {
+    HttpExchange exchange = mock(HttpExchange.class);
+    when(exchange.getResponseHeaders()).thenReturn(new Headers());
+    Request req = new Request(exchange, new byte[0], null, "op", Map.of(), Map.of());
+
+    req.respond(204).empty();
+
+    assertThatThrownBy(() -> req.respond(200))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("already sent");
   }
 }

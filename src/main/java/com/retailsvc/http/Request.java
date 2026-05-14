@@ -16,6 +16,7 @@ public final class Request {
   private final String operationId;
   private final Map<String, String> pathParameters;
   private final Map<String, TypeMapper> bodyMappers;
+  private boolean responseSent;
 
   public Request(
       HttpExchange exchange,
@@ -53,6 +54,9 @@ public final class Request {
   }
 
   public ResponseBuilder respond(int status) {
-    return new DefaultResponseBuilder(exchange, status, bodyMappers);
+    if (responseSent) {
+      throw new IllegalStateException("Response already sent");
+    }
+    return new DefaultResponseBuilder(exchange, status, bodyMappers, () -> responseSent = true);
   }
 }

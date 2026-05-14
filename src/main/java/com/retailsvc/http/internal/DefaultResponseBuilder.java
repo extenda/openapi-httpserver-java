@@ -17,14 +17,16 @@ public final class DefaultResponseBuilder implements ResponseBuilder {
   private final HttpExchange exchange;
   private final int status;
   private final Map<String, TypeMapper> mappers;
+  private final Runnable onTerminated;
   private final Map<String, String> pendingHeaders = new LinkedHashMap<>();
   private boolean terminated;
 
   public DefaultResponseBuilder(
-      HttpExchange exchange, int status, Map<String, TypeMapper> mappers) {
+      HttpExchange exchange, int status, Map<String, TypeMapper> mappers, Runnable onTerminated) {
     this.exchange = exchange;
     this.status = status;
     this.mappers = mappers;
+    this.onTerminated = onTerminated;
   }
 
   @Override
@@ -125,6 +127,7 @@ public final class DefaultResponseBuilder implements ResponseBuilder {
   private void terminate() {
     checkNotTerminated();
     terminated = true;
+    onTerminated.run();
   }
 
   private void checkNotTerminated() {
