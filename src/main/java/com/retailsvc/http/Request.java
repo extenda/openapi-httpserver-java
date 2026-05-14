@@ -49,6 +49,11 @@ public final class Request {
     return pathParameters;
   }
 
+  /** Value of the path parameter {@code name}, or {@code null} if absent. */
+  public String pathParam(String name) {
+    return pathParameters.get(name);
+  }
+
   public String header(String name) {
     return exchange.getRequestHeaders().getFirst(name);
   }

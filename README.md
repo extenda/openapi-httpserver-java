@@ -44,7 +44,7 @@ public class PostDataHandler implements RequestHandler {
     // Or get the already-parsed object (Map / List) produced by the registered TypeMapper.
     Object parsed = request.parsed();
     // Path parameters, query parameters, and headers are also available.
-    String id = request.pathParams().get("id");
+    String id = request.pathParam("id");
     String filter = request.queryParam("filter");
     String corr = request.header("correlation-id");
 
@@ -218,7 +218,7 @@ A handler in this setup is just business logic:
 public class GetPromotionHandler implements RequestHandler {
   @Override
   public Response handle(Request request) {
-    String id = request.pathParams().get("id");
+    String id = request.pathParam("id");
     String tenant = TENANT_ID.get();
     return promotionService
         .find(tenant, id)
@@ -257,7 +257,7 @@ public final class App {
     Spec spec = Spec.fromPath(Path.of("openapi.yaml"));         // SnakeYAML parses the spec
 
     RequestHandler getPromotion = req -> {
-      String id = req.pathParams().get("id");
+      String id = req.pathParam("id");
       return PromotionService.find(TENANT.get(), id)            // uses bound tenant
           .<Response>map(p -> Response.of(HTTP_OK, p))           // 200 + JSON via Gson
           .orElseGet(() -> Response.status(HTTP_NOT_FOUND));     // 404, no body

@@ -42,6 +42,15 @@ class RequestTest {
   }
 
   @Test
+  void pathParamReturnsValueOrNull() {
+    HttpExchange exchange = mock(HttpExchange.class);
+    Request req = new Request(exchange, new byte[0], null, "op", Map.of("id", "42"));
+
+    assertThat(req.pathParam("id")).isEqualTo("42");
+    assertThat(req.pathParam("missing")).isNull();
+  }
+
+  @Test
   void exposesQueryParams() {
     HttpExchange exchange = mock(HttpExchange.class);
     when(exchange.getRequestURI())
