@@ -55,17 +55,12 @@ public record Response(int status, Object body, String contentType, Map<String, 
     return new Response(HTTP_OK, body, null, Map.of());
   }
 
-  /** {@code 201 Created} with {@code body} serialised as JSON. */
+  /**
+   * {@code 201 Created} with {@code body} serialised as JSON. Add a {@code Location} header for the
+   * new resource via {@link #withHeader(String, String) withHeader("Location", uri)}.
+   */
   public static Response created(Object body) {
     return new Response(HTTP_CREATED, body, null, Map.of());
-  }
-
-  /**
-   * {@code 201 Created} with {@code body} as JSON and a {@code Location} header — the canonical
-   * shape for a POST that creates a new resource.
-   */
-  public static Response created(Object body, String location) {
-    return new Response(HTTP_CREATED, body, null, Map.of("Location", location));
   }
 
   /** {@code 202 Accepted} with no body. Use for fire-and-forget async work. */

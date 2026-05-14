@@ -40,8 +40,8 @@ class ResponseTest {
   }
 
   @Test
-  void createdWithLocation() {
-    Response r = Response.created(Map.of("id", "x-1"), "/things/x-1");
+  void createdWithLocationViaWithHeader() {
+    Response r = Response.created(Map.of("id", "x-1")).withHeader("Location", "/things/x-1");
 
     assertThat(r.status()).isEqualTo(HTTP_CREATED);
     assertThat(r.headers()).containsEntry("Location", "/things/x-1");

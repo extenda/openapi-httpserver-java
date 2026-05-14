@@ -66,7 +66,8 @@ Response.empty();                                 // 204 No Content, no body
 Response.status(200);                             // 200 OK, no body
 Response.ok(Map.of("id", "42"));                  // 200 OK, JSON body via TypeMapper
 Response.created(newResource);                    // 201 Created, JSON body
-Response.created(newResource, "/things/42");      // 201 Created + Location header
+Response.created(newResource)
+    .withHeader("Location", "/things/42");        // 201 Created + Location header
 Response.accepted();                              // 202 Accepted, no body
 Response.accepted(Map.of("jobId", "job-42"));     // 202 Accepted, JSON body
 Response.notFound();                              // 404 Not Found, no body
