@@ -85,12 +85,8 @@ A `null` body always produces a status-only response (`Content-Length: 0`, no bo
 ``` java
 public class YourServerLauncher {
   public static void main(String[] args) throws Exception {
-    Gson gson = new Gson();
-
-    // Parse spec to a generic Map (works for JSON; for YAML use SnakeYAML).
-    String text = Files.readString(Path.of("openapi.json"));
-    Map<String, Object> raw = (Map<String, Object>) gson.fromJson(text, Map.class);
-    Spec spec = Spec.from(raw);
+    // Gson is on the classpath, so we can load the spec in one line.
+    Spec spec = Spec.fromPath(Path.of("openapi.json"));
 
     // Handlers by operationId.
     Map<String, RequestHandler> handlers = new HashMap<>();
@@ -106,12 +102,7 @@ public class YourServerLauncher {
 }
 ```
 
-### YAML specifications
-For YAML, replace the JSON parsing line with SnakeYAML:
-``` java
-Map<String, Object> raw = new Yaml().load(Files.newInputStream(Path.of("openapi.yaml")));
-```
-The rest is identical.
+`Spec.fromPath(Path)` picks the parser by file extension: `.json` is parsed by Gson, `.yaml` / `.yml` by SnakeYAML. Both are optional dependencies of this library — the same Gson that powers the built-in JSON `TypeMapper`, and the same SnakeYAML you'd add explicitly to parse YAML. If the required parser isn't on the classpath the call fails with `IllegalStateException`; parse the file yourself and use `Spec.from(Map<String, Object>)` instead. Any other extension is rejected.
 
 ### JSON mapping
 
