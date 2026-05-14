@@ -3,6 +3,7 @@ package com.retailsvc.http.internal;
 import com.retailsvc.http.ResponseBuilder;
 import com.retailsvc.http.TypeMapper;
 import com.sun.net.httpserver.HttpExchange;
+import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -41,18 +42,22 @@ public final class DefaultResponseBuilder implements ResponseBuilder {
   @Override
   public void empty() throws IOException {
     terminate();
-    applyHeaders();
-    exchange.sendResponseHeaders(status, -1);
+    try (exchange) {
+      applyHeaders();
+      exchange.sendResponseHeaders(status, -1);
+    }
   }
 
   @Override
   public void bytes(byte[] body) throws IOException {
     terminate();
-    applyHeaders();
-    exchange.sendResponseHeaders(status, body.length == 0 ? -1 : body.length);
-    if (body.length > 0) {
-      try (OutputStream out = exchange.getResponseBody()) {
-        out.write(body);
+    try (exchange) {
+      applyHeaders();
+      exchange.sendResponseHeaders(status, body.length == 0 ? -1 : body.length);
+      if (body.length > 0) {
+        try (OutputStream out = exchange.getResponseBody()) {
+          out.write(body);
+        }
       }
     }
   }
@@ -83,7 +88,7 @@ public final class DefaultResponseBuilder implements ResponseBuilder {
     terminate();
     applyHeaders();
     exchange.sendResponseHeaders(status, 0);
-    return exchange.getResponseBody();
+    return closingExchange(exchange.getResponseBody());
   }
 
   @Override
@@ -94,7 +99,27 @@ public final class DefaultResponseBuilder implements ResponseBuilder {
     terminate();
     applyHeaders();
     exchange.sendResponseHeaders(status, length);
-    return exchange.getResponseBody();
+    return closingExchange(exchange.getResponseBody());
+  }
+
+  /**
+   * Wraps the response body so the underlying {@link HttpExchange} is closed once the caller closes
+   * the stream.
+   */
+  private OutputStream closingExchange(OutputStream body) {
+    return new FilterOutputStream(body) {
+      @Override
+      public void write(byte[] b, int off, int len) throws IOException {
+        out.write(b, off, len);
+      }
+
+      @Override
+      public void close() throws IOException {
+        try (exchange) {
+          super.close();
+        }
+      }
+    };
   }
 
   private void terminate() {
