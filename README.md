@@ -40,6 +40,10 @@ public class PostDataHandler implements RequestHandler {
     byte[] body = request.bytes();
     // Or get the already-parsed object (Map / List) produced by the registered TypeMapper.
     Object parsed = request.parsed();
+    // Path parameters, query parameters, and headers are also available.
+    String id = request.pathParams().get("id");
+    String filter = request.queryParam("filter");
+    String corr = request.header("correlation-id");
 
     request.respond(200).json(parsed);
   }
