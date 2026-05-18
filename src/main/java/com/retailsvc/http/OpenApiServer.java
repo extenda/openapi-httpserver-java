@@ -43,21 +43,26 @@ public class OpenApiServer implements AutoCloseable {
   private final HttpServer httpServer;
   private final int shutdownTimeoutSeconds;
 
+  /** Internal grouping of handler-related configuration to keep the constructor signature small. */
+  record HandlerConfig(
+      Map<String, RequestHandler> handlers,
+      List<RequestInterceptor> interceptors,
+      List<ResponseDecorator> decorators,
+      ExceptionHandler exceptionHandler,
+      Map<String, HttpHandler> extras) {}
+
   OpenApiServer(
       Spec spec,
       Map<String, TypeMapper> bodyMappers,
-      Map<String, RequestHandler> handlers,
-      List<ResponseDecorator> decorators,
-      List<RequestInterceptor> interceptors,
-      ExceptionHandler exceptionHandler,
+      HandlerConfig handlerConfig,
       int port,
-      Map<String, HttpHandler> extras,
       int shutdownTimeoutSeconds)
       throws IOException {
 
     requireNonNull(spec, "Spec must not be null");
     requireNonNull(bodyMappers, "bodyMappers must not be null");
-    requireNonNull(handlers, "handlers must not be null");
+    requireNonNull(handlerConfig.handlers(), "handlers must not be null");
+    ExceptionHandler exceptionHandler = handlerConfig.exceptionHandler();
     if (exceptionHandler == null) {
       LOG.warn("No ExceptionHandler set, using default");
       exceptionHandler = Handlers.defaultExceptionHandler();
@@ -74,9 +79,13 @@ public class OpenApiServer implements AutoCloseable {
     ctx.getFilters().add(new ExceptionFilter(exceptionHandler));
     ctx.getFilters().add(new RequestPreparationFilter(spec, router, validator, bodyMappers));
     ctx.setHandler(
-        new DispatchHandler(handlers, interceptors, decorators, new ResponseRenderer(bodyMappers)));
+        new DispatchHandler(
+            handlerConfig.handlers(),
+            handlerConfig.interceptors(),
+            handlerConfig.decorators(),
+            new ResponseRenderer(bodyMappers)));
 
-    for (Map.Entry<String, HttpHandler> e : extras.entrySet()) {
+    for (Map.Entry<String, HttpHandler> e : handlerConfig.extras().entrySet()) {
       HttpContext extraCtx = httpServer.createContext(e.getKey());
       extraCtx.getFilters().add(new ExceptionFilter(exceptionHandler));
       extraCtx.setHandler(e.getValue());
@@ -146,7 +155,7 @@ public class OpenApiServer implements AutoCloseable {
     }
 
     public Builder jsonMapper(TypeMapper mapper) {
-      return bodyMapper("application/json", mapper);
+      return bodyMapper(JSON, mapper);
     }
 
     public Builder handlers(Map<String, RequestHandler> handlers) {
@@ -224,16 +233,9 @@ public class OpenApiServer implements AutoCloseable {
         }
       }
       Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
-      return new OpenApiServer(
-          spec,
-          resolved,
-          handlers,
-          decorators,
-          interceptors,
-          exceptionHandler,
-          port,
-          extras,
-          shutdownTimeoutSeconds);
+      HandlerConfig handlerConfig =
+          new HandlerConfig(handlers, interceptors, decorators, exceptionHandler, extras);
+      return new OpenApiServer(spec, resolved, handlerConfig, port, shutdownTimeoutSeconds);
     }
 
     private static Map<String, TypeMapper> resolveBodyMappers(

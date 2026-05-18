@@ -6,7 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 /**
  * Read-only per-request handle passed to {@link RequestHandler}. Carries the parsed body, path
@@ -28,7 +28,7 @@ public final class Request {
   private final String operationId;
   private final Map<String, String> pathParameters;
   private final String rawQuery;
-  private final Function<String, String> headerLookup;
+  private final UnaryOperator<String> headerLookup;
   private Map<String, String> queryParamCache;
 
   /**
@@ -51,7 +51,7 @@ public final class Request {
       String operationId,
       Map<String, String> pathParameters,
       String rawQuery,
-      Function<String, String> headerLookup) {
+      UnaryOperator<String> headerLookup) {
     this.body = body;
     this.parsed = parsed;
     this.bodyMapper = bodyMapper;

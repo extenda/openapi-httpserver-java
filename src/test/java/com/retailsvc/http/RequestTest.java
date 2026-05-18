@@ -8,14 +8,14 @@ import com.retailsvc.http.internal.DispatchHandler;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.Test;
 
 class RequestTest {
 
-  private static final Function<String, String> NO_HEADERS = name -> null;
+  private static final UnaryOperator<String> NO_HEADERS = name -> null;
 
-  private static Function<String, String> headers(String... pairs) {
+  private static UnaryOperator<String> headers(String... pairs) {
     Map<String, String> map = new java.util.HashMap<>();
     for (int i = 0; i < pairs.length; i += 2) {
       map.put(pairs[i].toLowerCase(), pairs[i + 1]);

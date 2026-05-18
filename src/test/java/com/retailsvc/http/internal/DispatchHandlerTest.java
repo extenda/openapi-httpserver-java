@@ -29,8 +29,7 @@ class DispatchHandlerTest {
     return new DispatchHandler(handlers, List.of(), List.of(), new ResponseRenderer(Map.of()));
   }
 
-  private static void withRequest(
-      HttpExchange exchange, String operationId, ScopedValue.CallableOp<Void, Exception> body)
+  private static void withRequest(String operationId, ScopedValue.CallableOp<Void, Exception> body)
       throws Exception {
     Request req = new Request(new byte[0], null, null, operationId, Map.of(), null, n -> null);
     ScopedValue.where(DispatchHandler.CURRENT, req).call(body);
@@ -47,7 +46,6 @@ class DispatchHandlerTest {
     HttpExchange ex = stubExchange();
 
     withRequest(
-        ex,
         "get-x",
         () -> {
           dispatcher(Map.of("get-x", handler)).handle(ex);
@@ -65,7 +63,6 @@ class DispatchHandlerTest {
     assertThatThrownBy(
             () ->
                 withRequest(
-                    ex,
                     "ghost",
                     () -> {
                       d.handle(ex);
