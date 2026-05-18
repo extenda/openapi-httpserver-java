@@ -213,6 +213,112 @@ class SecurityFilterTest {
         .isEqualTo("ApiKey location=header, name=\"X-API-Key\"");
   }
 
+  @Test
+  void andGroupRequiresAllSchemesToSucceed() throws Exception {
+    // Group requires both apiKeyAuth AND bearerAuth.
+    Operation op =
+        new Operation(
+            "getX",
+            HttpMethod.GET,
+            null,
+            Optional.empty(),
+            List.of(),
+            Map.of(),
+            Map.of(),
+            Optional.of(
+                List.of(
+                    new SecurityRequirement(
+                        Map.of("apiKeyAuth", List.of(), "bearerAuth", List.of())))));
+
+    Map<String, SecurityScheme> schemes =
+        Map.of(
+            "apiKeyAuth", new ApiKey("X-API-Key", Location.HEADER),
+            "bearerAuth", new HttpBearer(Optional.empty()));
+
+    Map<String, SchemeValidator> validators =
+        Map.of(
+            "apiKeyAuth", (req, cred) -> Optional.of("api-principal"),
+            "bearerAuth", (req, cred) -> Optional.of("bearer-principal"));
+
+    SecurityFilter filter =
+        new SecurityFilter(Map.of("getX", op), schemes, List.of(), validators, false);
+
+    HttpExchange ex = mock(HttpExchange.class);
+    Headers headers = new Headers();
+    headers.add("X-API-Key", "abc");
+    headers.add("Authorization", "Bearer token");
+    when(ex.getRequestHeaders()).thenReturn(headers);
+    when(ex.getRequestURI()).thenReturn(URI.create("http://h/getX"));
+
+    Map<String, Object> captured = new java.util.HashMap<>();
+    Chain chain = mock(Chain.class);
+    doAnswer(
+            inv -> {
+              captured.putAll(DispatchHandler.CURRENT.get().principals());
+              return null;
+            })
+        .when(chain)
+        .doFilter(ex);
+
+    ScopedValueHarness.runWith(newMinimalRequest("getX"), () -> filter.doFilter(ex, chain));
+
+    assertThat(captured)
+        .containsEntry("apiKeyAuth", "api-principal")
+        .containsEntry("bearerAuth", "bearer-principal");
+  }
+
+  @Test
+  void orFallsBackToSecondGroupWhenFirstDenied() throws Exception {
+    // [{apiKeyAuth}, {bearerAuth}] — first group denied, second allowed.
+    Operation op =
+        new Operation(
+            "getX",
+            HttpMethod.GET,
+            null,
+            Optional.empty(),
+            List.of(),
+            Map.of(),
+            Map.of(),
+            Optional.of(
+                List.of(
+                    new SecurityRequirement(Map.of("apiKeyAuth", List.of())),
+                    new SecurityRequirement(Map.of("bearerAuth", List.of())))));
+
+    Map<String, SecurityScheme> schemes =
+        Map.of(
+            "apiKeyAuth", new ApiKey("X-API-Key", Location.HEADER),
+            "bearerAuth", new HttpBearer(Optional.empty()));
+
+    Map<String, SchemeValidator> validators =
+        Map.of(
+            "apiKeyAuth", (req, cred) -> Optional.empty(),
+            "bearerAuth", (req, cred) -> Optional.of("bearer-ok"));
+
+    SecurityFilter filter =
+        new SecurityFilter(Map.of("getX", op), schemes, List.of(), validators, false);
+
+    HttpExchange ex = mock(HttpExchange.class);
+    Headers headers = new Headers();
+    headers.add("X-API-Key", "bad");
+    headers.add("Authorization", "Bearer token");
+    when(ex.getRequestHeaders()).thenReturn(headers);
+    when(ex.getRequestURI()).thenReturn(URI.create("http://h/getX"));
+
+    Map<String, Object> captured = new java.util.HashMap<>();
+    Chain chain = mock(Chain.class);
+    doAnswer(
+            inv -> {
+              captured.putAll(DispatchHandler.CURRENT.get().principals());
+              return null;
+            })
+        .when(chain)
+        .doFilter(ex);
+
+    ScopedValueHarness.runWith(newMinimalRequest("getX"), () -> filter.doFilter(ex, chain));
+
+    assertThat(captured).containsEntry("bearerAuth", "bearer-ok").doesNotContainKey("apiKeyAuth");
+  }
+
   private static Request newMinimalRequest(String operationId) {
     return new Request(new byte[0], null, null, operationId, Map.of(), null, h -> null);
   }
