@@ -1,5 +1,8 @@
 package com.retailsvc.http.internal;
 
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
+import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
+
 import com.retailsvc.http.Request;
 import com.retailsvc.http.SchemeValidator;
 import com.retailsvc.http.spec.Operation;
@@ -109,7 +112,7 @@ public final class SecurityFilter extends Filter {
   private void renderRejection(HttpExchange exchange, List<GroupOutcome.Failed> failures)
       throws IOException {
     boolean anyDenied = failures.stream().anyMatch(f -> f.kind() == FailureKind.DENIED);
-    int status = anyDenied ? 403 : 401;
+    int status = anyDenied ? HTTP_FORBIDDEN : HTTP_UNAUTHORIZED;
     String title = anyDenied ? "Forbidden" : "Unauthorized";
 
     GroupOutcome.Failed pick =
@@ -146,12 +149,8 @@ public final class SecurityFilter extends Filter {
     return switch (scheme) {
       case SecurityScheme.HttpBearer _ -> "Bearer realm=\"api\"";
       case SecurityScheme.HttpBasic _ -> "Basic realm=\"api\"";
-      case SecurityScheme.ApiKey ak ->
-          "ApiKey location="
-              + ak.location().name().toLowerCase(Locale.ROOT)
-              + ", name=\""
-              + ak.name()
-              + "\"";
+      case SecurityScheme.ApiKey(String name, SecurityScheme.ApiKey.Location location) ->
+          "ApiKey location=" + location.name().toLowerCase(Locale.ROOT) + ", name=\"" + name + "\"";
       case SecurityScheme.Unsupported _ ->
           throw new IllegalStateException(
               "Unsupported scheme reached challenge rendering for '" + schemeName + "'");
