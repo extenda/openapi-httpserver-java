@@ -18,7 +18,7 @@ import java.util.Objects;
  * <pre>{@code
  * OpenApiServer.builder()
  *     .spec(spec)
- *     .bodyMapper("application/json", new JacksonJsonTypeMapper(myObjectMapper))
+ *     .bodyMapper("application/json", new Jackson2JsonTypeMapper(myObjectMapper))
  *     .handlers(handlers)
  *     .build();
  * }</pre>
@@ -27,11 +27,11 @@ import java.util.Objects;
  * must declare {@code jackson-databind} themselves. Consumers that use Gson can rely on the
  * built-in {@code GsonJsonMapper} auto-fallback instead.
  */
-public final class JacksonJsonTypeMapper implements TypedTypeMapper {
+public final class Jackson2JsonTypeMapper implements TypedTypeMapper {
 
   private final ObjectMapper mapper;
 
-  public JacksonJsonTypeMapper(ObjectMapper mapper) {
+  public Jackson2JsonTypeMapper(ObjectMapper mapper) {
     this.mapper = Objects.requireNonNull(mapper, "mapper must not be null");
   }
 

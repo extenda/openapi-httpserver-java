@@ -59,7 +59,7 @@ class RequestTest {
 
   @Test
   void asPojoDeserialisesViaTypedMapper() {
-    JacksonJsonTypeMapper mapper = new JacksonJsonTypeMapper(new ObjectMapper());
+    Jackson2JsonTypeMapper mapper = new Jackson2JsonTypeMapper(new ObjectMapper());
     byte[] body = "{\"id\":\"x-1\",\"qty\":7}".getBytes(StandardCharsets.UTF_8);
     Request req =
         new Request(

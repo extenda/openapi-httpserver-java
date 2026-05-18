@@ -24,7 +24,7 @@ It is designed to be simple to use while providing the essential features needed
 - An OpenAPI 3.1.x specification (`openapi.json` or `openapi.yaml`).
 - For `application/json` request/response bodies, either:
   - Gson on the classpath — auto-registered via the built-in `GsonJsonMapper` (integer-preserving, JSR-310 written as ISO-8601), or
-  - Jackson via the built-in `JacksonJsonTypeMapper(ObjectMapper)` adapter (caller supplies a configured `ObjectMapper`), or
+  - Jackson via the built-in adapters — `Jackson2JsonTypeMapper(ObjectMapper)` for Jackson 2.x (`com.fasterxml.jackson.*`) or `Jackson3JsonTypeMapper(ObjectMapper)` for Jackson 3.x (`tools.jackson.*`). Caller supplies a configured `ObjectMapper`; the two adapters use disjoint package roots and can coexist on the same classpath.
   - any other `TypeMapper` you register via `Builder.jsonMapper(mapper)` (shortcut for `bodyMapper("application/json", mapper)`).
 - Built-in mappers for `application/x-www-form-urlencoded` and `text/plain` need no configuration. Any other media type (`application/xml`, `application/cbor`, etc.) requires registering its own `TypeMapper`.
 
@@ -123,19 +123,41 @@ The library ships an internal `GsonJsonMapper` that is auto-registered for `appl
 - For `request.asPojo(MyDto.class)`, delegates to Gson — the target type's fields determine the Java types (`int`, `long`, `Instant`, etc.).
 - Round-trips JSR-310 types (`Instant`, `OffsetDateTime`, `ZonedDateTime`, `LocalDateTime`, `LocalDate`, `LocalTime`) as their ISO-8601 string form.
 
-For Jackson, the library ships a `JacksonJsonTypeMapper` adapter that wraps an `ObjectMapper` you configure (modules, naming strategy, JSR-310, date formats — all your call):
+For Jackson, the library ships two adapters that wrap an `ObjectMapper` you configure (modules, naming strategy, JSR-310, date formats — all your call). Pick the one that matches your Jackson major:
 
-``` java
+```java
+// Jackson 2.x  (group: com.fasterxml.jackson.core)
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 ObjectMapper objectMapper = new ObjectMapper()
     .registerModule(new JavaTimeModule())
     .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
 var server = OpenApiServer.builder()
     .spec(spec)
-    .jsonMapper(new JacksonJsonTypeMapper(objectMapper))
+    .jsonMapper(new Jackson2JsonTypeMapper(objectMapper))
     .handlers(handlers)
     .build();
 ```
+
+```java
+// Jackson 3.x  (group: tools.jackson.core)
+import tools.jackson.databind.ObjectMapper;
+
+ObjectMapper objectMapper = ObjectMapper.builder()
+    // ... configure modules, features, etc.
+    .build();
+
+var server = OpenApiServer.builder()
+    .spec(spec)
+    .jsonMapper(new Jackson3JsonTypeMapper(objectMapper))
+    .handlers(handlers)
+    .build();
+```
+
+Jackson 3 made all I/O exceptions unchecked (`tools.jackson.core.JacksonException extends RuntimeException`), so `Jackson3JsonTypeMapper` propagates read/write failures as-is. `Jackson2JsonTypeMapper` wraps Jackson 2's checked `IOException` in `UncheckedIOException`.
 
 The same shape applies to any custom mapper — implement `TypeMapper` (and optionally `TypedTypeMapper` if you can deserialise directly into a target type, so handlers can call `request.asPojo(MyDto.class)`).
 
