@@ -102,6 +102,14 @@ public final class Request {
             + " does not support typed conversion; the mapper must implement TypedTypeMapper");
   }
 
+  /**
+   * Value of the {@code Content-Type} request header, or {@link Optional#empty()} if absent or
+   * blank. Convenience for {@code header("Content-Type")} — the most frequently inspected header.
+   */
+  public Optional<String> contentType() {
+    return header(CONTENT_TYPE);
+  }
+
   public String operationId() {
     return operationId;
   }

@@ -178,6 +178,28 @@ class RequestTest {
   }
 
   @Test
+  void contentTypeShortcutsContentTypeHeader() {
+    Request req =
+        new Request(
+            new byte[0],
+            null,
+            null,
+            "op",
+            Map.of(),
+            null,
+            headers("Content-Type", "application/json"));
+
+    assertThat(req.contentType()).contains("application/json");
+  }
+
+  @Test
+  void contentTypeEmptyWhenHeaderAbsent() {
+    Request req = new Request(new byte[0], null, null, "op", Map.of(), null, NO_HEADERS);
+
+    assertThat(req.contentType()).isEmpty();
+  }
+
+  @Test
   void headerReturnsOptionalAndBlankIsAbsent() {
     Request req =
         new Request(
