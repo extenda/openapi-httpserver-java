@@ -10,9 +10,9 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-class JacksonJsonTypeMapperTest {
+class Jackson2JsonTypeMapperTest {
 
-  private final JacksonJsonTypeMapper mapper = new JacksonJsonTypeMapper(new ObjectMapper());
+  private final Jackson2JsonTypeMapper mapper = new Jackson2JsonTypeMapper(new ObjectMapper());
 
   @Test
   void readsJsonObjectAsMap() {
@@ -43,7 +43,7 @@ class JacksonJsonTypeMapperTest {
 
   @Test
   void rejectsNullObjectMapper() {
-    assertThatThrownBy(() -> new JacksonJsonTypeMapper(null))
+    assertThatThrownBy(() -> new Jackson2JsonTypeMapper(null))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("mapper");
   }
