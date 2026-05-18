@@ -14,6 +14,8 @@ import com.retailsvc.http.internal.SecurityFilter;
 import com.retailsvc.http.internal.TextTypeMapper;
 import com.retailsvc.http.spec.Operation;
 import com.retailsvc.http.spec.Spec;
+import com.retailsvc.http.spec.security.SecurityRequirement;
+import com.retailsvc.http.spec.security.SecurityScheme;
 import com.retailsvc.http.validate.DefaultValidator;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
@@ -22,10 +24,12 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -274,6 +278,9 @@ public class OpenApiServer implements AutoCloseable {
               "extra handler path " + path + " conflicts with spec basePath " + basePath);
         }
       }
+      if (!externalAuth) {
+        validateSecurityWiring(spec, securityValidators);
+      }
       Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
       HandlerConfig handlerConfig =
           new HandlerConfig(
@@ -285,6 +292,30 @@ public class OpenApiServer implements AutoCloseable {
               Map.copyOf(securityValidators),
               externalAuth);
       return new OpenApiServer(spec, resolved, handlerConfig, port, shutdownTimeoutSeconds);
+    }
+
+    private static void validateSecurityWiring(Spec spec, Map<String, SchemeValidator> validators) {
+      Set<String> referenced = new LinkedHashSet<>();
+      for (Operation op : spec.operations()) {
+        for (SecurityRequirement req : op.security().orElse(spec.security())) {
+          referenced.addAll(req.schemes().keySet());
+        }
+      }
+      for (String name : referenced) {
+        SecurityScheme scheme = spec.securitySchemes().get(name);
+        if (scheme == null) {
+          throw new IllegalStateException(
+              "security requirement references unknown scheme '" + name + "'");
+        }
+        if (scheme instanceof SecurityScheme.Unsupported u) {
+          throw new IllegalStateException(
+              "scheme '" + name + "' uses unsupported type '" + u.type() + "'");
+        }
+        if (!validators.containsKey(name)) {
+          throw new IllegalStateException(
+              "no SchemeValidator registered for security scheme '" + name + "'");
+        }
+      }
     }
 
     private static Map<String, TypeMapper> resolveBodyMappers(
