@@ -36,7 +36,6 @@ public final class SecuritySchemeParser {
     return new ApiKey(name, Location.valueOf(in.toUpperCase(Locale.ROOT)));
   }
 
-  @SuppressWarnings("unchecked")
   public static List<SecurityRequirement> parseRequirements(List<Object> raw) {
     if (raw == null || raw.isEmpty()) {
       return List.of();
