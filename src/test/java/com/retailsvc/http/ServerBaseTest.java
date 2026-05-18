@@ -12,6 +12,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublisher;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -43,9 +44,29 @@ public abstract class ServerBaseTest {
     Optional.ofNullable(server).ifPresent(OpenApiServer::close);
   }
 
+  protected OpenApiServer.Builder newBuilder() {
+    return OpenApiServer.builder()
+        .securityValidator("apiKeyAuth", (req, cred) -> Optional.empty())
+        .securityValidator("bearerAuth", (req, cred) -> Optional.empty())
+        .securityValidator("basicAuth", (req, cred) -> Optional.empty());
+  }
+
   protected OpenApiServer newServer(Map<String, RequestHandler> handlers) {
+    Map<String, RequestHandler> all = new HashMap<>(handlers);
+    all.putIfAbsent("secureApiKey", req -> Response.status(200));
+    all.putIfAbsent("secureBearer", req -> Response.status(200));
+    all.putIfAbsent("secureBasic", req -> Response.status(200));
+    all.putIfAbsent("secureOpen", req -> Response.status(200));
     try {
-      server = OpenApiServer.builder().spec(spec).handlers(handlers).port(0).build();
+      server =
+          OpenApiServer.builder()
+              .spec(spec)
+              .handlers(all)
+              .securityValidator("apiKeyAuth", (req, cred) -> Optional.empty())
+              .securityValidator("bearerAuth", (req, cred) -> Optional.empty())
+              .securityValidator("basicAuth", (req, cred) -> Optional.empty())
+              .port(0)
+              .build();
       return server;
     } catch (Exception e) {
       fail(e);

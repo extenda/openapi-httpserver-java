@@ -20,7 +20,7 @@ class RequestResponseGatewayTest extends ServerBaseTest {
   void respondJsonWritesBodyAndContentType() throws Exception {
     RequestHandler echo = req -> Response.ok(Map.of("op", req.operationId()));
     server =
-        OpenApiServer.builder()
+        newBuilder()
             .spec(spec)
             .handlers(Map.of("get-data", echo, "post-data", echo))
             .port(0)
@@ -47,11 +47,7 @@ class RequestResponseGatewayTest extends ServerBaseTest {
   void respondEmptyUses204Style() throws Exception {
     RequestHandler ok = req -> Response.status(HTTP_NO_CONTENT);
     server =
-        OpenApiServer.builder()
-            .spec(spec)
-            .handlers(Map.of("get-data", ok, "post-data", ok))
-            .port(0)
-            .build();
+        newBuilder().spec(spec).handlers(Map.of("get-data", ok, "post-data", ok)).port(0).build();
     var resp =
         HttpClient.newHttpClient()
             .send(
@@ -78,7 +74,7 @@ class RequestResponseGatewayTest extends ServerBaseTest {
                   out.write("world".getBytes());
                 });
     server =
-        OpenApiServer.builder()
+        newBuilder()
             .spec(spec)
             .handlers(Map.of("get-data", streamer, "post-data", streamer))
             .port(0)

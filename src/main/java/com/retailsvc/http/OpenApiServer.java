@@ -10,8 +10,12 @@ import com.retailsvc.http.internal.FormTypeMapper;
 import com.retailsvc.http.internal.RequestPreparationFilter;
 import com.retailsvc.http.internal.ResponseRenderer;
 import com.retailsvc.http.internal.Router;
+import com.retailsvc.http.internal.SecurityFilter;
 import com.retailsvc.http.internal.TextTypeMapper;
+import com.retailsvc.http.spec.Operation;
 import com.retailsvc.http.spec.Spec;
+import com.retailsvc.http.spec.security.SecurityRequirement;
+import com.retailsvc.http.spec.security.SecurityScheme;
 import com.retailsvc.http.validate.DefaultValidator;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
@@ -20,10 +24,13 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +56,9 @@ public class OpenApiServer implements AutoCloseable {
       List<RequestInterceptor> interceptors,
       List<ResponseDecorator> decorators,
       ExceptionHandler exceptionHandler,
-      Map<String, HttpHandler> extras) {}
+      Map<String, HttpHandler> extras,
+      Map<String, SchemeValidator> securityValidators,
+      boolean externalAuth) {}
 
   OpenApiServer(
       Spec spec,
@@ -70,6 +79,9 @@ public class OpenApiServer implements AutoCloseable {
 
     long t0 = System.currentTimeMillis();
     Router router = new Router(spec.operations());
+    Map<String, Operation> operationsById =
+        spec.operations().stream()
+            .collect(Collectors.toUnmodifiableMap(Operation::operationId, op -> op));
     DefaultValidator validator = new DefaultValidator(spec::resolveSchema);
 
     this.httpServer = HttpServer.create(new InetSocketAddress(port), 0);
@@ -78,6 +90,14 @@ public class OpenApiServer implements AutoCloseable {
     HttpContext ctx = httpServer.createContext(Optional.ofNullable(spec.basePath()).orElse("/"));
     ctx.getFilters().add(new ExceptionFilter(exceptionHandler));
     ctx.getFilters().add(new RequestPreparationFilter(spec, router, validator, bodyMappers));
+    ctx.getFilters()
+        .add(
+            new SecurityFilter(
+                operationsById,
+                spec.securitySchemes(),
+                spec.security(),
+                handlerConfig.securityValidators(),
+                handlerConfig.externalAuth()));
     ctx.setHandler(
         new DispatchHandler(
             handlerConfig.handlers(),
@@ -139,6 +159,8 @@ public class OpenApiServer implements AutoCloseable {
     private int port = DEFAULT_PORT;
     private int shutdownTimeoutSeconds = 0;
     private final LinkedHashMap<String, HttpHandler> extras = new LinkedHashMap<>();
+    private final Map<String, SchemeValidator> securityValidators = new LinkedHashMap<>();
+    private boolean externalAuth = false;
 
     private Builder() {}
 
@@ -179,6 +201,30 @@ public class OpenApiServer implements AutoCloseable {
      */
     public Builder interceptor(RequestInterceptor interceptor) {
       interceptors.add(requireNonNull(interceptor, "interceptor must not be null"));
+      return this;
+    }
+
+    /**
+     * Registers a {@link SchemeValidator} for the OpenAPI security scheme named {@code schemeName}.
+     * The library extracts a {@link Credential} per request and hands it to this callback; return a
+     * non-empty {@link Optional} carrying the principal on success, or {@link Optional#empty()} to
+     * deny. Library renders 401/403 on denial.
+     */
+    public Builder securityValidator(String schemeName, SchemeValidator validator) {
+      requireNonNull(schemeName, "schemeName must not be null");
+      requireNonNull(validator, "validator must not be null");
+      securityValidators.put(schemeName, validator);
+      return this;
+    }
+
+    /**
+     * Opts out of in-process security enforcement. Use when an external sidecar (OPA/Envoy etc.)
+     * authenticates requests upstream. The library still parses {@code securitySchemes} into the
+     * {@link Spec}, but {@code SecurityFilter} short-circuits and the boot-time
+     * validator-registration check is skipped.
+     */
+    public Builder useExternalAuthentication() {
+      this.externalAuth = true;
       return this;
     }
 
@@ -232,10 +278,44 @@ public class OpenApiServer implements AutoCloseable {
               "extra handler path " + path + " conflicts with spec basePath " + basePath);
         }
       }
+      if (!externalAuth) {
+        validateSecurityWiring(spec, securityValidators);
+      }
       Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
       HandlerConfig handlerConfig =
-          new HandlerConfig(handlers, interceptors, decorators, exceptionHandler, extras);
+          new HandlerConfig(
+              handlers,
+              interceptors,
+              decorators,
+              exceptionHandler,
+              extras,
+              Map.copyOf(securityValidators),
+              externalAuth);
       return new OpenApiServer(spec, resolved, handlerConfig, port, shutdownTimeoutSeconds);
+    }
+
+    private static void validateSecurityWiring(Spec spec, Map<String, SchemeValidator> validators) {
+      Set<String> referenced = new LinkedHashSet<>();
+      for (Operation op : spec.operations()) {
+        for (SecurityRequirement req : op.security().orElse(spec.security())) {
+          referenced.addAll(req.schemes().keySet());
+        }
+      }
+      for (String name : referenced) {
+        SecurityScheme scheme = spec.securitySchemes().get(name);
+        if (scheme == null) {
+          throw new IllegalStateException(
+              "security requirement references unknown scheme '" + name + "'");
+        }
+        if (scheme instanceof SecurityScheme.Unsupported u) {
+          throw new IllegalStateException(
+              "scheme '" + name + "' uses unsupported type '" + u.type() + "'");
+        }
+        if (!validators.containsKey(name)) {
+          throw new IllegalStateException(
+              "no SchemeValidator registered for security scheme '" + name + "'");
+        }
+      }
     }
 
     private static Map<String, TypeMapper> resolveBodyMappers(

@@ -70,4 +70,129 @@ class SpecTest {
     Spec spec = Spec.from(loadJson("openapi.json"));
     assertThat(spec.operations()).isNotEmpty();
   }
+
+  @Test
+  void parsesSecuritySchemesFromComponents() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi", "3.1.0",
+            "info", Map.of("title", "T", "version", "1"),
+            "servers", List.of(Map.of("url", "/v1")),
+            "paths", Map.of(),
+            "components",
+                Map.of(
+                    "securitySchemes",
+                    Map.of(
+                        "apiKeyAuth",
+                        Map.of("type", "apiKey", "name", "X-API-Key", "in", "header"))));
+
+    Spec spec = Spec.from(raw);
+
+    assertThat(spec.securitySchemes()).containsKey("apiKeyAuth");
+  }
+
+  @Test
+  void parsesRootSecurity() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi", "3.1.0",
+            "info", Map.of("title", "T", "version", "1"),
+            "servers", List.of(Map.of("url", "/v1")),
+            "paths", Map.of(),
+            "security", List.of(Map.of("bearerAuth", List.of())));
+
+    Spec spec = Spec.from(raw);
+
+    assertThat(spec.security()).hasSize(1);
+  }
+
+  @Test
+  void securitySchemesDefaultsEmpty() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi", "3.1.0",
+            "info", Map.of("title", "T", "version", "1"),
+            "servers", List.of(Map.of("url", "/v1")),
+            "paths", Map.of());
+
+    Spec spec = Spec.from(raw);
+
+    assertThat(spec.securitySchemes()).isEmpty();
+    assertThat(spec.security()).isEmpty();
+  }
+
+  @Test
+  void operationLevelSecurityOverridesRoot() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi", "3.1.0",
+            "info", Map.of("title", "T", "version", "1"),
+            "servers", List.of(Map.of("url", "/v1")),
+            "security", List.of(Map.of("bearerAuth", List.of())),
+            "paths",
+                Map.of(
+                    "/x",
+                    Map.of(
+                        "get",
+                        Map.of(
+                            "operationId", "getX",
+                            "security", List.of(Map.of("apiKey", List.of())),
+                            "responses", Map.of("200", Map.of("description", "ok"))))));
+
+    Spec spec = Spec.from(raw);
+    Operation op = spec.operations().getFirst();
+
+    assertThat(op.security()).isPresent();
+    assertThat(op.security().get()).hasSize(1);
+    assertThat(op.security().get().get(0).schemes()).containsKey("apiKey");
+  }
+
+  @Test
+  void operationEmptySecurityIsPreserved() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi", "3.1.0",
+            "info", Map.of("title", "T", "version", "1"),
+            "servers", List.of(Map.of("url", "/v1")),
+            "security", List.of(Map.of("bearerAuth", List.of())),
+            "paths",
+                Map.of(
+                    "/x",
+                    Map.of(
+                        "get",
+                        Map.of(
+                            "operationId", "getX",
+                            "security", List.of(),
+                            "responses", Map.of("200", Map.of("description", "ok"))))));
+
+    Spec spec = Spec.from(raw);
+    Operation op = spec.operations().getFirst();
+
+    assertThat(op.security()).isPresent();
+    assertThat(op.security().get()).isEmpty();
+  }
+
+  @Test
+  void operationWithoutSecurityIsEmptyOptional() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi", "3.1.0",
+            "info", Map.of("title", "T", "version", "1"),
+            "servers", List.of(Map.of("url", "/v1")),
+            "paths",
+                Map.of(
+                    "/x",
+                    Map.of(
+                        "get",
+                        Map.of(
+                            "operationId",
+                            "getX",
+                            "responses",
+                            Map.of("200", Map.of("description", "ok"))))));
+
+    Spec spec = Spec.from(raw);
+    Operation op = spec.operations().getFirst();
+
+    assertThat(op.security()).isEmpty();
+  }
 }

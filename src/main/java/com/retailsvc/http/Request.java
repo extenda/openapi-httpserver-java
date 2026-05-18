@@ -29,6 +29,7 @@ public final class Request {
   private final Map<String, String> pathParameters;
   private final String rawQuery;
   private final UnaryOperator<String> headerLookup;
+  private final Map<String, Object> principals;
   private Map<String, String> queryParamCache;
 
   /**
@@ -52,6 +53,35 @@ public final class Request {
       Map<String, String> pathParameters,
       String rawQuery,
       UnaryOperator<String> headerLookup) {
+    this(body, parsed, bodyMapper, operationId, pathParameters, rawQuery, headerLookup, Map.of());
+  }
+
+  /**
+   * Builds a {@code Request} from transport-neutral primitives with an explicit principals map.
+   *
+   * @param body raw request body bytes; never {@code null}, may be empty
+   * @param parsed loose structural view of the body (Map / List / boxed primitive), or {@code null}
+   * @param bodyMapper {@link TypeMapper} that produced {@code parsed}, used for typed conversion;
+   *     may be {@code null} if there is no body
+   * @param operationId the OpenAPI {@code operationId} the request was routed to
+   * @param pathParameters path variables extracted by the router
+   * @param rawQuery raw (percent-encoded) query string, or {@code null} if absent
+   * @param headerLookup first-value, case-insensitive header lookup; returns {@code null} if absent
+   * @param principals principals stashed by the security filter, keyed by scheme name
+   */
+  // Request is transport-neutral and assembled from primitives at the adapter boundary; collapsing
+  // these into a holder type would just move the parameter count one level out without simplifying
+  // the call site, so the 8-arg constructor is preferred over the rule's 7-param limit.
+  @SuppressWarnings("java:S107")
+  public Request(
+      byte[] body,
+      Object parsed,
+      TypeMapper bodyMapper,
+      String operationId,
+      Map<String, String> pathParameters,
+      String rawQuery,
+      UnaryOperator<String> headerLookup,
+      Map<String, Object> principals) {
     this.body = body;
     this.parsed = parsed;
     this.bodyMapper = bodyMapper;
@@ -59,6 +89,7 @@ public final class Request {
     this.pathParameters = pathParameters;
     this.rawQuery = rawQuery;
     this.headerLookup = headerLookup;
+    this.principals = Map.copyOf(principals);
   }
 
   public byte[] bytes() {
@@ -161,6 +192,29 @@ public final class Request {
   public Optional<String> queryParam(String name) {
     String raw = queryParams().get(name);
     return raw == null || raw.isBlank() ? Optional.empty() : Optional.of(raw);
+  }
+
+  /**
+   * Principals stashed by {@code SecurityFilter}, keyed by securityScheme name. Empty when the
+   * request had no security requirements or when {@code useExternalAuthentication()} is set.
+   */
+  public Map<String, Object> principals() {
+    return principals;
+  }
+
+  /** Convenience for the common single-scheme case. */
+  public Optional<Object> principal(String schemeName) {
+    return Optional.ofNullable(principals.get(schemeName));
+  }
+
+  /**
+   * Returns a new {@code Request} identical to this one except with the supplied principals. Used
+   * by {@code SecurityFilter} on success; the returned instance carries the principals through to
+   * the {@link RequestHandler}.
+   */
+  public Request withPrincipals(Map<String, Object> principals) {
+    return new Request(
+        body, parsed, bodyMapper, operationId, pathParameters, rawQuery, headerLookup, principals);
   }
 
   private static Map<String, String> parseQuery(String query) {

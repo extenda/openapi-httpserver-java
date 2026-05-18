@@ -13,7 +13,14 @@ import org.junit.jupiter.api.Test;
 class RouterTest {
   private Operation op(String id, HttpMethod m, String path) {
     return new Operation(
-        id, m, PathTemplate.compile(path), Optional.empty(), List.of(), Map.of(), Map.of());
+        id,
+        m,
+        PathTemplate.compile(path),
+        Optional.empty(),
+        List.of(),
+        Map.of(),
+        Map.of(),
+        Optional.empty());
   }
 
   @Test

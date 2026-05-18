@@ -2,6 +2,9 @@ package com.retailsvc.http.spec;
 
 import com.retailsvc.http.spec.schema.Schema;
 import com.retailsvc.http.spec.schema.SchemaParser;
+import com.retailsvc.http.spec.security.SecurityRequirement;
+import com.retailsvc.http.spec.security.SecurityScheme;
+import com.retailsvc.http.spec.security.SecuritySchemeParser;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
@@ -25,9 +28,12 @@ public record Spec(
     String basePath,
     Map<String, Schema> schemaRefIndex,
     Map<String, Parameter> parameterRefIndex,
-    Map<String, Object> extensions) {
+    Map<String, Object> extensions,
+    Map<String, SecurityScheme> securitySchemes,
+    List<SecurityRequirement> security) {
 
   private static final String SCHEMA_KEY = "schema";
+  private static final String SECURITY_KEY = "security";
   private static final String SCHEMA_REF_PREFIX = "#/components/schemas/";
   private static final String PARAMETER_REF_PREFIX = "#/components/parameters/";
 
@@ -138,6 +144,15 @@ public record Spec(
     List<Operation> operations =
         parseOperations(
             (Map<String, Object>) raw.getOrDefault("paths", Map.of()), componentParameters);
+    Map<String, Object> rawSchemes =
+        (Map<String, Object>) rawComponents.getOrDefault("securitySchemes", Map.of());
+    Map<String, SecurityScheme> securitySchemes = new LinkedHashMap<>();
+    for (var entry : rawSchemes.entrySet()) {
+      securitySchemes.put(
+          entry.getKey(), SecuritySchemeParser.parse((Map<String, Object>) entry.getValue()));
+    }
+    List<SecurityRequirement> rootSecurity =
+        SecuritySchemeParser.parseRequirements((List<Object>) raw.get(SECURITY_KEY));
     return new Spec(
         openapi,
         info,
@@ -148,7 +163,9 @@ public record Spec(
         computeBasePath(servers),
         indexByRef(componentSchemas, SCHEMA_REF_PREFIX),
         indexByRef(componentParameters, PARAMETER_REF_PREFIX),
-        extractExtensions(raw));
+        extractExtensions(raw),
+        Map.copyOf(securitySchemes),
+        rootSecurity);
   }
 
   private static String computeBasePath(List<Server> servers) {
@@ -269,7 +286,13 @@ public record Spec(
             .orElse(List.of());
     Map<String, Response> responses =
         parseResponses((Map<String, Object>) raw.getOrDefault("responses", Map.of()));
-    return new Operation(opId, method, path, body, params, responses, extractExtensions(raw));
+    Optional<List<SecurityRequirement>> opSecurity =
+        raw.containsKey(SECURITY_KEY)
+            ? Optional.of(
+                SecuritySchemeParser.parseRequirements((List<Object>) raw.get(SECURITY_KEY)))
+            : Optional.empty();
+    return new Operation(
+        opId, method, path, body, params, responses, extractExtensions(raw), opSecurity);
   }
 
   private static Parameter resolveParameterOrParse(

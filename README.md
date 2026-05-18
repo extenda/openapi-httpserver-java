@@ -305,6 +305,203 @@ What the example demonstrates:
 - **One decorator stamps a response header.** `Response.withHeader(...)` is non-destructive — the handler's `Response` is replaced with one that has the extra header.
 - **Handler is a pure function.** Reads from `Request`, returns a `Response` value. No `HttpExchange`, no try/catch IOException, no builder.
 
+### Security (OpenAPI `securitySchemes` + `security`)
+
+The library parses `components.securitySchemes` and the `security` requirement lists (root-level and per-operation), extracts the credential per scheme, hands it to a consumer-provided `SchemeValidator` callback, and renders RFC 7807 `application/problem+json` rejections — 401 for missing/malformed credentials (with `WWW-Authenticate`), 403 when the validator denies.
+
+Supported scheme types in this release:
+
+- `apiKey` (in `header`, `query`, or `cookie`)
+- `http` `bearer`
+- `http` `basic`
+
+`oauth2`, `openIdConnect`, and `mutualTLS` are parsed into a placeholder type (`SecurityScheme.Unsupported`) — if any operation actually *references* one of those scheme names, the server fails at boot.
+
+#### Declaring schemes in the spec
+
+```yaml
+components:
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      name: X-API-Key
+      in: header
+    bearerAuth:
+      type: http
+      scheme: bearer
+    basicAuth:
+      type: http
+      scheme: basic
+
+# Either default for every operation:
+security:
+  - bearerAuth: []
+
+# Or attach per-operation (overrides the root default):
+paths:
+  /reports/{id}:
+    get:
+      operationId: getReport
+      security:
+        - apiKeyAuth: []
+      responses:
+        "200": { description: ok }
+```
+
+`security: []` on an operation means "no security required" (overrides the root default). Omitting `security` on an operation inherits the root default.
+
+When several entries appear in `security`, they are OR-ed; the request is allowed if *any* entry's schemes all validate. Multiple keys *inside* one entry are AND-ed:
+
+```yaml
+security:
+  # Either an API key …
+  - apiKeyAuth: []
+  # … or BOTH a bearer token AND a tenant header validator:
+  - bearerAuth: []
+    tenantAuth: []
+```
+
+#### Registering validators
+
+```java
+import com.retailsvc.http.Credential;
+import com.retailsvc.http.Credential.ApiKeyCredential;
+import com.retailsvc.http.Credential.BearerCredential;
+import com.retailsvc.http.Credential.BasicCredential;
+import com.retailsvc.http.OpenApiServer;
+import java.util.Optional;
+
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .securityValidator("apiKeyAuth", (request, credential) -> {
+      String key = ((ApiKeyCredential) credential).value();
+      return apiKeyStore.lookup(key).map(user -> user);   // Optional<User>
+    })
+    .securityValidator("bearerAuth", (request, credential) -> {
+      String token = ((BearerCredential) credential).token();
+      return jwt.verify(token).map(claims -> claims);     // Optional<JwtClaims>
+    })
+    .securityValidator("basicAuth", (request, credential) -> {
+      BasicCredential bc = (BasicCredential) credential;
+      return userService
+          .authenticate(bc.username(), bc.password())
+          .map(user -> user);                              // Optional<User>
+    })
+    .build();
+```
+
+The library guarantees the `Credential` variant matches the scheme's declared type — `apiKey` schemes deliver `ApiKeyCredential`, `http` `bearer` delivers `BearerCredential`, `http` `basic` delivers `BasicCredential`. Pattern matching is cleaner than casts:
+
+```java
+.securityValidator("multi", (request, credential) -> switch (credential) {
+  case ApiKeyCredential ak -> apiKeyStore.lookup(ak.value()).map(user -> user);
+  case BearerCredential b  -> jwt.verify(b.token()).map(claims -> claims);
+  case BasicCredential bc  -> userService.authenticate(bc.username(), bc.password()).map(u -> u);
+})
+```
+
+#### Constructing the principal
+
+A *principal* is whatever the library hands back to the handler after a successful authentication. The library does NOT define a `Principal` type — your validator returns `Optional<Object>` and the library stashes the value on the `Request` under the scheme name. **Whatever you return becomes your principal.**
+
+Three common patterns:
+
+**1. A domain record.** Best for typed access in handlers.
+
+```java
+public record AuthenticatedUser(String userId, String tenantId, Set<String> roles) {}
+
+.securityValidator("bearerAuth", (request, credential) -> {
+  String token = ((BearerCredential) credential).token();
+  return jwt.verify(token).map(claims ->
+      new AuthenticatedUser(claims.subject(), claims.tenant(), claims.roles()));
+})
+```
+
+Handler reads it:
+
+```java
+public Response handle(Request request) {
+  AuthenticatedUser user = (AuthenticatedUser) request.principal("bearerAuth").orElseThrow();
+  return Response.ok(reports.findForTenant(user.tenantId()));
+}
+```
+
+**2. A `Map<String, Object>` of claims.** Useful when the shape is dynamic or you want to forward JWT claims as-is.
+
+```java
+.securityValidator("bearerAuth", (request, credential) ->
+    jwt.verify(((BearerCredential) credential).token()).map(claims -> Map.copyOf(claims.asMap())))
+```
+
+```java
+@SuppressWarnings("unchecked")
+Map<String, Object> claims = (Map<String, Object>) request.principal("bearerAuth").orElseThrow();
+String sub = (String) claims.get("sub");
+```
+
+**3. A plain `String` identifier.** Simplest when the handler only needs an ID.
+
+```java
+.securityValidator("apiKeyAuth", (request, credential) ->
+    apiKeyStore.lookup(((ApiKeyCredential) credential).value())) // Optional<String> userId
+```
+
+```java
+String userId = (String) request.principal("apiKeyAuth").orElseThrow();
+```
+
+If your operation requires multiple schemes simultaneously (AND-group), all principals are stashed under their scheme names:
+
+```java
+Map<String, Object> principals = request.principals();   // {"bearerAuth": claims, "tenantAuth": tenant}
+```
+
+Returning `Optional.empty()` from a validator means "deny" — the library then returns 403 Forbidden (or 401 if no scheme produced a valid credential at all). Throwing from a validator propagates to the configured `ExceptionHandler`; it does NOT count as deny, so let your validators throw on internal errors and return `Optional.empty()` only when the credential is genuinely invalid.
+
+#### Boot-time validation
+
+If `security` references a scheme that has no registered `securityValidator(...)`, is undeclared in `components.securitySchemes`, or uses an unsupported type, `OpenApiServer.builder()...build()` throws `IllegalStateException` immediately. You can't ship a server that's missing an auth check by accident — the failure is loud at startup, not silent at request time.
+
+#### Opt-out: external authentication
+
+In some deployments authentication happens upstream — for example, an Envoy sidecar with OPA, or an API Gateway like Apigee that already verified the credential before the request reaches your JVM. In that case the credential never arrives in a form the library can validate (or the library would be re-validating something the gateway already proved), and forcing you to register stub validators is just friction.
+
+`useExternalAuthentication()` opts the entire library out of in-process enforcement:
+
+```java
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .useExternalAuthentication()    // SecurityFilter becomes a no-op
+    .build();
+```
+
+Effects when set:
+
+- `SecurityFilter` short-circuits to the next chain step regardless of any `security` declarations — every request reaches the handler.
+- The boot-time validator-registration check is skipped, so you don't have to register `.securityValidator(...)` callbacks at all.
+- `Request.principals()` returns an empty map; `Request.principal(name)` returns `Optional.empty()`. **The library never reads sidecar-set headers.** If you want a principal in the handler, write a normal `RequestInterceptor` that reads whatever header the sidecar sets and binds a `ScopedValue` (or stashes on the request via a domain wrapper of your own).
+
+Typical sidecar pattern:
+
+```java
+ScopedValue<String> AUTHENTICATED_USER = ScopedValue.newInstance();
+
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .useExternalAuthentication()
+    .interceptor((request, next) -> {
+      String user = request.header("X-Authenticated-User").orElseThrow();
+      return ScopedValue.where(AUTHENTICATED_USER, user).call(next::proceed);
+    })
+    .build();
+```
+
+The library still parses `components.securitySchemes` and exposes it via `spec.securitySchemes()` — useful if you serve the OpenAPI document or wire a docs UI — it just stops short of *enforcing* anything.
+
 ### Request body content types
 
 The server reads `requestBody.content` from the spec and selects a mapper by the request's media type (the bare `type/subtype` from `Content-Type`, e.g. `application/json`; lookup is case-insensitive):

@@ -265,7 +265,54 @@ paths:
       responses:
         "200": { description: ok }
 
+  /secure/api-key:
+    get:
+      operationId: secureApiKey
+      security:
+        - apiKeyAuth: []
+      responses:
+        "200":
+          description: ok
+
+  /secure/bearer:
+    get:
+      operationId: secureBearer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: ok
+
+  /secure/basic:
+    get:
+      operationId: secureBasic
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: ok
+
+  /secure/open:
+    get:
+      operationId: secureOpen
+      security: []
+      responses:
+        "200":
+          description: ok
+
 components:
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      name: X-API-Key
+      in: header
+    bearerAuth:
+      type: http
+      scheme: bearer
+    basicAuth:
+      type: http
+      scheme: basic
+
   parameters:
     Name-Header:
       in: header
