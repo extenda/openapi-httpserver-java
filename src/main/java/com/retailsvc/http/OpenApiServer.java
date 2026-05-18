@@ -307,9 +307,9 @@ public class OpenApiServer implements AutoCloseable {
           throw new IllegalStateException(
               "security requirement references unknown scheme '" + name + "'");
         }
-        if (scheme instanceof SecurityScheme.Unsupported u) {
+        if (scheme instanceof SecurityScheme.Unsupported(String type)) {
           throw new IllegalStateException(
-              "scheme '" + name + "' uses unsupported type '" + u.type() + "'");
+              "scheme '" + name + "' uses unsupported type '" + type + "'");
         }
         if (!validators.containsKey(name)) {
           throw new IllegalStateException(
