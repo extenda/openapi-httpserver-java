@@ -5,6 +5,9 @@ import com.retailsvc.http.spec.security.SecurityScheme.ApiKey.Location;
 import com.retailsvc.http.spec.security.SecurityScheme.HttpBasic;
 import com.retailsvc.http.spec.security.SecurityScheme.HttpBearer;
 import com.retailsvc.http.spec.security.SecurityScheme.Unsupported;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -31,6 +34,30 @@ public final class SecuritySchemeParser {
       throw new IllegalArgumentException("apiKey scheme requires 'name' and 'in'");
     }
     return new ApiKey(name, Location.valueOf(in.toUpperCase(Locale.ROOT)));
+  }
+
+  @SuppressWarnings("unchecked")
+  public static List<SecurityRequirement> parseRequirements(List<Object> raw) {
+    if (raw == null || raw.isEmpty()) {
+      return List.of();
+    }
+    List<SecurityRequirement> out = new ArrayList<>(raw.size());
+    for (Object entry : raw) {
+      if (!(entry instanceof Map<?, ?> map)) {
+        throw new IllegalArgumentException("security requirement entries must be objects");
+      }
+      Map<String, List<String>> schemes = new LinkedHashMap<>();
+      for (var e : map.entrySet()) {
+        String name = (String) e.getKey();
+        List<String> scopes =
+            e.getValue() instanceof List<?> list
+                ? list.stream().map(Object::toString).toList()
+                : List.of();
+        schemes.put(name, scopes);
+      }
+      out.add(new SecurityRequirement(schemes));
+    }
+    return List.copyOf(out);
   }
 
   private static SecurityScheme parseHttp(Map<String, Object> raw) {
