@@ -24,7 +24,8 @@ public final class SchemaParser {
 
   public static Schema parse(Object raw) {
     if (raw instanceof Boolean b) {
-      return b ? new AlwaysSchema(Map.of()) : new NeverSchema(Map.of());
+      boolean allow = b;
+      return allow ? new AlwaysSchema(Map.of()) : new NeverSchema(Map.of());
     }
     if (raw instanceof Map<?, ?> map) {
       @SuppressWarnings("unchecked")
@@ -208,7 +209,8 @@ public final class SchemaParser {
     if (itemsRaw == null) {
       itemSchema = new NullSchema(Map.of());
     } else if (itemsRaw instanceof Boolean b) {
-      itemSchema = b ? new AlwaysSchema(Map.of()) : new NeverSchema(Map.of());
+      boolean allow = b;
+      itemSchema = allow ? new AlwaysSchema(Map.of()) : new NeverSchema(Map.of());
     } else {
       Map<String, Object> items = (Map<String, Object>) itemsRaw;
       itemSchema = items.isEmpty() ? new NullSchema(Map.of()) : parse(items);
