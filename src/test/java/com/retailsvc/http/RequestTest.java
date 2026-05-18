@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retailsvc.http.internal.DispatchHandler;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
@@ -197,6 +198,37 @@ class RequestTest {
     Request req = new Request(new byte[0], null, null, "op", Map.of(), null, NO_HEADERS);
 
     assertThat(req.contentType()).isEmpty();
+  }
+
+  @Test
+  void principalsDefaultsEmpty() {
+    Request r = new Request(new byte[0], null, null, "op", Map.of(), null, NO_HEADERS);
+
+    assertThat(r.principals()).isEmpty();
+    assertThat(r.principal("anything")).isEmpty();
+  }
+
+  @Test
+  void withPrincipalsCreatesImmutableCopy() {
+    Request r = new Request(new byte[0], null, null, "op", Map.of(), null, NO_HEADERS);
+    Map<String, Object> principals = Map.of("bearerAuth", "user-123");
+    Request copy = r.withPrincipals(principals);
+
+    assertThat(copy).isNotSameAs(r);
+    assertThat(r.principals()).isEmpty();
+    assertThat(copy.principals()).isEqualTo(principals);
+    assertThat(copy.principal("bearerAuth")).contains("user-123");
+  }
+
+  @Test
+  void withPrincipalsDoesNotShareUnderlyingMap() {
+    Request r = new Request(new byte[0], null, null, "op", Map.of(), null, NO_HEADERS);
+    HashMap<String, Object> mutable = new HashMap<>();
+    mutable.put("a", "b");
+    Request copy = r.withPrincipals(mutable);
+    mutable.put("a", "MUTATED");
+
+    assertThat(copy.principal("a")).contains("b");
   }
 
   @Test
