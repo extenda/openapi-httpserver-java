@@ -66,9 +66,9 @@ public final class SecurityFilter extends Filter {
     List<GroupOutcome.Failed> failures = new ArrayList<>();
     for (SecurityRequirement group : effective) {
       GroupOutcome outcome = tryGroup(group, exchange, request);
-      if (outcome instanceof GroupOutcome.Allowed allowed) {
+      if (outcome instanceof GroupOutcome.Allowed(Map<String, Object> principals)) {
         try {
-          ScopedValue.where(DispatchHandler.CURRENT, request.withPrincipals(allowed.principals()))
+          ScopedValue.where(DispatchHandler.CURRENT, request.withPrincipals(principals))
               .call(
                   () -> {
                     chain.doFilter(exchange);
