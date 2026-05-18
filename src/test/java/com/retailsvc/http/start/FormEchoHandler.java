@@ -3,22 +3,14 @@ package com.retailsvc.http.start;
 import static java.net.HttpURLConnection.HTTP_OK;
 
 import com.retailsvc.http.Request;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import com.retailsvc.http.RequestHandler;
+import com.retailsvc.http.Response;
 
 /** Echoes the parsed form body to the response as Map#toString. */
-public class FormEchoHandler implements HttpHandler {
+public class FormEchoHandler implements RequestHandler {
 
   @Override
-  public void handle(HttpExchange exchange) throws IOException {
-    Object parsed = Request.parsed();
-    byte[] body = String.valueOf(parsed).getBytes(StandardCharsets.UTF_8);
-    try (exchange) {
-      exchange.getResponseHeaders().add("Content-Type", "text/plain; charset=utf-8");
-      exchange.sendResponseHeaders(HTTP_OK, body.length);
-      exchange.getResponseBody().write(body);
-    }
+  public Response handle(Request request) {
+    return Response.text(HTTP_OK, String.valueOf(request.parsed()));
   }
 }

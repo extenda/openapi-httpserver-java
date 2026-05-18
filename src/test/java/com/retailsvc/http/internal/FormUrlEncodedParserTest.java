@@ -1,6 +1,7 @@
 package com.retailsvc.http.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.retailsvc.http.spec.schema.ArraySchema;
 import com.retailsvc.http.spec.schema.IntegerSchema;
@@ -84,7 +85,8 @@ class FormUrlEncodedParserTest {
     ObjectSchema bodySchema = anObjectSchema(Map.of("age", intSchema));
 
     Map<String, Object> out =
-        parser.parseAndCoerce("age=30".getBytes(StandardCharsets.UTF_8), null, bodySchema);
+        FormBodyCoercion.coerce(
+            parser.parse("age=30".getBytes(StandardCharsets.UTF_8), null), bodySchema);
 
     assertThat(out).containsExactly(Map.entry("age", 30L));
   }
@@ -96,7 +98,8 @@ class FormUrlEncodedParserTest {
     ObjectSchema bodySchema = anObjectSchema(Map.of("ids", arrSchema));
 
     Map<String, Object> out =
-        parser.parseAndCoerce("ids=1&ids=2".getBytes(StandardCharsets.UTF_8), null, bodySchema);
+        FormBodyCoercion.coerce(
+            parser.parse("ids=1&ids=2".getBytes(StandardCharsets.UTF_8), null), bodySchema);
 
     assertThat(out).containsExactly(Map.entry("ids", List.of(1L, 2L)));
   }
@@ -106,9 +109,10 @@ class FormUrlEncodedParserTest {
     IntegerSchema intSchema = anIntegerSchema();
     ObjectSchema bodySchema = anObjectSchema(Map.of("age", intSchema));
 
-    org.assertj.core.api.Assertions.assertThatThrownBy(
+    assertThatThrownBy(
             () ->
-                parser.parseAndCoerce("age=abc".getBytes(StandardCharsets.UTF_8), null, bodySchema))
+                FormBodyCoercion.coerce(
+                    parser.parse("age=abc".getBytes(StandardCharsets.UTF_8), null), bodySchema))
         .isInstanceOf(com.retailsvc.http.ValidationException.class)
         .extracting("error.pointer", "error.keyword")
         .containsExactly("/age", "type");
@@ -119,7 +123,8 @@ class FormUrlEncodedParserTest {
     ObjectSchema bodySchema = anObjectSchema(Map.of());
 
     Map<String, Object> out =
-        parser.parseAndCoerce("anything=v".getBytes(StandardCharsets.UTF_8), null, bodySchema);
+        FormBodyCoercion.coerce(
+            parser.parse("anything=v".getBytes(StandardCharsets.UTF_8), null), bodySchema);
 
     assertThat(out).containsExactly(Map.entry("anything", "v"));
   }
@@ -129,7 +134,8 @@ class FormUrlEncodedParserTest {
     StringSchema strSchema = aStringSchema();
 
     Map<String, Object> out =
-        parser.parseAndCoerce("a=1".getBytes(StandardCharsets.UTF_8), null, strSchema);
+        FormBodyCoercion.coerce(
+            parser.parse("a=1".getBytes(StandardCharsets.UTF_8), null), strSchema);
 
     assertThat(out).containsExactly(Map.entry("a", "1"));
   }

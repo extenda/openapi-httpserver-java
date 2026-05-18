@@ -1,48 +1,68 @@
 package com.retailsvc.http.internal;
 
+import static java.net.HttpURLConnection.HTTP_OK;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.retailsvc.http.MissingOperationHandlerException;
 import com.retailsvc.http.Request;
+import com.retailsvc.http.RequestHandler;
+import com.retailsvc.http.Response;
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 class DispatchHandlerTest {
 
-  private static void withOperationId(
-      String operationId, ScopedValue.CallableOp<Void, Exception> body) throws Exception {
-    RequestContext ctx = new RequestContext(new byte[0], null, operationId, Map.of());
-    ScopedValue.where(Request.CONTEXT, ctx).call(body);
+  private static HttpExchange stubExchange() {
+    HttpExchange exchange = mock(HttpExchange.class);
+    when(exchange.getResponseHeaders()).thenReturn(new Headers());
+    return exchange;
+  }
+
+  private static DispatchHandler dispatcher(Map<String, RequestHandler> handlers) {
+    return new DispatchHandler(handlers, List.of(), List.of(), new ResponseRenderer(Map.of()));
+  }
+
+  private static void withRequest(String operationId, ScopedValue.CallableOp<Void, Exception> body)
+      throws Exception {
+    Request req = new Request(new byte[0], null, null, operationId, Map.of(), null, n -> null);
+    ScopedValue.where(DispatchHandler.CURRENT, req).call(body);
   }
 
   @Test
   void invokesRegisteredHandler() throws Exception {
-    HttpHandler handler = mock(HttpHandler.class);
-    HttpExchange ex = mock(HttpExchange.class);
+    AtomicBoolean called = new AtomicBoolean(false);
+    RequestHandler handler =
+        req -> {
+          called.set(true);
+          return Response.status(HTTP_OK);
+        };
+    HttpExchange ex = stubExchange();
 
-    withOperationId(
+    withRequest(
         "get-x",
         () -> {
-          new DispatchHandler(Map.of("get-x", handler)).handle(ex);
+          dispatcher(Map.of("get-x", handler)).handle(ex);
           return null;
         });
-    // bound op-id is "get-x"; DispatchHandler should look up the registered HttpHandler.
 
-    Mockito.verify(handler).handle(Mockito.any());
+    assertThat(called.get()).isTrue();
   }
 
   @Test
   void throwsWhenHandlerMissing() {
-    DispatchHandler d = new DispatchHandler(Map.of());
-    HttpExchange ex = mock(HttpExchange.class);
+    DispatchHandler d = dispatcher(Map.of());
+    HttpExchange ex = stubExchange();
 
     assertThatThrownBy(
             () ->
-                withOperationId(
+                withRequest(
                     "ghost",
                     () -> {
                       d.handle(ex);

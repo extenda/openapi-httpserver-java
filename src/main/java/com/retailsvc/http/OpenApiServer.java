@@ -6,8 +6,11 @@ import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 import com.retailsvc.http.internal.DispatchHandler;
 import com.retailsvc.http.internal.ExceptionFilter;
+import com.retailsvc.http.internal.FormTypeMapper;
 import com.retailsvc.http.internal.RequestPreparationFilter;
+import com.retailsvc.http.internal.ResponseRenderer;
 import com.retailsvc.http.internal.Router;
+import com.retailsvc.http.internal.TextTypeMapper;
 import com.retailsvc.http.spec.Spec;
 import com.retailsvc.http.validate.DefaultValidator;
 import com.sun.net.httpserver.HttpContext;
@@ -15,7 +18,10 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -30,57 +36,33 @@ public class OpenApiServer implements AutoCloseable {
 
   private static final Logger LOG = LoggerFactory.getLogger(OpenApiServer.class);
   private static final int DEFAULT_PORT = 8080;
+  private static final String JSON = "application/json";
+  private static final String GSON_CLASS = "com.google.gson.Gson";
+  private static final String GSON_MAPPER_CLASS = "com.retailsvc.http.internal.gson.GsonJsonMapper";
 
   private final HttpServer httpServer;
   private final int shutdownTimeoutSeconds;
 
-  /**
-   * @param spec The parsed {@link Spec}
-   * @param jsonMapper Body deserializer
-   * @param handlers Mappings between operationId and {@link HttpHandler}
-   * @param exceptionHandler Error handler receiving exceptions thrown from a handler
-   * @throws IOException If an error occurs during server start
-   */
-  public OpenApiServer(
-      Spec spec,
-      JsonMapper jsonMapper,
-      Map<String, HttpHandler> handlers,
-      ExceptionHandler exceptionHandler)
-      throws IOException {
-    this(spec, jsonMapper, handlers, exceptionHandler, DEFAULT_PORT, Map.of(), 0);
-  }
-
-  /**
-   * @param spec The parsed {@link Spec}
-   * @param jsonMapper Body deserializer
-   * @param handlers Mappings between operationId and {@link HttpHandler}
-   * @param exceptionHandler Error handler receiving exceptions thrown from a handler
-   * @param port The server port to use
-   * @throws IOException If an error occurs during server start
-   */
-  public OpenApiServer(
-      Spec spec,
-      JsonMapper jsonMapper,
-      Map<String, HttpHandler> handlers,
+  /** Internal grouping of handler-related configuration to keep the constructor signature small. */
+  record HandlerConfig(
+      Map<String, RequestHandler> handlers,
+      List<RequestInterceptor> interceptors,
+      List<ResponseDecorator> decorators,
       ExceptionHandler exceptionHandler,
-      int port)
-      throws IOException {
-    this(spec, jsonMapper, handlers, exceptionHandler, port, Map.of(), 0);
-  }
+      Map<String, HttpHandler> extras) {}
 
   OpenApiServer(
       Spec spec,
-      JsonMapper jsonMapper,
-      Map<String, HttpHandler> handlers,
-      ExceptionHandler exceptionHandler,
+      Map<String, TypeMapper> bodyMappers,
+      HandlerConfig handlerConfig,
       int port,
-      Map<String, HttpHandler> extras,
       int shutdownTimeoutSeconds)
       throws IOException {
 
     requireNonNull(spec, "Spec must not be null");
-    requireNonNull(jsonMapper, "JsonMapper must not be null");
-    requireNonNull(handlers, "handlers must not be null");
+    requireNonNull(bodyMappers, "bodyMappers must not be null");
+    requireNonNull(handlerConfig.handlers(), "handlers must not be null");
+    ExceptionHandler exceptionHandler = handlerConfig.exceptionHandler();
     if (exceptionHandler == null) {
       LOG.warn("No ExceptionHandler set, using default");
       exceptionHandler = Handlers.defaultExceptionHandler();
@@ -95,10 +77,15 @@ public class OpenApiServer implements AutoCloseable {
 
     HttpContext ctx = httpServer.createContext(Optional.ofNullable(spec.basePath()).orElse("/"));
     ctx.getFilters().add(new ExceptionFilter(exceptionHandler));
-    ctx.getFilters().add(new RequestPreparationFilter(spec, router, validator, jsonMapper));
-    ctx.setHandler(new DispatchHandler(handlers));
+    ctx.getFilters().add(new RequestPreparationFilter(spec, router, validator, bodyMappers));
+    ctx.setHandler(
+        new DispatchHandler(
+            handlerConfig.handlers(),
+            handlerConfig.interceptors(),
+            handlerConfig.decorators(),
+            new ResponseRenderer(bodyMappers)));
 
-    for (Map.Entry<String, HttpHandler> e : extras.entrySet()) {
+    for (Map.Entry<String, HttpHandler> e : handlerConfig.extras().entrySet()) {
       HttpContext extraCtx = httpServer.createContext(e.getKey());
       extraCtx.getFilters().add(new ExceptionFilter(exceptionHandler));
       extraCtx.setHandler(e.getValue());
@@ -144,8 +131,10 @@ public class OpenApiServer implements AutoCloseable {
   public static final class Builder {
 
     private Spec spec;
-    private JsonMapper jsonMapper;
-    private Map<String, HttpHandler> handlers;
+    private final LinkedHashMap<String, TypeMapper> bodyMappers = new LinkedHashMap<>();
+    private Map<String, RequestHandler> handlers;
+    private final List<ResponseDecorator> decorators = new ArrayList<>();
+    private final List<RequestInterceptor> interceptors = new ArrayList<>();
     private ExceptionHandler exceptionHandler;
     private int port = DEFAULT_PORT;
     private int shutdownTimeoutSeconds = 0;
@@ -158,13 +147,38 @@ public class OpenApiServer implements AutoCloseable {
       return this;
     }
 
-    public Builder jsonMapper(JsonMapper jsonMapper) {
-      this.jsonMapper = jsonMapper;
+    public Builder bodyMapper(String mediaType, TypeMapper mapper) {
+      requireNonNull(mediaType, "mediaType must not be null");
+      requireNonNull(mapper, "mapper must not be null");
+      bodyMappers.put(mediaType.toLowerCase(Locale.ROOT), mapper);
       return this;
     }
 
-    public Builder handlers(Map<String, HttpHandler> handlers) {
+    public Builder jsonMapper(TypeMapper mapper) {
+      return bodyMapper(JSON, mapper);
+    }
+
+    public Builder handlers(Map<String, RequestHandler> handlers) {
       this.handlers = handlers;
+      return this;
+    }
+
+    /**
+     * Registers a {@link ResponseDecorator} that transforms the {@link Response} returned by the
+     * handler before it is rendered. Decorators compose in registration order; decorator-supplied
+     * headers override handler-supplied ones on conflict.
+     */
+    public Builder responseDecorator(ResponseDecorator decorator) {
+      decorators.add(requireNonNull(decorator, "decorator must not be null"));
+      return this;
+    }
+
+    /**
+     * Registers a {@link RequestInterceptor} that wraps the handler invocation. Interceptors run in
+     * registration order; the first registered is the outermost.
+     */
+    public Builder interceptor(RequestInterceptor interceptor) {
+      interceptors.add(requireNonNull(interceptor, "interceptor must not be null"));
       return this;
     }
 
@@ -192,11 +206,17 @@ public class OpenApiServer implements AutoCloseable {
       return this;
     }
 
-    public Builder addHandler(String path, HttpHandler handler) {
+    /**
+     * Registers an extra HTTP route at {@code path} that bypasses OpenAPI validation and routing.
+     * Use for side concerns like {@code /alive}, {@code /health}, or serving the spec itself —
+     * anything that isn't an OpenAPI {@code operationId}. For OpenAPI-described operations use
+     * {@link #handlers(Map)}.
+     */
+    public Builder extraRoute(String path, HttpHandler handler) {
       requireNonNull(path, "path must not be null");
       requireNonNull(handler, "handler must not be null");
       if (extras.containsKey(path)) {
-        throw new IllegalStateException("duplicate extra handler path: " + path);
+        throw new IllegalStateException("duplicate extra route path: " + path);
       }
       extras.put(path, handler);
       return this;
@@ -204,7 +224,6 @@ public class OpenApiServer implements AutoCloseable {
 
     public OpenApiServer build() throws IOException {
       requireNonNull(spec, "Spec must not be null");
-      requireNonNull(jsonMapper, "JsonMapper must not be null");
       requireNonNull(handlers, "handlers must not be null");
       String basePath = Optional.ofNullable(spec.basePath()).orElse("/");
       for (String path : extras.keySet()) {
@@ -213,8 +232,44 @@ public class OpenApiServer implements AutoCloseable {
               "extra handler path " + path + " conflicts with spec basePath " + basePath);
         }
       }
-      return new OpenApiServer(
-          spec, jsonMapper, handlers, exceptionHandler, port, extras, shutdownTimeoutSeconds);
+      Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
+      HandlerConfig handlerConfig =
+          new HandlerConfig(handlers, interceptors, decorators, exceptionHandler, extras);
+      return new OpenApiServer(spec, resolved, handlerConfig, port, shutdownTimeoutSeconds);
+    }
+
+    private static Map<String, TypeMapper> resolveBodyMappers(
+        Map<String, TypeMapper> userSupplied) {
+      LinkedHashMap<String, TypeMapper> out = new LinkedHashMap<>();
+      out.put("application/x-www-form-urlencoded", new FormTypeMapper());
+      out.put("text/plain", new TextTypeMapper());
+      out.putAll(userSupplied);
+      if (!out.containsKey(JSON)) {
+        TypeMapper fallback = tryLoadGsonMapper();
+        if (fallback != null) {
+          out.put(JSON, fallback);
+        }
+      }
+      if (!out.containsKey(JSON)) {
+        throw new IllegalStateException(
+            "No TypeMapper registered for application/json and Gson not found on classpath; "
+                + "register one via Builder.bodyMapper(\"application/json\", ...)");
+      }
+      return out;
+    }
+
+    private static TypeMapper tryLoadGsonMapper() {
+      try {
+        Class.forName(GSON_CLASS, false, OpenApiServer.class.getClassLoader());
+      } catch (ClassNotFoundException _) {
+        return null;
+      }
+      try {
+        Class<?> cls = Class.forName(GSON_MAPPER_CLASS, true, OpenApiServer.class.getClassLoader());
+        return (TypeMapper) cls.getDeclaredConstructor().newInstance();
+      } catch (ReflectiveOperationException e) {
+        throw new IllegalStateException("Failed to load " + GSON_MAPPER_CLASS, e);
+      }
     }
   }
 }

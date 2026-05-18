@@ -13,19 +13,12 @@ import org.junit.jupiter.api.Test;
 class OpenApiServerBuilderTest {
 
   private final Spec spec = testSpec();
-  private final JsonMapper jsonMapper = body -> new java.util.HashMap<String, Object>();
 
   @Test
   void buildsWithRequiredFieldsOnly() {
     assertDoesNotThrow(
         () -> {
-          try (var _ =
-              OpenApiServer.builder()
-                  .spec(spec)
-                  .jsonMapper(jsonMapper)
-                  .handlers(emptyMap())
-                  .port(0)
-                  .build()) {
+          try (var _ = OpenApiServer.builder().spec(spec).handlers(emptyMap()).port(0).build()) {
             // close on exit
           }
         });
@@ -35,13 +28,9 @@ class OpenApiServerBuilderTest {
   void rejectsDuplicateExtraPathOnSecondAddHandler() {
     HttpHandler duplicate = Handlers.aliveHandler();
     OpenApiServer.Builder b =
-        OpenApiServer.builder()
-            .spec(spec)
-            .jsonMapper(jsonMapper)
-            .handlers(emptyMap())
-            .addHandler("/alive", duplicate);
+        OpenApiServer.builder().spec(spec).handlers(emptyMap()).extraRoute("/alive", duplicate);
 
-    assertThatThrownBy(() -> b.addHandler("/alive", duplicate))
+    assertThatThrownBy(() -> b.extraRoute("/alive", duplicate))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("/alive");
   }
@@ -52,9 +41,8 @@ class OpenApiServerBuilderTest {
     OpenApiServer.Builder b =
         OpenApiServer.builder()
             .spec(spec)
-            .jsonMapper(jsonMapper)
             .handlers(emptyMap())
-            .addHandler("/api", Handlers.aliveHandler())
+            .extraRoute("/api", Handlers.aliveHandler())
             .port(0);
 
     assertThatThrownBy(b::build)
@@ -78,7 +66,6 @@ class OpenApiServerBuilderTest {
           try (var _ =
               OpenApiServer.builder()
                   .spec(spec)
-                  .jsonMapper(jsonMapper)
                   .handlers(emptyMap())
                   .port(0)
                   .shutdownTimeoutSeconds(2)
@@ -90,13 +77,7 @@ class OpenApiServerBuilderTest {
 
   @Test
   void stopRejectsNegativeDelay() throws Exception {
-    try (var s =
-        OpenApiServer.builder()
-            .spec(spec)
-            .jsonMapper(jsonMapper)
-            .handlers(emptyMap())
-            .port(0)
-            .build()) {
+    try (var s = OpenApiServer.builder().spec(spec).handlers(emptyMap()).port(0).build()) {
 
       assertThatThrownBy(() -> s.stop(-1))
           .isInstanceOf(IllegalArgumentException.class)
@@ -106,24 +87,43 @@ class OpenApiServerBuilderTest {
 
   @Test
   void stopWithZeroSucceeds() throws Exception {
-    var s =
-        OpenApiServer.builder()
-            .spec(spec)
-            .jsonMapper(jsonMapper)
-            .handlers(emptyMap())
-            .port(0)
-            .build();
+    var s = OpenApiServer.builder().spec(spec).handlers(emptyMap()).port(0).build();
     assertDoesNotThrow(() -> s.stop(0));
   }
 
   @Test
   void rejectsNullSpec() {
-    OpenApiServer.Builder b =
-        OpenApiServer.builder().jsonMapper(jsonMapper).handlers(emptyMap()).port(0);
+    OpenApiServer.Builder b = OpenApiServer.builder().handlers(emptyMap()).port(0);
 
     assertThatThrownBy(b::build)
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("Spec");
+  }
+
+  @Test
+  void bodyMapperRejectsNullMediaType() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+    TypeMapper noopMapper =
+        new TypeMapper() {
+          @Override
+          public Object readFrom(byte[] body, String contentTypeHeader) {
+            return null;
+          }
+
+          @Override
+          public byte[] writeTo(Object value) {
+            return new byte[0];
+          }
+        };
+    assertThatThrownBy(() -> b.bodyMapper(null, noopMapper))
+        .isInstanceOf(NullPointerException.class);
+  }
+
+  @Test
+  void bodyMapperRejectsNullMapper() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+    assertThatThrownBy(() -> b.bodyMapper("application/json", null))
+        .isInstanceOf(NullPointerException.class);
   }
 
   private static Spec testSpec() {

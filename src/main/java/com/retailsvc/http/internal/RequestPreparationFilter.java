@@ -1,9 +1,9 @@
 package com.retailsvc.http.internal;
 
-import com.retailsvc.http.JsonMapper;
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
 import com.retailsvc.http.Request;
+import com.retailsvc.http.TypeMapper;
 import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.HttpMethod;
 import com.retailsvc.http.spec.MediaType;
@@ -23,19 +23,19 @@ import java.util.Optional;
 
 public final class RequestPreparationFilter extends Filter {
 
+  private static final String BODY_POINTER = "/body";
+
   private final Spec spec;
   private final Router router;
   private final Validator validator;
-  private final JsonMapper jsonMapper;
-  private final FormUrlEncodedParser formParser = new FormUrlEncodedParser();
-  private final TextPlainParser textParser = new TextPlainParser();
+  private final Map<String, TypeMapper> bodyMappers;
 
   public RequestPreparationFilter(
-      Spec spec, Router router, Validator validator, JsonMapper jsonMapper) {
+      Spec spec, Router router, Validator validator, Map<String, TypeMapper> bodyMappers) {
     this.spec = spec;
     this.router = router;
     this.validator = validator;
-    this.jsonMapper = jsonMapper;
+    this.bodyMappers = Map.copyOf(bodyMappers);
   }
 
   @Override
@@ -62,34 +62,31 @@ public final class RequestPreparationFilter extends Filter {
 
     Operation op = match.operation();
     validateParameters(exchange, op, match.pathParameters());
-    Object parsedBody = validateAndParseBody(exchange, op, body);
+    ParsedBody parsedBody = validateAndParseBody(exchange, op, body);
 
-    RequestContext ctx =
-        new RequestContext(body, parsedBody, op.operationId(), match.pathParameters());
+    var headers = exchange.getRequestHeaders();
+    Request request =
+        new Request(
+            body,
+            parsedBody.value(),
+            parsedBody.mapper(),
+            op.operationId(),
+            match.pathParameters(),
+            exchange.getRequestURI().getRawQuery(),
+            headers::getFirst);
 
-    runWithRequestContext(ctx, () -> chain.doFilter(exchange));
-  }
-
-  private static void runWithRequestContext(RequestContext ctx, IORunnable work)
-      throws IOException {
     try {
-      ScopedValue.where(Request.CONTEXT, ctx)
+      ScopedValue.where(DispatchHandler.CURRENT, request)
           .call(
               () -> {
-                work.run();
+                chain.doFilter(exchange);
                 return null;
               });
     } catch (IOException | RuntimeException e) {
       throw e;
     } catch (Exception e) {
-      // Callable.call() throws Exception; nothing else can actually be thrown by the chain.
       throw new IOException(e);
     }
-  }
-
-  @FunctionalInterface
-  private interface IORunnable {
-    void run() throws IOException;
   }
 
   private String stripBasePath(String path) {
@@ -130,17 +127,22 @@ public final class RequestPreparationFilter extends Filter {
     }
   }
 
-  private Object validateAndParseBody(HttpExchange exchange, Operation op, byte[] body) {
+  /** Result of {@link #validateAndParseBody}: parsed payload plus the mapper that produced it. */
+  private record ParsedBody(Object value, TypeMapper mapper) {
+    static final ParsedBody EMPTY = new ParsedBody(null, null);
+  }
+
+  private ParsedBody validateAndParseBody(HttpExchange exchange, Operation op, byte[] body) {
     Optional<RequestBody> rb = op.requestBody();
     if (rb.isEmpty()) {
-      return null;
+      return ParsedBody.EMPTY;
     }
     if (body.length == 0) {
       if (rb.get().required()) {
         throw new ValidationException(
-            new ValidationError("/body", "required", "request body is required", null));
+            new ValidationError(BODY_POINTER, "required", "request body is required", null));
       }
-      return null;
+      return ParsedBody.EMPTY;
     }
     String header = exchange.getRequestHeaders().getFirst("Content-Type");
     String mediaType = ContentTypeHeader.mediaType(header);
@@ -148,17 +150,22 @@ public final class RequestPreparationFilter extends Filter {
     if (mt == null) {
       throw new ValidationException(
           new ValidationError(
-              "/body", "content-type", "unsupported content type: " + mediaType, null));
+              BODY_POINTER, "content-type", "unsupported content type: " + mediaType, null));
     }
-    Object parsed =
-        switch (mediaType) {
-          case "application/x-www-form-urlencoded" ->
-              formParser.parseAndCoerce(body, header, mt.schema());
-          case "text/plain" -> textParser.parse(body, header);
-          default -> jsonMapper.mapFrom(body);
-        };
+    TypeMapper mapper = bodyMappers.get(mediaType);
+    if (mapper == null) {
+      throw new ValidationException(
+          new ValidationError(
+              BODY_POINTER, "content-type", "unsupported content type: " + mediaType, null));
+    }
+    Object parsed = mapper.readFrom(body, header);
+    if (mediaType.equals("application/x-www-form-urlencoded") && parsed instanceof Map<?, ?> map) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> typed = (Map<String, Object>) map;
+      parsed = FormBodyCoercion.coerce(typed, mt.schema());
+    }
     validator.validate(parsed, mt.schema(), "");
-    return parsed;
+    return new ParsedBody(parsed, mapper);
   }
 
   private static Map<String, String> parseQuery(String query) {

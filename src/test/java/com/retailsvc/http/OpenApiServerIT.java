@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import com.retailsvc.http.start.EchoHandler;
 import com.retailsvc.http.start.GetDataHandler;
-import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.util.Map;
@@ -130,7 +129,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void postDataShouldReturnBadRequestOnMissingRequiredProperties() {
-      Map<String, HttpHandler> handlers = Map.of("post-data", new EchoHandler());
+      Map<String, RequestHandler> handlers = Map.of("post-data", new EchoHandler());
 
       try (var server = newServer(handlers);
           var client = httpClient()) {
@@ -606,8 +605,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatEmailShouldReturnBadRequestOnInvalidEmail() {
-      try (var server =
-              newServer(Map.of("format-email", exchange -> exchange.sendResponseHeaders(200, -1)));
+      try (var server = newServer(Map.of("format-email", req -> Response.status(200)));
           var client = httpClient()) {
 
         var request = newRequest(server, path + "?addr=not-an-email", "GET", noBody());
@@ -631,8 +629,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatEmailShouldReturnOkOnValidEmail() {
-      try (var server =
-              newServer(Map.of("format-email", exchange -> exchange.sendResponseHeaders(200, -1)));
+      try (var server = newServer(Map.of("format-email", req -> Response.status(200)));
           var client = httpClient()) {
 
         var request = newRequest(server, path + "?addr=user%40example.com", "GET", noBody());
@@ -658,8 +655,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatByteShouldReturnBadRequestOnInvalidBase64() {
-      try (var server =
-              newServer(Map.of("format-byte", exchange -> exchange.sendResponseHeaders(200, -1)));
+      try (var server = newServer(Map.of("format-byte", req -> Response.status(200)));
           var client = httpClient()) {
 
         var request = newRequest(server, path + "?data=not%20base64!!", "GET", noBody());
@@ -683,8 +679,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatByteShouldReturnOkOnValidBase64() {
-      try (var server =
-              newServer(Map.of("format-byte", exchange -> exchange.sendResponseHeaders(200, -1)));
+      try (var server = newServer(Map.of("format-byte", req -> Response.status(200)));
           var client = httpClient()) {
 
         var request = newRequest(server, path + "?data=aGVsbG8%3D", "GET", noBody());
@@ -710,8 +705,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatInt32ShouldReturnBadRequestOnOverflow() {
-      try (var server =
-              newServer(Map.of("format-int32", exchange -> exchange.sendResponseHeaders(200, -1)));
+      try (var server = newServer(Map.of("format-int32", req -> Response.status(200)));
           var client = httpClient()) {
 
         var request = newRequest(server, path + "?n=2147483648", "GET", noBody());
@@ -735,8 +729,7 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatInt32ShouldReturnOkOnValidValue() {
-      try (var server =
-              newServer(Map.of("format-int32", exchange -> exchange.sendResponseHeaders(200, -1)));
+      try (var server = newServer(Map.of("format-int32", req -> Response.status(200)));
           var client = httpClient()) {
 
         var request = newRequest(server, path + "?n=42", "GET", noBody());
