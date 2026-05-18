@@ -139,6 +139,8 @@ public class OpenApiServer implements AutoCloseable {
     private int port = DEFAULT_PORT;
     private int shutdownTimeoutSeconds = 0;
     private final LinkedHashMap<String, HttpHandler> extras = new LinkedHashMap<>();
+    private final Map<String, SchemeValidator> securityValidators = new LinkedHashMap<>();
+    private boolean externalAuth = false;
 
     private Builder() {}
 
@@ -179,6 +181,30 @@ public class OpenApiServer implements AutoCloseable {
      */
     public Builder interceptor(RequestInterceptor interceptor) {
       interceptors.add(requireNonNull(interceptor, "interceptor must not be null"));
+      return this;
+    }
+
+    /**
+     * Registers a {@link SchemeValidator} for the OpenAPI security scheme named {@code schemeName}.
+     * The library extracts a {@link Credential} per request and hands it to this callback; return a
+     * non-empty {@link Optional} carrying the principal on success, or {@link Optional#empty()} to
+     * deny. Library renders 401/403 on denial.
+     */
+    public Builder securityValidator(String schemeName, SchemeValidator validator) {
+      requireNonNull(schemeName, "schemeName must not be null");
+      requireNonNull(validator, "validator must not be null");
+      securityValidators.put(schemeName, validator);
+      return this;
+    }
+
+    /**
+     * Opts out of in-process security enforcement. Use when an external sidecar (OPA/Envoy etc.)
+     * authenticates requests upstream. The library still parses {@code securitySchemes} into the
+     * {@link Spec}, but {@code SecurityFilter} short-circuits and the boot-time
+     * validator-registration check is skipped.
+     */
+    public Builder useExternalAuthentication() {
+      this.externalAuth = true;
       return this;
     }
 
