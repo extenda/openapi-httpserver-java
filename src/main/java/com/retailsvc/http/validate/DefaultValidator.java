@@ -127,7 +127,7 @@ public final class DefaultValidator implements Validator {
     }
 
     return switch (schema) {
-      case RefSchema(String ref, var _) -> check(value, refResolver.apply(ref), pointer);
+      case RefSchema(String ref, _) -> check(value, refResolver.apply(ref), pointer);
       case BooleanSchema _ -> checkBoolean(value, pointer);
       case NullSchema _ -> value == null ? OK : err(pointer, "type", "expected null", value);
       case StringSchema s -> checkString(value, s, pointer);
@@ -135,16 +135,16 @@ public final class DefaultValidator implements Validator {
       case NumberSchema n -> checkNumber(value, n, pointer);
       case ObjectSchema o -> checkObject(value, o, pointer);
       case ArraySchema a -> checkArray(value, a, pointer);
-      case EnumSchema(List<Object> values, var _) ->
+      case EnumSchema(List<Object> values, _) ->
           values.contains(value) ? OK : err(pointer, "enum", "value not in enum", value);
-      case ConstSchema(Object expected, var _) ->
+      case ConstSchema(Object expected, _) ->
           Objects.equals(expected, value)
               ? OK
               : err(pointer, "const", "value does not equal const", value);
-      case AllOfSchema(List<Schema> parts, var _) -> checkAllOf(value, parts, pointer);
-      case AnyOfSchema(List<Schema> options, var _) -> checkAnyOf(value, options, pointer);
-      case OneOfSchema(List<Schema> options, var _) -> checkOneOf(value, options, pointer);
-      case NotSchema(Schema inner, var _) -> checkNot(value, inner, pointer);
+      case AllOfSchema(List<Schema> parts, _) -> checkAllOf(value, parts, pointer);
+      case AnyOfSchema(List<Schema> options, _) -> checkAnyOf(value, options, pointer);
+      case OneOfSchema(List<Schema> options, _) -> checkOneOf(value, options, pointer);
+      case NotSchema(Schema inner, _) -> checkNot(value, inner, pointer);
       case AlwaysSchema _ -> OK;
       case NeverSchema _ -> err(pointer, "false", "schema rejects all values", value);
     };
