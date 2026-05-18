@@ -58,7 +58,9 @@ class RequestPreparationFilterTest {
         "",
         Map.of(),
         Map.of(),
-        Map.of());
+        Map.of(),
+        Map.of(),
+        List.of());
   }
 
   private Filter newFilter(Spec spec) {

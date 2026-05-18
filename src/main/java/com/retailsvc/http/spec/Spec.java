@@ -2,6 +2,9 @@ package com.retailsvc.http.spec;
 
 import com.retailsvc.http.spec.schema.Schema;
 import com.retailsvc.http.spec.schema.SchemaParser;
+import com.retailsvc.http.spec.security.SecurityRequirement;
+import com.retailsvc.http.spec.security.SecurityScheme;
+import com.retailsvc.http.spec.security.SecuritySchemeParser;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
@@ -25,7 +28,9 @@ public record Spec(
     String basePath,
     Map<String, Schema> schemaRefIndex,
     Map<String, Parameter> parameterRefIndex,
-    Map<String, Object> extensions) {
+    Map<String, Object> extensions,
+    Map<String, SecurityScheme> securitySchemes,
+    List<SecurityRequirement> security) {
 
   private static final String SCHEMA_KEY = "schema";
   private static final String SCHEMA_REF_PREFIX = "#/components/schemas/";
@@ -138,6 +143,15 @@ public record Spec(
     List<Operation> operations =
         parseOperations(
             (Map<String, Object>) raw.getOrDefault("paths", Map.of()), componentParameters);
+    Map<String, Object> rawSchemes =
+        (Map<String, Object>) rawComponents.getOrDefault("securitySchemes", Map.of());
+    Map<String, SecurityScheme> securitySchemes = new LinkedHashMap<>();
+    for (var entry : rawSchemes.entrySet()) {
+      securitySchemes.put(
+          entry.getKey(), SecuritySchemeParser.parse((Map<String, Object>) entry.getValue()));
+    }
+    List<SecurityRequirement> rootSecurity =
+        SecuritySchemeParser.parseRequirements((List<Object>) raw.get("security"));
     return new Spec(
         openapi,
         info,
@@ -148,7 +162,9 @@ public record Spec(
         computeBasePath(servers),
         indexByRef(componentSchemas, SCHEMA_REF_PREFIX),
         indexByRef(componentParameters, PARAMETER_REF_PREFIX),
-        extractExtensions(raw));
+        extractExtensions(raw),
+        Map.copyOf(securitySchemes),
+        rootSecurity);
   }
 
   private static String computeBasePath(List<Server> servers) {
