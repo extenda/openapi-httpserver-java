@@ -88,8 +88,9 @@ class ValidatorNoThrowOnHappyPathTest {
   @Test
   void failingOneOfConstructsExactlyOneValidationException() {
     long before = ValidationException.CONSTRUCTIONS.get();
+    var schema = stringOrNumber();
 
-    assertThatThrownBy(() -> validator.validate(true, stringOrNumber(), "/v"))
+    assertThatThrownBy(() -> validator.validate(true, schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("oneOf");

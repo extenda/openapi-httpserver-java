@@ -144,7 +144,8 @@ class DefaultValidatorDispatchTest {
 
   @Test
   void anyOfWithEmptyOptionsAlwaysFails() {
-    assertThatThrownBy(() -> v.validate("anything", new AnyOfSchema(List.of(), Map.of()), "/v"))
+    var schema = new AnyOfSchema(List.of(), Map.of());
+    assertThatThrownBy(() -> v.validate("anything", schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("anyOf");
@@ -152,7 +153,8 @@ class DefaultValidatorDispatchTest {
 
   @Test
   void oneOfWithEmptyOptionsAlwaysFails() {
-    assertThatThrownBy(() -> v.validate("anything", new OneOfSchema(List.of(), Map.of()), "/v"))
+    var schema = new OneOfSchema(List.of(), Map.of());
+    assertThatThrownBy(() -> v.validate("anything", schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .satisfies(
             t -> {
@@ -165,8 +167,8 @@ class DefaultValidatorDispatchTest {
   @Test
   void notWithNullSchemaRejectsNull() {
     // not(NullSchema) — inner accepts null, outer must reject.
-    assertThatThrownBy(
-            () -> v.validate(null, new NotSchema(new NullSchema(Map.of()), Map.of()), "/v"))
+    var schema = new NotSchema(new NullSchema(Map.of()), Map.of());
+    assertThatThrownBy(() -> v.validate(null, schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("not");
@@ -202,7 +204,8 @@ class DefaultValidatorDispatchTest {
 
   @Test
   void neverSchemaRejectsString() {
-    assertThatThrownBy(() -> v.validate("anything", new NeverSchema(Map.of()), "/v"))
+    var schema = new NeverSchema(Map.of());
+    assertThatThrownBy(() -> v.validate("anything", schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .satisfies(
             t -> {
@@ -217,7 +220,8 @@ class DefaultValidatorDispatchTest {
   // Full ValidationError surface is verified by neverSchemaRejectsString; these cover keyword only.
   @Test
   void neverSchemaRejectsInteger() {
-    assertThatThrownBy(() -> v.validate(42, new NeverSchema(Map.of()), "/v"))
+    var schema = new NeverSchema(Map.of());
+    assertThatThrownBy(() -> v.validate(42, schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("false");
@@ -225,7 +229,8 @@ class DefaultValidatorDispatchTest {
 
   @Test
   void neverSchemaRejectsNull() {
-    assertThatThrownBy(() -> v.validate(null, new NeverSchema(Map.of()), "/v"))
+    var schema = new NeverSchema(Map.of());
+    assertThatThrownBy(() -> v.validate(null, schema, "/v"))
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("false");
