@@ -69,6 +69,10 @@ public final class Request {
    * @param headerLookup first-value, case-insensitive header lookup; returns {@code null} if absent
    * @param principals principals stashed by the security filter, keyed by scheme name
    */
+  // Request is transport-neutral and assembled from primitives at the adapter boundary; collapsing
+  // these into a holder type would just move the parameter count one level out without simplifying
+  // the call site, so the 8-arg constructor is preferred over the rule's 7-param limit.
+  @SuppressWarnings("java:S107")
   public Request(
       byte[] body,
       Object parsed,

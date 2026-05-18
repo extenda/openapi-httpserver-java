@@ -33,6 +33,7 @@ public record Spec(
     List<SecurityRequirement> security) {
 
   private static final String SCHEMA_KEY = "schema";
+  private static final String SECURITY_KEY = "security";
   private static final String SCHEMA_REF_PREFIX = "#/components/schemas/";
   private static final String PARAMETER_REF_PREFIX = "#/components/parameters/";
 
@@ -151,7 +152,7 @@ public record Spec(
           entry.getKey(), SecuritySchemeParser.parse((Map<String, Object>) entry.getValue()));
     }
     List<SecurityRequirement> rootSecurity =
-        SecuritySchemeParser.parseRequirements((List<Object>) raw.get("security"));
+        SecuritySchemeParser.parseRequirements((List<Object>) raw.get(SECURITY_KEY));
     return new Spec(
         openapi,
         info,
@@ -286,9 +287,9 @@ public record Spec(
     Map<String, Response> responses =
         parseResponses((Map<String, Object>) raw.getOrDefault("responses", Map.of()));
     Optional<List<SecurityRequirement>> opSecurity =
-        raw.containsKey("security")
+        raw.containsKey(SECURITY_KEY)
             ? Optional.of(
-                SecuritySchemeParser.parseRequirements((List<Object>) raw.get("security")))
+                SecuritySchemeParser.parseRequirements((List<Object>) raw.get(SECURITY_KEY)))
             : Optional.empty();
     return new Operation(
         opId, method, path, body, params, responses, extractExtensions(raw), opSecurity);
