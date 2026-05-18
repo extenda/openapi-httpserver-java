@@ -285,7 +285,13 @@ public record Spec(
             .orElse(List.of());
     Map<String, Response> responses =
         parseResponses((Map<String, Object>) raw.getOrDefault("responses", Map.of()));
-    return new Operation(opId, method, path, body, params, responses, extractExtensions(raw));
+    Optional<List<SecurityRequirement>> opSecurity =
+        raw.containsKey("security")
+            ? Optional.of(
+                SecuritySchemeParser.parseRequirements((List<Object>) raw.get("security")))
+            : Optional.empty();
+    return new Operation(
+        opId, method, path, body, params, responses, extractExtensions(raw), opSecurity);
   }
 
   private static Parameter resolveParameterOrParse(

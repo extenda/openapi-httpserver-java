@@ -1,5 +1,6 @@
 package com.retailsvc.http.spec;
 
+import com.retailsvc.http.spec.security.SecurityRequirement;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -11,4 +12,5 @@ public record Operation(
     Optional<RequestBody> requestBody,
     List<Parameter> parameters,
     Map<String, Response> responses,
-    Map<String, Object> extensions) {}
+    Map<String, Object> extensions,
+    Optional<List<SecurityRequirement>> security) {}

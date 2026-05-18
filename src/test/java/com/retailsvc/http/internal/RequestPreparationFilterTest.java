@@ -91,7 +91,8 @@ class RequestPreparationFilterTest {
             Optional.empty(),
             List.of(),
             Map.of(),
-            Map.of());
+            Map.of(),
+            Optional.empty());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
     HttpExchange ex = exchange("GET", "/users/42", new byte[0]);
@@ -128,7 +129,8 @@ class RequestPreparationFilterTest {
                 Optional.empty(),
                 List.of(),
                 Map.of(),
-                Map.of()));
+                Map.of(),
+                Optional.empty()));
     Filter f = newFilter(spec);
 
     HttpExchange ex = exchange("GET", "/missing", new byte[0]);
@@ -147,7 +149,8 @@ class RequestPreparationFilterTest {
                 Optional.empty(),
                 List.of(),
                 Map.of(),
-                Map.of()));
+                Map.of(),
+                Optional.empty()));
     Filter f = newFilter(spec);
 
     HttpExchange ex = exchange("POST", "/x", new byte[0]);
@@ -167,7 +170,8 @@ class RequestPreparationFilterTest {
             Optional.empty(),
             List.of(new Parameter("q", Parameter.Location.QUERY, true, stringSchema)),
             Map.of(),
-            Map.of());
+            Map.of(),
+            Optional.empty());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
 
@@ -190,7 +194,8 @@ class RequestPreparationFilterTest {
             Optional.empty(),
             List.of(new Parameter("n", Parameter.Location.QUERY, true, intSchema)),
             Map.of(),
-            Map.of());
+            Map.of(),
+            Optional.empty());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
 
@@ -212,7 +217,8 @@ class RequestPreparationFilterTest {
             Optional.empty(),
             List.of(new Parameter("n", Parameter.Location.QUERY, true, intSchema)),
             Map.of(),
-            Map.of());
+            Map.of(),
+            Optional.empty());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
 
@@ -235,7 +241,8 @@ class RequestPreparationFilterTest {
             Optional.empty(),
             List.of(new Parameter("n", Parameter.Location.QUERY, true, numSchema)),
             Map.of(),
-            Map.of());
+            Map.of(),
+            Optional.empty());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
 
@@ -257,7 +264,8 @@ class RequestPreparationFilterTest {
             Optional.empty(),
             List.of(new Parameter("n", Parameter.Location.QUERY, true, numSchema)),
             Map.of(),
-            Map.of());
+            Map.of(),
+            Optional.empty());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
 
@@ -279,7 +287,8 @@ class RequestPreparationFilterTest {
             Optional.empty(),
             List.of(new Parameter("b", Parameter.Location.QUERY, true, boolSchema)),
             Map.of(),
-            Map.of());
+            Map.of(),
+            Optional.empty());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
 
@@ -304,7 +313,8 @@ class RequestPreparationFilterTest {
             Optional.empty(),
             List.of(new Parameter("b", Parameter.Location.QUERY, true, boolSchema)),
             Map.of(),
-            Map.of());
+            Map.of(),
+            Optional.empty());
     Spec spec = specWith(op);
     Filter f = newFilter(spec);
 

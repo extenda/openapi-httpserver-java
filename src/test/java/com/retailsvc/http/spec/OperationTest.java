@@ -22,7 +22,14 @@ class OperationTest {
             new BooleanSchema(Set.of(TypeName.BOOLEAN), Map.of()));
     Operation op =
         new Operation(
-            "get-user", HttpMethod.GET, path, Optional.empty(), List.of(param), Map.of(), Map.of());
+            "get-user",
+            HttpMethod.GET,
+            path,
+            Optional.empty(),
+            List.of(param),
+            Map.of(),
+            Map.of(),
+            Optional.empty());
     assertThat(op.operationId()).isEqualTo("get-user");
     assertThat(op.method()).isEqualTo(HttpMethod.GET);
     assertThat(op.parameters()).hasSize(1);
