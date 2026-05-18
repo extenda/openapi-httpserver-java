@@ -51,14 +51,9 @@ class SecurityBootValidationTest {
             List.of(),
             List.of(Map.of("bearerAuth", List.of())));
     Spec spec = Spec.from(r);
+    OpenApiServer.Builder builder = handlerBuilder(spec);
 
-    assertThatThrownBy(
-            () ->
-                OpenApiServer.builder()
-                    .spec(spec)
-                    .handlers(Map.of("getX", req -> Response.ok(Map.of())))
-                    .port(0)
-                    .build())
+    assertThatThrownBy(builder::build)
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("bearerAuth");
   }
@@ -71,14 +66,9 @@ class SecurityBootValidationTest {
             List.of(),
             List.of(Map.of("oauth", List.of())));
     Spec spec = Spec.from(r);
+    OpenApiServer.Builder builder = handlerBuilder(spec);
 
-    assertThatThrownBy(
-            () ->
-                OpenApiServer.builder()
-                    .spec(spec)
-                    .handlers(Map.of("getX", req -> Response.ok(Map.of())))
-                    .port(0)
-                    .build())
+    assertThatThrownBy(builder::build)
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("unsupported");
   }
@@ -91,16 +81,18 @@ class SecurityBootValidationTest {
             List.of(),
             List.of(Map.of("missingScheme", List.of())));
     Spec spec = Spec.from(r);
+    OpenApiServer.Builder builder = handlerBuilder(spec);
 
-    assertThatThrownBy(
-            () ->
-                OpenApiServer.builder()
-                    .spec(spec)
-                    .handlers(Map.of("getX", req -> Response.ok(Map.of())))
-                    .port(0)
-                    .build())
+    assertThatThrownBy(builder::build)
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("missingScheme");
+  }
+
+  private static OpenApiServer.Builder handlerBuilder(Spec spec) {
+    return OpenApiServer.builder()
+        .spec(spec)
+        .handlers(Map.of("getX", req -> Response.ok(Map.of())))
+        .port(0);
   }
 
   @Test

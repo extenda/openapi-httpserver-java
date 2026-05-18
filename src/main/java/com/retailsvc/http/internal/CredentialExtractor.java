@@ -60,7 +60,7 @@ final class CredentialExtractor {
     byte[] decoded;
     try {
       decoded = Base64.getDecoder().decode(parts[1]);
-    } catch (IllegalArgumentException e) {
+    } catch (IllegalArgumentException _) {
       return ExtractionResult.malformed();
     }
     String creds = new String(decoded, StandardCharsets.UTF_8);
