@@ -22,6 +22,20 @@ public final class ProblemDetailRenderer {
 
   private ProblemDetailRenderer() {}
 
+  public static String render(int status, String title, String detail) {
+    StringBuilder out = new StringBuilder(INITIAL_BUFFER_CAPACITY);
+    out.append('{');
+    appendStringField(out, "type", PROBLEM_TYPE);
+    out.append(',');
+    appendStringField(out, "title", title);
+    out.append(',');
+    appendIntField(out, "status", status);
+    out.append(',');
+    appendStringField(out, "detail", detail);
+    out.append('}');
+    return out.toString();
+  }
+
   public static String render(ValidationError error) {
     StringBuilder out = new StringBuilder(INITIAL_BUFFER_CAPACITY);
     out.append('{');
