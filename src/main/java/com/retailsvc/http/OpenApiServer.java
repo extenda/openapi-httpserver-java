@@ -10,7 +10,9 @@ import com.retailsvc.http.internal.FormTypeMapper;
 import com.retailsvc.http.internal.RequestPreparationFilter;
 import com.retailsvc.http.internal.ResponseRenderer;
 import com.retailsvc.http.internal.Router;
+import com.retailsvc.http.internal.SecurityFilter;
 import com.retailsvc.http.internal.TextTypeMapper;
+import com.retailsvc.http.spec.Operation;
 import com.retailsvc.http.spec.Spec;
 import com.retailsvc.http.validate.DefaultValidator;
 import com.sun.net.httpserver.HttpContext;
@@ -24,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +52,9 @@ public class OpenApiServer implements AutoCloseable {
       List<RequestInterceptor> interceptors,
       List<ResponseDecorator> decorators,
       ExceptionHandler exceptionHandler,
-      Map<String, HttpHandler> extras) {}
+      Map<String, HttpHandler> extras,
+      Map<String, SchemeValidator> securityValidators,
+      boolean externalAuth) {}
 
   OpenApiServer(
       Spec spec,
@@ -70,6 +75,9 @@ public class OpenApiServer implements AutoCloseable {
 
     long t0 = System.currentTimeMillis();
     Router router = new Router(spec.operations());
+    Map<String, Operation> operationsById =
+        spec.operations().stream()
+            .collect(Collectors.toUnmodifiableMap(Operation::operationId, op -> op));
     DefaultValidator validator = new DefaultValidator(spec::resolveSchema);
 
     this.httpServer = HttpServer.create(new InetSocketAddress(port), 0);
@@ -78,6 +86,14 @@ public class OpenApiServer implements AutoCloseable {
     HttpContext ctx = httpServer.createContext(Optional.ofNullable(spec.basePath()).orElse("/"));
     ctx.getFilters().add(new ExceptionFilter(exceptionHandler));
     ctx.getFilters().add(new RequestPreparationFilter(spec, router, validator, bodyMappers));
+    ctx.getFilters()
+        .add(
+            new SecurityFilter(
+                operationsById,
+                spec.securitySchemes(),
+                spec.security(),
+                handlerConfig.securityValidators(),
+                handlerConfig.externalAuth()));
     ctx.setHandler(
         new DispatchHandler(
             handlerConfig.handlers(),
@@ -260,7 +276,14 @@ public class OpenApiServer implements AutoCloseable {
       }
       Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
       HandlerConfig handlerConfig =
-          new HandlerConfig(handlers, interceptors, decorators, exceptionHandler, extras);
+          new HandlerConfig(
+              handlers,
+              interceptors,
+              decorators,
+              exceptionHandler,
+              extras,
+              Map.copyOf(securityValidators),
+              externalAuth);
       return new OpenApiServer(spec, resolved, handlerConfig, port, shutdownTimeoutSeconds);
     }
 
