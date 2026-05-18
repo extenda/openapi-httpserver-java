@@ -1,43 +1,64 @@
 package com.retailsvc.http;
 
-import com.sun.net.httpserver.HttpExchange;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * Read-only per-request handle passed to {@link RequestHandler}. Carries the parsed body, path
- * parameters, query parameters, headers, and operation ID. Handlers consume a {@code Request} and
- * return a {@link Response}.
+ * parameters, query parameters, headers, and operation ID.
+ *
+ * <p>{@code Request} is transport-neutral: it holds the body bytes, the raw query string, the path
+ * parameter map, and a header lookup function. The transport adapter (today the built-in JDK {@code
+ * HttpServer}, tomorrow potentially Netty or another backend) is responsible for extracting those
+ * primitives from its own request representation. Handlers consume a {@code Request} and return a
+ * {@link Response}.
  */
 public final class Request {
 
   private static final String CONTENT_TYPE = "Content-Type";
 
-  private final HttpExchange exchange;
   private final byte[] body;
   private final Object parsed;
   private final TypeMapper bodyMapper;
   private final String operationId;
   private final Map<String, String> pathParameters;
+  private final String rawQuery;
+  private final Function<String, String> headerLookup;
   private Map<String, String> queryParamCache;
 
+  /**
+   * Builds a {@code Request} from transport-neutral primitives. Adapters call this; handlers
+   * receive the constructed instance.
+   *
+   * @param body raw request body bytes; never {@code null}, may be empty
+   * @param parsed loose structural view of the body (Map / List / boxed primitive), or {@code null}
+   * @param bodyMapper {@link TypeMapper} that produced {@code parsed}, used for typed conversion;
+   *     may be {@code null} if there is no body
+   * @param operationId the OpenAPI {@code operationId} the request was routed to
+   * @param pathParameters path variables extracted by the router
+   * @param rawQuery raw (percent-encoded) query string, or {@code null} if absent
+   * @param headerLookup first-value, case-insensitive header lookup; returns {@code null} if absent
+   */
   public Request(
-      HttpExchange exchange,
       byte[] body,
       Object parsed,
       TypeMapper bodyMapper,
       String operationId,
-      Map<String, String> pathParameters) {
-    this.exchange = exchange;
+      Map<String, String> pathParameters,
+      String rawQuery,
+      Function<String, String> headerLookup) {
     this.body = body;
     this.parsed = parsed;
     this.bodyMapper = bodyMapper;
     this.operationId = operationId;
     this.pathParameters = pathParameters;
+    this.rawQuery = rawQuery;
+    this.headerLookup = headerLookup;
   }
 
   public byte[] bytes() {
@@ -71,7 +92,7 @@ public final class Request {
     if (parsed != null && type.isInstance(parsed)) {
       return type.cast(parsed);
     }
-    String contentType = exchange.getRequestHeaders().getFirst(CONTENT_TYPE);
+    String contentType = headerLookup.apply(CONTENT_TYPE);
     if (bodyMapper instanceof TypedTypeMapper typed) {
       return typed.readAs(body, contentType, type);
     }
@@ -100,7 +121,7 @@ public final class Request {
    * without the extra {@code filter(v -> !v.isBlank())} step.
    */
   public Optional<String> header(String name) {
-    String raw = exchange.getRequestHeaders().getFirst(name);
+    String raw = headerLookup.apply(name);
     return raw == null || raw.isBlank() ? Optional.empty() : Optional.of(raw);
   }
 
@@ -109,7 +130,7 @@ public final class Request {
    * query component.
    */
   public String rawQuery() {
-    return exchange.getRequestURI().getRawQuery();
+    return rawQuery;
   }
 
   /**
@@ -118,7 +139,7 @@ public final class Request {
    */
   public Map<String, String> queryParams() {
     if (queryParamCache == null) {
-      queryParamCache = parseQuery(rawQuery());
+      queryParamCache = parseQuery(rawQuery);
     }
     return queryParamCache;
   }

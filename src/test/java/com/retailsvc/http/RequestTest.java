@@ -2,27 +2,38 @@ package com.retailsvc.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retailsvc.http.internal.DispatchHandler;
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
 class RequestTest {
 
+  private static final Function<String, String> NO_HEADERS = name -> null;
+
+  private static Function<String, String> headers(String... pairs) {
+    Map<String, String> map = new java.util.HashMap<>();
+    for (int i = 0; i < pairs.length; i += 2) {
+      map.put(pairs[i].toLowerCase(), pairs[i + 1]);
+    }
+    return name -> map.get(name.toLowerCase());
+  }
+
   @Test
   void readsBoundContext() throws Exception {
-    HttpExchange exchange = mock(HttpExchange.class);
     Request req =
         new Request(
-            exchange, new byte[] {1, 2, 3}, Map.of("k", "v"), null, "get-x", Map.of("id", "42"));
+            new byte[] {1, 2, 3},
+            Map.of("k", "v"),
+            null,
+            "get-x",
+            Map.of("id", "42"),
+            null,
+            NO_HEADERS);
 
     AtomicReference<byte[]> seenBytes = new AtomicReference<>();
     AtomicReference<Object> seenParsed = new AtomicReference<>();
@@ -48,14 +59,17 @@ class RequestTest {
 
   @Test
   void asPojoDeserialisesViaTypedMapper() {
-    HttpExchange exchange = mock(HttpExchange.class);
-    Headers headers = new Headers();
-    headers.add("Content-Type", "application/json");
-    when(exchange.getRequestHeaders()).thenReturn(headers);
     JacksonJsonTypeMapper mapper = new JacksonJsonTypeMapper(new ObjectMapper());
     byte[] body = "{\"id\":\"x-1\",\"qty\":7}".getBytes(StandardCharsets.UTF_8);
     Request req =
-        new Request(exchange, body, Map.of("id", "x-1", "qty", 7), mapper, "op", Map.of());
+        new Request(
+            body,
+            Map.of("id", "x-1", "qty", 7),
+            mapper,
+            "op",
+            Map.of(),
+            null,
+            headers("Content-Type", "application/json"));
 
     Item item = req.asPojo(Item.class);
 
@@ -65,9 +79,9 @@ class RequestTest {
 
   @Test
   void asPojoFastPathWhenParsedAlreadyMatchesType() {
-    HttpExchange exchange = mock(HttpExchange.class);
     Map<String, Object> alreadyParsed = Map.of("k", "v");
-    Request req = new Request(exchange, "x".getBytes(), alreadyParsed, null, "op", Map.of());
+    Request req =
+        new Request("x".getBytes(), alreadyParsed, null, "op", Map.of(), null, NO_HEADERS);
 
     Map<?, ?> result = req.asPojo(Map.class);
     assertThat(result).isSameAs(alreadyParsed);
@@ -75,8 +89,7 @@ class RequestTest {
 
   @Test
   void asPojoThrowsWhenBodyEmpty() {
-    HttpExchange exchange = mock(HttpExchange.class);
-    Request req = new Request(exchange, new byte[0], null, null, "op", Map.of());
+    Request req = new Request(new byte[0], null, null, "op", Map.of(), null, NO_HEADERS);
 
     assertThatThrownBy(() -> req.asPojo(Item.class))
         .isInstanceOf(IllegalStateException.class)
@@ -85,10 +98,6 @@ class RequestTest {
 
   @Test
   void asPojoThrowsWhenMapperNotTyped() {
-    HttpExchange exchange = mock(HttpExchange.class);
-    Headers headers = new Headers();
-    headers.add("Content-Type", "text/plain");
-    when(exchange.getRequestHeaders()).thenReturn(headers);
     TypeMapper plain =
         new TypeMapper() {
           @Override
@@ -101,7 +110,15 @@ class RequestTest {
             return v.toString().getBytes(StandardCharsets.UTF_8);
           }
         };
-    Request req = new Request(exchange, "hello".getBytes(), "hello", plain, "op", Map.of());
+    Request req =
+        new Request(
+            "hello".getBytes(),
+            "hello",
+            plain,
+            "op",
+            Map.of(),
+            null,
+            headers("Content-Type", "text/plain"));
 
     assertThatThrownBy(() -> req.asPojo(Item.class))
         .isInstanceOf(IllegalStateException.class)
@@ -115,8 +132,7 @@ class RequestTest {
 
   @Test
   void pathParamReturnsValueOrNull() {
-    HttpExchange exchange = mock(HttpExchange.class);
-    Request req = new Request(exchange, new byte[0], null, null, "op", Map.of("id", "42"));
+    Request req = new Request(new byte[0], null, null, "op", Map.of("id", "42"), null, NO_HEADERS);
 
     assertThat(req.pathParam("id")).isEqualTo("42");
     assertThat(req.pathParam("missing")).isNull();
@@ -124,10 +140,15 @@ class RequestTest {
 
   @Test
   void exposesQueryParams() {
-    HttpExchange exchange = mock(HttpExchange.class);
-    when(exchange.getRequestURI())
-        .thenReturn(URI.create("http://h/x?name=Alice%20Smith&active=true&active=false"));
-    Request req = new Request(exchange, new byte[0], null, null, "op", Map.of());
+    Request req =
+        new Request(
+            new byte[0],
+            null,
+            null,
+            "op",
+            Map.of(),
+            "name=Alice%20Smith&active=true&active=false",
+            NO_HEADERS);
 
     assertThat(req.rawQuery()).isEqualTo("name=Alice%20Smith&active=true&active=false");
     assertThat(req.queryParam("name")).contains("Alice Smith");
@@ -140,9 +161,7 @@ class RequestTest {
 
   @Test
   void queryParamsEmptyWhenNoQuery() {
-    HttpExchange exchange = mock(HttpExchange.class);
-    when(exchange.getRequestURI()).thenReturn(URI.create("http://h/x"));
-    Request req = new Request(exchange, new byte[0], null, null, "op", Map.of());
+    Request req = new Request(new byte[0], null, null, "op", Map.of(), null, NO_HEADERS);
 
     assertThat(req.rawQuery()).isNull();
     assertThat(req.queryParams()).isEmpty();
@@ -151,9 +170,8 @@ class RequestTest {
 
   @Test
   void queryParamBlankIsTreatedAsAbsent() {
-    HttpExchange exchange = mock(HttpExchange.class);
-    when(exchange.getRequestURI()).thenReturn(URI.create("http://h/x?limit=&offset=%20"));
-    Request req = new Request(exchange, new byte[0], null, null, "op", Map.of());
+    Request req =
+        new Request(new byte[0], null, null, "op", Map.of(), "limit=&offset=%20", NO_HEADERS);
 
     assertThat(req.queryParam("limit")).isEmpty();
     assertThat(req.queryParam("offset")).isEmpty();
@@ -161,12 +179,15 @@ class RequestTest {
 
   @Test
   void headerReturnsOptionalAndBlankIsAbsent() {
-    HttpExchange exchange = mock(HttpExchange.class);
-    com.sun.net.httpserver.Headers h = new com.sun.net.httpserver.Headers();
-    h.add("X-Trace", "abc");
-    h.add("X-Empty", "   ");
-    when(exchange.getRequestHeaders()).thenReturn(h);
-    Request req = new Request(exchange, new byte[0], null, null, "op", Map.of());
+    Request req =
+        new Request(
+            new byte[0],
+            null,
+            null,
+            "op",
+            Map.of(),
+            null,
+            headers("X-Trace", "abc", "X-Empty", "   "));
 
     assertThat(req.header("X-Trace")).contains("abc");
     assertThat(req.header("X-Empty")).isEmpty();

@@ -64,14 +64,16 @@ public final class RequestPreparationFilter extends Filter {
     validateParameters(exchange, op, match.pathParameters());
     ParsedBody parsedBody = validateAndParseBody(exchange, op, body);
 
+    var headers = exchange.getRequestHeaders();
     Request request =
         new Request(
-            exchange,
             body,
             parsedBody.value(),
             parsedBody.mapper(),
             op.operationId(),
-            match.pathParameters());
+            match.pathParameters(),
+            exchange.getRequestURI().getRawQuery(),
+            headers::getFirst);
 
     try {
       ScopedValue.where(DispatchHandler.CURRENT, request)
