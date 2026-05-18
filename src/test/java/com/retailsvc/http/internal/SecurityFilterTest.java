@@ -319,6 +319,35 @@ class SecurityFilterTest {
     assertThat(captured).containsEntry("bearerAuth", "bearer-ok").doesNotContainKey("apiKeyAuth");
   }
 
+  @Test
+  void externalAuthBypassesEverything() throws Exception {
+    // Operation requires bearerAuth, but externalAuth=true should short-circuit.
+    Operation op =
+        new Operation(
+            "getX",
+            HttpMethod.GET,
+            null,
+            Optional.empty(),
+            List.of(),
+            Map.of(),
+            Map.of(),
+            Optional.of(List.of(new SecurityRequirement(Map.of("bearerAuth", List.of())))));
+
+    SecurityFilter filter =
+        new SecurityFilter(
+            Map.of("getX", op),
+            Map.of("bearerAuth", new HttpBearer(Optional.empty())),
+            List.of(),
+            Map.of(), // NO validators
+            /* externalAuth= */ true);
+
+    HttpExchange ex = mock(HttpExchange.class);
+    Chain chain = mock(Chain.class);
+    ScopedValueHarness.runWith(newMinimalRequest("getX"), () -> filter.doFilter(ex, chain));
+
+    verify(chain).doFilter(ex);
+  }
+
   private static Request newMinimalRequest(String operationId) {
     return new Request(new byte[0], null, null, operationId, Map.of(), null, h -> null);
   }
