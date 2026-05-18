@@ -4,11 +4,13 @@ import com.retailsvc.http.ExceptionHandler;
 import com.retailsvc.http.Handlers;
 import com.retailsvc.http.OpenApiServer;
 import com.retailsvc.http.RequestHandler;
+import com.retailsvc.http.Response;
 import com.retailsvc.http.spec.Spec;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
@@ -37,6 +39,10 @@ public class ServerLauncher {
     handlers.put("query-params", new ParamHandler());
     handlers.put("path-params", new ParamHandler());
     handlers.put("path-params-multi", new ParamHandler());
+    handlers.put("secureApiKey", req -> Response.status(200));
+    handlers.put("secureBearer", req -> Response.status(200));
+    handlers.put("secureBasic", req -> Response.status(200));
+    handlers.put("secureOpen", req -> Response.status(200));
 
     ExceptionHandler exceptionHandler = Handlers.defaultExceptionHandler();
 
@@ -44,6 +50,9 @@ public class ServerLauncher {
         .spec(spec)
         .handlers(handlers)
         .exceptionHandler(exceptionHandler)
+        .securityValidator("apiKeyAuth", (req, cred) -> Optional.empty())
+        .securityValidator("bearerAuth", (req, cred) -> Optional.empty())
+        .securityValidator("basicAuth", (req, cred) -> Optional.empty())
         .build();
     LOG.info("Application started in {}ms", System.currentTimeMillis() - t0);
   }

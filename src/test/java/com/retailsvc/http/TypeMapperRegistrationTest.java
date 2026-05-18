@@ -30,7 +30,7 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
                 gson.toJson(req.parsed()).getBytes(StandardCharsets.UTF_8),
                 "application/json");
     server =
-        OpenApiServer.builder()
+        newBuilder()
             .spec(spec)
             .handlers(Map.of("get-data", echo, "post-data", echo))
             .port(0)
@@ -70,7 +70,7 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
         };
     RequestHandler echo = req -> Response.status(200);
     server =
-        OpenApiServer.builder()
+        newBuilder()
             .spec(spec)
             .bodyMapper("application/json", marker)
             .handlers(Map.of("get-data", echo, "post-data", echo))
@@ -106,7 +106,7 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
         };
     RequestHandler echo = req -> Response.status(200);
     server =
-        OpenApiServer.builder()
+        newBuilder()
             .spec(spec)
             .jsonMapper(marker)
             .handlers(Map.of("get-data", echo, "post-data", echo))

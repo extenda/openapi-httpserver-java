@@ -14,7 +14,7 @@ class ExtraHandlersIT extends ServerBaseTest {
   @Test
   void aliveExtraReturns204AndBypassesValidation() throws Exception {
     try (var s =
-            OpenApiServer.builder()
+            newBuilder()
                 .spec(spec)
                 .handlers(Map.of())
                 .exceptionHandler(defaultExceptionHandler())
@@ -38,7 +38,7 @@ class ExtraHandlersIT extends ServerBaseTest {
   @Test
   void specHandlerServesClasspathResource() throws Exception {
     try (var s =
-            OpenApiServer.builder()
+            newBuilder()
                 .spec(spec)
                 .handlers(Map.of())
                 .exceptionHandler(defaultExceptionHandler())
@@ -68,7 +68,7 @@ class ExtraHandlersIT extends ServerBaseTest {
         };
 
     try (var s =
-            OpenApiServer.builder()
+            newBuilder()
                 .spec(spec)
                 .handlers(Map.of())
                 .exceptionHandler(defaultExceptionHandler())
