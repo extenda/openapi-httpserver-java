@@ -14,6 +14,13 @@
     <tag>HEAD</tag>
   </scm>
 
+  <distributionManagement>
+    <repository>
+      <id>extenda-maven</id>
+      <url>artifactregistry://europe-west1-maven.pkg.dev/extenda/maven</url>
+    </repository>
+  </distributionManagement>
+
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
