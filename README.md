@@ -16,6 +16,16 @@ This library provides a simple way to create an HTTP server that implements Open
 
 It is designed to be simple to use while providing the essential features needed for creating efficient HTTP servers in Java.
 
+## Maven artifact
+
+``` xml
+<dependency>
+  <groupId>com.retailsvc</groupId>
+  <artifactId>openapi-httpserver-java</artifactId>
+  <version>${openapi-httpserver-java.version}</version>
+</dependency>
+```
+
 ## Getting Started
 
 ### Prerequisites
