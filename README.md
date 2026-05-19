@@ -653,17 +653,44 @@ Schemas are located under test resources folder.
 - Example requests can be found under `acceptance/k6` that can be a base for exploring the functionality.
 - The logger in the configuration needs to be enabled to get some insight into the code.
 
-## Performance and caveats
-
-The library wraps the JDK's bundled `com.sun.net.httpserver.HttpServer` and uses a virtual-thread-per-request executor. On a developer laptop (Apple Silicon, single instance, default JVM flags) it sustains roughly:
-
-- **~32k requests/second** for small JSON GETs and POSTs (~300 byte bodies), measured via `k6` at 30 sustained VUs over 45 seconds (1.4M requests, **100% of checks passing**, 0% HTTP failures).
-
-A few things to know:
+## Caveats
 
 - **Single-process model.** No horizontal scaling primitives are bundled; run multiple instances behind a load balancer for production scale.
-- **JDK HttpServer is the throughput ceiling.** It's documented as a low-throughput / dev-test server. If you need to go materially above the rates above, the handler-facing API (`Request`, `Response`, `RequestHandler`, `RequestInterceptor`, `ResponseDecorator`, `TypeMapper`) is transport-neutral by design — `Request` is built from primitives (body bytes, raw query string, path parameters, a header lookup function), not a JDK `HttpExchange`. A future enhancement could plug in a higher-throughput backend (Jetty, Helidon Níma, Netty) by writing a new adapter behind `com.retailsvc.http.internal` while leaving handlers untouched.
+- **JDK `HttpServer` is the throughput ceiling.** It's documented as a low-throughput / dev-test server. If you need to go materially above the rates shown under [Performance](#performance), the handler-facing API (`Request`, `Response`, `RequestHandler`, `RequestInterceptor`, `ResponseDecorator`, `TypeMapper`) is transport-neutral by design — `Request` is built from primitives (body bytes, raw query string, path parameters, a header lookup function), not a JDK `HttpExchange`. A future enhancement could plug in a higher-throughput backend (Jetty, Helidon Níma, Netty) by writing a new adapter behind `com.retailsvc.http.internal` while leaving handlers untouched.
 - **Per-request state uses `ScopedValue`** (Java 25, JEP 506). This matters if a handler offloads work to an executor that's not a `StructuredTaskScope`-managed child thread: the `ScopedValue` is not visible there, so the handler must capture the values it needs (e.g. `byte[] body = request.bytes();`) before submitting.
 - **Empty responses use `Response.empty()` (204) or `Response.status(code)` for other no-body statuses.** The renderer sends `responseLength = -1` (`Content-Length: 0`, no body) for any `Response` with `body() == null`, regardless of status code. Passing `0` to the JDK directly produces a chunked response with zero chunks, which is technically non-conformant — `Response` factories handle this for you.
+
+## Performance
+
+The chart below shows sustained throughput and 95th-percentile latency of `openapi-httpserver-java` under a mixed-CRUD load (50 concurrent virtual users driven by k6 for 75 s after a 20 s warmup). The bench handlers do the minimum: parse the request via the registered `TypeMapper`, hit an in-memory store, and return a `Response`. There are no synthetic sleeps, no downstream calls, and no database — what you see is the framework path itself: routing, OpenAPI validation, JSON (de)serialisation, response rendering.
+
+Two profiles, both inside a CPU- and memory-capped Docker container running Temurin 25 on an Apple M1 Max:
+
+- **2 CPU / 1 GB** — the default profile. The framework sustains over 10,000 req/s with a p95 under 7 ms.
+- **1 CPU / 512 MB** — the constrained profile. Throughput halves with CPU (the framework is CPU-bound, not lock- or IO-bound), and tighter memory pressures G1 into more old-generation collections, widening p95 to ~24 ms. The median request still completes in ~4 ms.
+
+![Performance: openapi-httpserver-java 1.0.3 throughput and p95 latency across two CPU/memory profiles](docs/perf-1.0.3.svg)
+
+### How does that compare?
+
+This is not a competition — different runtimes, different ecosystems, different sweet spots. It's a sanity check: where does `openapi-httpserver-java` land against a familiar reference point on the same hardware, under the same load?
+
+The reference point is a deliberately minimal Node.js service: Express 4 with `express-openapi-validator` against the same OpenAPI spec, handlers stripped to the same "parse, touch in-memory store, respond" shape, no synthetic sleeps. Both run inside the same 1 CPU / 512 MB Docker container; k6 drives the same mixed-CRUD workload at 50 VUs for 5 minutes of sustained measurement.
+
+| Metric (1 CPU / 512 MB) | openapi-httpserver-java | Node + Express |
+|---|---|---|
+| Aggregate throughput | **10,680 req/s** | 4,595 req/s |
+| p50 latency | 3.5 ms | 8.7 ms |
+| p95 latency | 12.8 ms | 24.0 ms |
+| p99 latency | 24.7 ms | 35.4 ms |
+
+![Java vs Node performance comparison: throughput and p95 latency at 1 CPU / 512 MB](docs/perf-java-vs-node.svg)
+
+A few things worth keeping in mind when reading this:
+
+- **Both stacks held up for the full 5 minutes** with stable tails — nothing pathological on either side.
+- **The Java advantage is mostly the JIT and the JVM thread pool.** Once hot, the framework dispatches requests through compiled code on real OS threads; Node serialises everything through a single event loop and pays for per-request JS validation in `express-openapi-validator`.
+- **It is not a 10× story.** At 1 vCPU both runtimes are CPU-bound on essentially the same task. Expect roughly 2× throughput and ~2× tighter tail latency, not a runaway.
+- The Node service used here is intentionally minimal; a tuned Fastify + AJV setup would close some of the gap, and a Go or Rust service would likely open it again in the opposite direction. The point of the comparison is to give you a feel for the ballpark, not to crown a winner.
 
 ## Known limitations or missing features
