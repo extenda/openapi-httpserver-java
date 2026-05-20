@@ -776,7 +776,7 @@ var server = OpenApiServer.builder()
     .handlers(handlers)
     .extraRoute("/alive", Handlers.aliveHandler())
     .extraRoute("/schemas/v1/openapi.yaml",
-                Handlers.specHandler("/schemas/v1/openapi.yaml"))
+                Handlers.resourceHandler("/schemas/v1/openapi.yaml"))
     .build();
 ```
 
@@ -787,8 +787,10 @@ routes.
 Built-in helpers:
 
 - `Handlers.aliveHandler()` — 204 No Content on `GET`/`HEAD`, 405 otherwise.
-- `Handlers.specHandler(classpathResource)` — serves a classpath resource (content-type inferred
-  from extension). Throws `IllegalArgumentException` at construction if the resource is missing.
+- `Handlers.resourceHandler(classpathResource)` / `Handlers.resourceHandler(Path)` — streams a
+  classpath resource or filesystem file (content-type inferred from extension; the stream is
+  opened and closed per request, and the handler owns its lifecycle). Throws
+  `IllegalArgumentException` at construction if the resource or file is missing.
 
 ## End-to-end example
 
