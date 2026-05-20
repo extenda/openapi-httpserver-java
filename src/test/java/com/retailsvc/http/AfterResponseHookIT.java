@@ -212,16 +212,25 @@ class AfterResponseHookIT {
   }
 
   @Test
-  void hookSeesScopedRequest() throws Exception {
+  void hookSeesScopedRequestAndSameThreadAsHandler() throws Exception {
     AtomicReference<Request> hookScopedRequest = new AtomicReference<>();
+    AtomicReference<Thread> handlerThread = new AtomicReference<>();
+    AtomicReference<Thread> hookThread = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
 
     try (OpenApiServer server =
         baseBuilder()
-            .handlers(Map.of(OK_OPERATION_ID, req -> Response.status(HTTP_NO_CONTENT)))
+            .handlers(
+                Map.of(
+                    OK_OPERATION_ID,
+                    req -> {
+                      handlerThread.set(Thread.currentThread());
+                      return Response.status(HTTP_NO_CONTENT);
+                    }))
             .afterResponseHook(
                 (req, resp) -> {
                   hookScopedRequest.set(DispatchHandler.CURRENT.get());
+                  hookThread.set(Thread.currentThread());
                   latch.countDown();
                 })
             .build()) {
@@ -234,6 +243,7 @@ class AfterResponseHookIT {
       assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
       assertThat(hookScopedRequest.get()).isNotNull();
       assertThat(hookScopedRequest.get().operationId()).isEqualTo(OK_OPERATION_ID);
+      assertThat(hookThread.get()).isSameAs(handlerThread.get());
     }
   }
 }
