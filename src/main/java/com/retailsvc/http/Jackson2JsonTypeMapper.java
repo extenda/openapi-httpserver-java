@@ -11,7 +11,7 @@ import java.util.Objects;
  * mapper you pass is the mapper you get.
  *
  * <p>Implements {@link TypedTypeMapper}, so handlers can ask for a typed view of the body via
- * {@link Request#parsed(Class)}.
+ * {@link Request#asPojo(Class)}.
  *
  * <p>Typical wiring:
  *
