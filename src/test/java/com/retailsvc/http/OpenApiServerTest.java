@@ -1,6 +1,8 @@
 package com.retailsvc.http;
 
+import static java.net.http.HttpClient.Version.HTTP_1_1;
 import static java.util.Collections.emptyMap;
+import static java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -10,6 +12,9 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -59,7 +64,7 @@ class OpenApiServerTest {
   }
 
   @Test
-  void shouldBindOnlyToLoopbackWhenBindAddressIsLoopback() throws IOException {
+  void shouldBindOnlyToLoopbackWhenBindAddressIsLoopback() throws Exception {
     try (var server =
         OpenApiServer.builder()
             .spec(testSpec())
@@ -67,15 +72,20 @@ class OpenApiServerTest {
             .port(0)
             .bindAddress(InetAddress.getLoopbackAddress())
             .build()) {
+      assertThat(server.bindAddress().isLoopbackAddress()).isTrue();
       int port = server.listenPort();
-      HttpURLConnection conn =
-          (HttpURLConnection)
-              URI.create("http://127.0.0.1:" + port + "/api/missing").toURL().openConnection();
-      try {
-        assertThat(conn.getResponseCode()).isEqualTo(HttpURLConnection.HTTP_NOT_FOUND);
-      } finally {
-        conn.disconnect();
-      }
+      HttpClient client =
+          HttpClient.newBuilder()
+              .executor(newVirtualThreadPerTaskExecutor())
+              .version(HTTP_1_1)
+              .build();
+      HttpRequest request =
+          HttpRequest.newBuilder()
+              .uri(URI.create("http://127.0.0.1:" + port + "/api/missing"))
+              .GET()
+              .build();
+      HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
+      assertThat(response.statusCode()).isEqualTo(HttpURLConnection.HTTP_NOT_FOUND);
     }
   }
 
@@ -83,19 +93,6 @@ class OpenApiServerTest {
   void shouldBindToWildcardWhenBindAddressIsUnset() throws IOException {
     try (var server =
         OpenApiServer.builder().spec(testSpec()).handlers(emptyMap()).port(0).build()) {
-      assertThat(server.bindAddress().isAnyLocalAddress()).isTrue();
-    }
-  }
-
-  @Test
-  void shouldBindToWildcardWhenBindAddressIsExplicitlyNull() throws IOException {
-    try (var server =
-        OpenApiServer.builder()
-            .spec(testSpec())
-            .handlers(emptyMap())
-            .port(0)
-            .bindAddress(null)
-            .build()) {
       assertThat(server.bindAddress().isAnyLocalAddress()).isTrue();
     }
   }

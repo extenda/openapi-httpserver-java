@@ -122,9 +122,11 @@ public class OpenApiServer implements AutoCloseable {
 
     this.shutdownTimeoutSeconds = shutdownTimeoutSeconds;
 
+    String host = httpServer.getAddress().getHostString();
+    String displayHost = host.contains(":") ? "[" + host + "]" : host;
     LOG.info(
         "Server started ({}:{}) in {}ms",
-        httpServer.getAddress().getHostString(),
+        displayHost,
         httpServer.getAddress().getPort(),
         System.currentTimeMillis() - t0);
   }
@@ -134,8 +136,8 @@ public class OpenApiServer implements AutoCloseable {
   }
 
   /**
-   * Returns the actual address the server is bound to, including any wildcard resolution by the
-   * underlying {@link HttpServer}. Useful for verifying loopback restriction.
+   * Returns the local address the server is bound to. For a wildcard-bound server this is the
+   * wildcard address; for a loopback-bound server this is the loopback address.
    */
   public InetAddress bindAddress() {
     return httpServer.getAddress().getAddress();
