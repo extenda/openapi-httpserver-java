@@ -49,6 +49,10 @@ jobs:
       - name: Create release
         uses: extenda/actions/conventional-release@v0
         id: release
+        with:
+          name: ''
+          tag-prefix: 'v'
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
