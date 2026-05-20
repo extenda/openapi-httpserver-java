@@ -34,13 +34,13 @@ class ExtraHandlersIT extends ServerBaseTest {
   }
 
   @Test
-  void specHandlerServesClasspathResource() throws Exception {
+  void resourceHandlerServesClasspathResource() throws Exception {
     try (var s =
             newBuilder()
                 .spec(spec)
                 .handlers(Map.of())
                 .port(0)
-                .extraRoute("/openapi.yaml", Handlers.specHandler("/openapi.yaml"))
+                .extraRoute("/openapi.yaml", Handlers.resourceHandler("/openapi.yaml"))
                 .build();
         var client = httpClient()) {
 

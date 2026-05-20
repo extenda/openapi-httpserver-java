@@ -9,9 +9,11 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.retailsvc.http.internal.ClasspathResourceHandler;
 import com.retailsvc.http.internal.HealthRenderer;
 import com.retailsvc.http.internal.ProblemDetail;
+import com.retailsvc.http.internal.ResourceSource;
+import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -102,22 +104,45 @@ public final class Handlers {
   }
 
   /**
-   * Serves a classpath resource. Content-Type is inferred from the file extension. The resource is
-   * loaded eagerly; a missing resource fails immediately with {@link IllegalArgumentException}.
+   * Serves a classpath resource as a streaming response. Content-Type is inferred from the file
+   * extension. Existence and length are resolved at construction; a missing resource fails
+   * immediately with {@link IllegalArgumentException}. The resource is opened and closed per
+   * request — the handler owns the stream lifecycle.
    *
    * @param classpathResource absolute classpath path, e.g. {@code /schemas/v1/openapi.yaml}
    */
-  public static RequestHandler specHandler(String classpathResource) {
-    ClasspathResourceHandler resource = new ClasspathResourceHandler(classpathResource);
-    byte[] bytes = resource.bytes();
-    String contentType = resource.contentType();
+  public static RequestHandler resourceHandler(String classpathResource) {
+    return resourceHandler(ResourceSource.ofClasspath(classpathResource));
+  }
+
+  /**
+   * Serves a filesystem file as a streaming response. Content-Type is inferred from the file
+   * extension. Existence and length are resolved at construction; a missing file fails immediately
+   * with {@link IllegalArgumentException}. The file is opened and closed per request.
+   */
+  public static RequestHandler resourceHandler(Path file) {
+    return resourceHandler(ResourceSource.ofFile(file));
+  }
+
+  private static RequestHandler resourceHandler(ResourceSource source) {
+    long length = source.length();
+    String contentType = source.contentType();
     return req ->
         switch (req.method()) {
-          case GET -> Response.bytes(HTTP_OK, bytes, contentType);
+          case GET ->
+              Response.stream(
+                  HTTP_OK,
+                  length,
+                  contentType,
+                  out -> {
+                    try (InputStream in = source.open()) {
+                      in.transferTo(out);
+                    }
+                  });
           case HEAD ->
               Response.status(HTTP_OK)
                   .withContentType(contentType)
-                  .withHeader("Content-Length", String.valueOf(bytes.length));
+                  .withHeader("Content-Length", String.valueOf(length));
           default -> Response.status(HTTP_BAD_METHOD).withHeader("Allow", "GET, HEAD");
         };
   }
