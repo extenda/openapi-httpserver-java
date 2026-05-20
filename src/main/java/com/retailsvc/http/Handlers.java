@@ -15,7 +15,6 @@ import com.retailsvc.http.internal.ProblemDetailRenderer;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -88,10 +87,10 @@ public final class Handlers {
    *
    * <p>Serialisation is delegated to the supplied {@code jsonMapper} — typically the same {@link
    * TypeMapper} the caller registered for {@code application/json} on the server. The handler hands
-   * the mapper a {@code Map<String,Object>} matching the shape above; any standard JSON library
-   * (Gson, Jackson, …) serialises it identically.
+   * the mapper a record-shaped DTO with the components in the order shown above; any standard JSON
+   * library (Gson, Jackson, …) serialises it identically.
    *
-   * @param jsonMapper used to encode the wire-shape {@code Map} to bytes
+   * @param jsonMapper used to encode the wire-shape DTO to bytes
    * @param probe supplier of the current {@link HealthOutcome}
    */
   public static HttpHandler healthHandler(TypeMapper jsonMapper, Supplier<HealthOutcome> probe) {
@@ -116,18 +115,23 @@ public final class Handlers {
         });
   }
 
-  private static Map<String, Object> toWireShape(HealthOutcome outcome) {
-    return Map.of(
-        "outcome", label(outcome.up()),
-        "dependencies",
-            outcome.dependencies().stream()
-                .map(d -> Map.<String, Object>of("id", d.id(), "status", label(d.up())))
-                .toList());
+  private static HealthBody toWireShape(HealthOutcome outcome) {
+    return new HealthBody(
+        label(outcome.up()),
+        outcome.dependencies().stream()
+            .map(d -> new DependencyBody(d.id(), label(d.up())))
+            .toList());
   }
 
   private static String label(boolean up) {
     return up ? "Up" : "Down";
   }
+
+  /** Wire-shape DTO for the health endpoint. Component order defines JSON field order. */
+  private record HealthBody(String outcome, List<DependencyBody> dependencies) {}
+
+  /** Wire-shape DTO for a single dependency entry. */
+  private record DependencyBody(String id, String status) {}
 
   /**
    * Serves a classpath resource. Content-Type is inferred from the file extension. The resource is
