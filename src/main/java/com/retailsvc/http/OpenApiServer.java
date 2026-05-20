@@ -254,6 +254,10 @@ public class OpenApiServer implements AutoCloseable {
       return this;
     }
 
+    /**
+     * Sets the TCP port to listen on. Defaults to {@value #DEFAULT_PORT} when not set. Use {@code
+     * 0} to bind on an ephemeral port (read it back via {@link OpenApiServer#listenPort()}).
+     */
     public Builder port(int port) {
       this.port = port;
       return this;

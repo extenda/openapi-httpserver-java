@@ -218,6 +218,10 @@ Register a custom mapper for any media type via `Builder.bodyMapper(mediaType, m
 
 User-supplied mappers take precedence over built-in defaults, so you can override any of the above.
 
+#### Listen port
+
+`Builder.port(int)` is optional and defaults to `8080`. Pass `0` to bind on an ephemeral port and read the actual port back via `OpenApiServer.listenPort()` — useful for tests.
+
 #### Restricting to the loopback interface
 
 By default the server binds to the wildcard address (all local interfaces). To restrict it to loopback — useful for local development or sidecar processes — supply a bind address:
