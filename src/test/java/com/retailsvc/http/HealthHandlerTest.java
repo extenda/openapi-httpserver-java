@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.retailsvc.http.internal.gson.GsonJsonMapper;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayOutputStream;
@@ -19,16 +20,18 @@ import org.junit.jupiter.api.Test;
 
 class HealthHandlerTest {
 
+  private static final TypeMapper JSON = new GsonJsonMapper();
+
   @Test
   void getReturns200AndJsonBodyWhenUp() throws IOException {
-    HealthOutcome outcome = new HealthOutcome("Up", List.of(new Dependency("jdbc", "Up")));
+    HealthOutcome outcome = new HealthOutcome(true, List.of(new Dependency("jdbc", true)));
     HttpExchange ex = newExchange("GET");
     Headers headers = new Headers();
     when(ex.getResponseHeaders()).thenReturn(headers);
     ByteArrayOutputStream body = new ByteArrayOutputStream();
     when(ex.getResponseBody()).thenReturn(body);
 
-    Handlers.healthHandler(() -> outcome).handle(ex);
+    Handlers.healthHandler(JSON, () -> outcome).handle(ex);
 
     verify(ex).sendResponseHeaders(eq(HTTP_OK), eq((long) body.size()));
     assertThat(headers.getFirst("Content-Type")).isEqualTo("application/json");
@@ -44,7 +47,7 @@ class HealthHandlerTest {
     ByteArrayOutputStream body = new ByteArrayOutputStream();
     when(ex.getResponseBody()).thenReturn(body);
 
-    Handlers.healthHandler(() -> new HealthOutcome("Up", List.of())).handle(ex);
+    Handlers.healthHandler(JSON, () -> new HealthOutcome(true, List.of())).handle(ex);
 
     verify(ex).sendResponseHeaders(eq(HTTP_OK), eq((long) body.size()));
     assertThat(body.toString()).isEqualTo("{\"outcome\":\"Up\",\"dependencies\":[]}");
@@ -52,18 +55,20 @@ class HealthHandlerTest {
 
   @Test
   void getReturns503WhenDown() throws IOException {
-    HealthOutcome outcome = new HealthOutcome("Down", List.of(new Dependency("jdbc", "Down")));
+    HealthOutcome outcome = new HealthOutcome(false, List.of(new Dependency("jdbc", false)));
     HttpExchange ex = newExchange("GET");
     Headers headers = new Headers();
     when(ex.getResponseHeaders()).thenReturn(headers);
     ByteArrayOutputStream body = new ByteArrayOutputStream();
     when(ex.getResponseBody()).thenReturn(body);
 
-    Handlers.healthHandler(() -> outcome).handle(ex);
+    Handlers.healthHandler(JSON, () -> outcome).handle(ex);
 
     verify(ex).sendResponseHeaders(eq(HTTP_UNAVAILABLE), eq((long) body.size()));
     assertThat(headers.getFirst("Content-Type")).isEqualTo("application/json");
-    assertThat(body.toString()).contains("\"outcome\":\"Down\"");
+    assertThat(body.toString())
+        .isEqualTo(
+            "{\"outcome\":\"Down\",\"dependencies\":[{\"id\":\"jdbc\",\"status\":\"Down\"}]}");
   }
 
   @Test
@@ -74,7 +79,7 @@ class HealthHandlerTest {
     ByteArrayOutputStream body = new ByteArrayOutputStream();
     when(ex.getResponseBody()).thenReturn(body);
 
-    Handlers.healthHandler(() -> new HealthOutcome("Up", List.of())).handle(ex);
+    Handlers.healthHandler(JSON, () -> new HealthOutcome(true, List.of())).handle(ex);
 
     verify(ex).sendResponseHeaders(eq(HTTP_OK), eq((long) body.size()));
   }
@@ -85,7 +90,7 @@ class HealthHandlerTest {
     Headers headers = new Headers();
     when(ex.getResponseHeaders()).thenReturn(headers);
 
-    Handlers.healthHandler(() -> new HealthOutcome("Up", List.of())).handle(ex);
+    Handlers.healthHandler(JSON, () -> new HealthOutcome(true, List.of())).handle(ex);
 
     verify(ex).sendResponseHeaders(HTTP_BAD_METHOD, -1);
     assertThat(headers.getFirst("Allow")).isEqualTo("GET, HEAD");
@@ -103,7 +108,7 @@ class HealthHandlerTest {
         () -> {
           throw new IllegalStateException("boom");
         };
-    Handlers.healthHandler(failing).handle(ex);
+    Handlers.healthHandler(JSON, failing).handle(ex);
 
     verify(ex).sendResponseHeaders(eq(HTTP_UNAVAILABLE), eq((long) body.size()));
     assertThat(body.toString()).isEqualTo("{\"outcome\":\"Down\",\"dependencies\":[]}");
@@ -117,7 +122,7 @@ class HealthHandlerTest {
     ByteArrayOutputStream body = new ByteArrayOutputStream();
     when(ex.getResponseBody()).thenReturn(body);
 
-    Handlers.healthHandler(() -> null).handle(ex);
+    Handlers.healthHandler(JSON, () -> null).handle(ex);
 
     verify(ex).sendResponseHeaders(eq(HTTP_UNAVAILABLE), eq((long) body.size()));
     assertThat(body.toString()).isEqualTo("{\"outcome\":\"Down\",\"dependencies\":[]}");

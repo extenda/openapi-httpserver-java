@@ -10,12 +10,12 @@ import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.retailsvc.http.internal.ClasspathResourceHandler;
-import com.retailsvc.http.internal.HealthRenderer;
 import com.retailsvc.http.internal.MethodLimitedHandler;
 import com.retailsvc.http.internal.ProblemDetailRenderer;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -75,14 +75,27 @@ public final class Handlers {
 
   /**
    * Health endpoint handler. Accepts GET and HEAD; returns 200 with {@code application/json} body
-   * when the supplied probe reports {@code "Up"} (case-insensitive), and 503 with the same body
-   * shape otherwise. A probe that throws a {@link RuntimeException} or returns {@code null} is
-   * mapped to a {@code "Down"} outcome with an empty dependency list (and 503); the failure is
-   * never propagated to the default exception handler.
+   * when the supplied probe reports {@code up == true}, and 503 with the same body shape otherwise.
+   * A probe that throws a {@link RuntimeException} or returns {@code null} is mapped to a {@code
+   * Down} outcome with an empty dependency list (and 503); the failure is never propagated to the
+   * default exception handler.
    *
+   * <p>The wire shape is
+   *
+   * <pre>{@code
+   * {"outcome":"Up","dependencies":[{"id":"jdbc","status":"Up"}]}
+   * }</pre>
+   *
+   * <p>Serialisation is delegated to the supplied {@code jsonMapper} — typically the same {@link
+   * TypeMapper} the caller registered for {@code application/json} on the server. The handler hands
+   * the mapper a {@code Map<String,Object>} matching the shape above; any standard JSON library
+   * (Gson, Jackson, …) serialises it identically.
+   *
+   * @param jsonMapper used to encode the wire-shape {@code Map} to bytes
    * @param probe supplier of the current {@link HealthOutcome}
    */
-  public static HttpHandler healthHandler(Supplier<HealthOutcome> probe) {
+  public static HttpHandler healthHandler(TypeMapper jsonMapper, Supplier<HealthOutcome> probe) {
+    Objects.requireNonNull(jsonMapper, "jsonMapper");
     Objects.requireNonNull(probe, "probe");
     return new MethodLimitedHandler(
         exchange -> {
@@ -92,15 +105,28 @@ public final class Handlers {
               outcome = Objects.requireNonNull(probe.get(), "Health probe returned null");
             } catch (RuntimeException e) {
               LOG.warn("Health probe failed", e);
-              outcome = new HealthOutcome("Down", List.of());
+              outcome = new HealthOutcome(false, List.of());
             }
-            byte[] body = HealthRenderer.toJson(outcome).getBytes(UTF_8);
-            int status = outcome.isUp() ? HTTP_OK : HTTP_UNAVAILABLE;
+            byte[] body = jsonMapper.writeTo(toWireShape(outcome));
+            int status = outcome.up() ? HTTP_OK : HTTP_UNAVAILABLE;
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(status, body.length);
             exchange.getResponseBody().write(body);
           }
         });
+  }
+
+  private static Map<String, Object> toWireShape(HealthOutcome outcome) {
+    return Map.of(
+        "outcome", label(outcome.up()),
+        "dependencies",
+            outcome.dependencies().stream()
+                .map(d -> Map.<String, Object>of("id", d.id(), "status", label(d.up())))
+                .toList());
+  }
+
+  private static String label(boolean up) {
+    return up ? "Up" : "Down";
   }
 
   /**

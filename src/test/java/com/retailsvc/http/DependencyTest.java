@@ -8,23 +8,16 @@ import org.junit.jupiter.api.Test;
 class DependencyTest {
 
   @Test
-  void holdsIdAndStatus() {
-    Dependency d = new Dependency("jdbc", "Up");
+  void holdsIdAndUp() {
+    Dependency d = new Dependency("jdbc", true);
     assertThat(d.id()).isEqualTo("jdbc");
-    assertThat(d.status()).isEqualTo("Up");
+    assertThat(d.up()).isTrue();
   }
 
   @Test
   void rejectsNullId() {
     assertThatNullPointerException()
-        .isThrownBy(() -> new Dependency(null, "Up"))
+        .isThrownBy(() -> new Dependency(null, true))
         .withMessageContaining("id");
-  }
-
-  @Test
-  void rejectsNullStatus() {
-    assertThatNullPointerException()
-        .isThrownBy(() -> new Dependency("jdbc", null))
-        .withMessageContaining("status");
   }
 }

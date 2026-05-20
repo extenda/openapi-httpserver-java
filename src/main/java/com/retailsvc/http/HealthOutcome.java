@@ -4,24 +4,19 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Wire-shape carrier for the {@link Handlers#healthHandler health handler} response.
+ * Carrier for the {@link Handlers#healthHandler health handler} response.
  *
- * <p>The record owns the JSON shape on the wire — {@code {"outcome": "...", "dependencies": [
- * {"id": "...", "status": "..."} ]}}. Construct it from whatever check-running mechanism the caller
- * prefers; this library has no opinion.
+ * <p>The library translates {@code up} into the wire value {@code "Up"} or {@code "Down"} on the
+ * way out; callers work in booleans. Construct the outcome from whatever check-running mechanism
+ * the caller prefers — this library has no opinion.
  *
- * @param outcome overall outcome; {@code "Up"} (case-insensitive) means healthy
+ * @param up overall health — {@code true} renders as {@code "Up"} with HTTP 200; {@code false}
+ *     renders as {@code "Down"} with HTTP 503
  * @param dependencies per-dependency statuses; {@code null} is normalised to an empty list
  */
-public record HealthOutcome(String outcome, List<Dependency> dependencies) {
+public record HealthOutcome(boolean up, List<Dependency> dependencies) {
 
   public HealthOutcome {
-    Objects.requireNonNull(outcome, "outcome");
     dependencies = List.copyOf(Objects.requireNonNullElse(dependencies, List.of()));
-  }
-
-  /** Returns {@code true} when {@link #outcome()} equals {@code "Up"} ignoring case. */
-  public boolean isUp() {
-    return "Up".equalsIgnoreCase(outcome);
   }
 }

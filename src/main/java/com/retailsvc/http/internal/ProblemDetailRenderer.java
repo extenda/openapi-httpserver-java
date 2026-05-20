@@ -17,18 +17,21 @@ public final class ProblemDetailRenderer {
   /** Initial capacity of the JSON buffer; sized for a typical problem-detail document. */
   private static final int INITIAL_BUFFER_CAPACITY = 128;
 
+  /** Codepoints below this value are control characters and must be unicode-escaped in JSON. */
+  private static final int FIRST_PRINTABLE_ASCII = 0x20;
+
   private ProblemDetailRenderer() {}
 
   public static String render(int status, String title, String detail) {
     StringBuilder out = new StringBuilder(INITIAL_BUFFER_CAPACITY);
     out.append('{');
-    JsonStrings.appendStringField(out, "type", PROBLEM_TYPE);
+    appendStringField(out, "type", PROBLEM_TYPE);
     out.append(',');
-    JsonStrings.appendStringField(out, "title", title);
+    appendStringField(out, "title", title);
     out.append(',');
     appendIntField(out, "status", status);
     out.append(',');
-    JsonStrings.appendStringField(out, "detail", detail);
+    appendStringField(out, "detail", detail);
     out.append('}');
     return out.toString();
   }
@@ -36,22 +39,55 @@ public final class ProblemDetailRenderer {
   public static String render(ValidationError error) {
     StringBuilder out = new StringBuilder(INITIAL_BUFFER_CAPACITY);
     out.append('{');
-    JsonStrings.appendStringField(out, "type", PROBLEM_TYPE);
+    appendStringField(out, "type", PROBLEM_TYPE);
     out.append(',');
-    JsonStrings.appendStringField(out, "title", PROBLEM_TITLE);
+    appendStringField(out, "title", PROBLEM_TITLE);
     out.append(',');
     appendIntField(out, "status", PROBLEM_STATUS);
     out.append(',');
-    JsonStrings.appendStringField(out, "detail", error.message());
+    appendStringField(out, "detail", error.message());
     out.append(',');
-    JsonStrings.appendStringField(out, "pointer", error.pointer());
+    appendStringField(out, "pointer", error.pointer());
     out.append(',');
-    JsonStrings.appendStringField(out, "keyword", error.keyword());
+    appendStringField(out, "keyword", error.keyword());
     out.append('}');
     return out.toString();
   }
 
+  private static void appendStringField(StringBuilder out, String name, String value) {
+    out.append('"').append(name).append("\":\"");
+    appendEscaped(out, value);
+    out.append('"');
+  }
+
   private static void appendIntField(StringBuilder out, String name, int value) {
     out.append('"').append(name).append("\":").append(value);
+  }
+
+  /**
+   * Appends {@code value} to {@code out} with JSON-string escaping applied. Handles the six
+   * mandatory escape sequences and emits {@code &#92;uXXXX} for control characters below {@link
+   * #FIRST_PRINTABLE_ASCII}.
+   */
+  private static void appendEscaped(StringBuilder out, String value) {
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      switch (c) {
+        case '\\' -> out.append("\\\\");
+        case '"' -> out.append("\\\"");
+        case '\n' -> out.append("\\n");
+        case '\r' -> out.append("\\r");
+        case '\t' -> out.append("\\t");
+        default -> appendUnicodeOrLiteral(out, c);
+      }
+    }
+  }
+
+  private static void appendUnicodeOrLiteral(StringBuilder out, char c) {
+    if (c < FIRST_PRINTABLE_ASCII) {
+      out.append(String.format("\\u%04x", (int) c));
+    } else {
+      out.append(c);
+    }
   }
 }
