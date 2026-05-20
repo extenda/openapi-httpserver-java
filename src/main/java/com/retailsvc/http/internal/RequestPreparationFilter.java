@@ -73,7 +73,9 @@ public final class RequestPreparationFilter extends Filter {
             op.operationId(),
             match.pathParameters(),
             exchange.getRequestURI().getRawQuery(),
-            headers::getFirst);
+            headers::getFirst,
+            Map.of(),
+            method);
 
     try {
       ScopedValue.where(DispatchHandler.CURRENT, request)

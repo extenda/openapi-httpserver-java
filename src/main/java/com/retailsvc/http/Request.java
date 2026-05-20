@@ -1,5 +1,6 @@
 package com.retailsvc.http;
 
+import com.retailsvc.http.spec.HttpMethod;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -9,8 +10,8 @@ import java.util.Optional;
 import java.util.function.UnaryOperator;
 
 /**
- * Read-only per-request handle passed to {@link RequestHandler}. Carries the parsed body, path
- * parameters, query parameters, headers, and operation ID.
+ * Read-only per-request handle passed to {@link RequestHandler}. Carries the HTTP method, parsed
+ * body, path parameters, query parameters, headers, and operation ID.
  *
  * <p>{@code Request} is transport-neutral: it holds the body bytes, the raw query string, the path
  * parameter map, and a header lookup function. The transport adapter (today the built-in JDK {@code
@@ -28,6 +29,7 @@ public final class Request {
   private final String operationId;
   private final Map<String, String> pathParameters;
   private final String rawQuery;
+  private final HttpMethod method;
   private final UnaryOperator<String> headerLookup;
   private final Map<String, Object> principals;
   private Map<String, String> queryParamCache;
@@ -35,6 +37,8 @@ public final class Request {
   /**
    * Builds a {@code Request} from transport-neutral primitives. Adapters call this; handlers
    * receive the constructed instance.
+   *
+   * <p>{@code method} is {@code null}; use the 9-arg constructor to supply it.
    *
    * @param body raw request body bytes; never {@code null}, may be empty
    * @param parsed loose structural view of the body (Map / List / boxed primitive), or {@code null}
@@ -53,11 +57,22 @@ public final class Request {
       Map<String, String> pathParameters,
       String rawQuery,
       UnaryOperator<String> headerLookup) {
-    this(body, parsed, bodyMapper, operationId, pathParameters, rawQuery, headerLookup, Map.of());
+    this(
+        body,
+        parsed,
+        bodyMapper,
+        operationId,
+        pathParameters,
+        rawQuery,
+        headerLookup,
+        Map.of(),
+        null);
   }
 
   /**
    * Builds a {@code Request} from transport-neutral primitives with an explicit principals map.
+   *
+   * <p>{@code method} is {@code null}; use the 9-arg constructor to supply it.
    *
    * @param body raw request body bytes; never {@code null}, may be empty
    * @param parsed loose structural view of the body (Map / List / boxed primitive), or {@code null}
@@ -69,9 +84,6 @@ public final class Request {
    * @param headerLookup first-value, case-insensitive header lookup; returns {@code null} if absent
    * @param principals principals stashed by the security filter, keyed by scheme name
    */
-  // Request is transport-neutral and assembled from primitives at the adapter boundary; collapsing
-  // these into a holder type would just move the parameter count one level out without simplifying
-  // the call site, so the 8-arg constructor is preferred over the rule's 7-param limit.
   @SuppressWarnings("java:S107")
   public Request(
       byte[] body,
@@ -82,12 +94,55 @@ public final class Request {
       String rawQuery,
       UnaryOperator<String> headerLookup,
       Map<String, Object> principals) {
+    this(
+        body,
+        parsed,
+        bodyMapper,
+        operationId,
+        pathParameters,
+        rawQuery,
+        headerLookup,
+        principals,
+        null);
+  }
+
+  /**
+   * Builds a {@code Request} from transport-neutral primitives with explicit principals and method.
+   *
+   * @param body raw request body bytes; never {@code null}, may be empty
+   * @param parsed loose structural view of the body (Map / List / boxed primitive), or {@code null}
+   * @param bodyMapper {@link TypeMapper} that produced {@code parsed}, used for typed conversion;
+   *     may be {@code null} if there is no body
+   * @param operationId the OpenAPI {@code operationId} the request was routed to
+   * @param pathParameters path variables extracted by the router
+   * @param rawQuery raw (percent-encoded) query string, or {@code null} if absent
+   * @param headerLookup first-value, case-insensitive header lookup; returns {@code null} if absent
+   * @param principals principals stashed by the security filter, keyed by scheme name
+   * @param method the HTTP method of the request. Never {@code null} when constructed through the
+   *     normal request pipeline. {@code null} only when constructed via the legacy 7- or 8-argument
+   *     constructors (kept for backward compatibility).
+   */
+  // Request is transport-neutral and assembled from primitives at the adapter boundary; collapsing
+  // these into a holder type would just move the parameter count one level out without simplifying
+  // the call site, so the 9-arg constructor is preferred over the rule's 7-param limit.
+  @SuppressWarnings("java:S107")
+  public Request(
+      byte[] body,
+      Object parsed,
+      TypeMapper bodyMapper,
+      String operationId,
+      Map<String, String> pathParameters,
+      String rawQuery,
+      UnaryOperator<String> headerLookup,
+      Map<String, Object> principals,
+      HttpMethod method) {
     this.body = body;
     this.parsed = parsed;
     this.bodyMapper = bodyMapper;
     this.operationId = operationId;
     this.pathParameters = pathParameters;
     this.rawQuery = rawQuery;
+    this.method = method;
     this.headerLookup = headerLookup;
     this.principals = Map.copyOf(principals);
   }
@@ -208,13 +263,30 @@ public final class Request {
   }
 
   /**
+   * HTTP method of the request. Never {@code null} for requests routed through the standard
+   * pipeline; {@code null} only when the {@code Request} was constructed via a legacy constructor
+   * without a method.
+   */
+  public HttpMethod method() {
+    return method;
+  }
+
+  /**
    * Returns a new {@code Request} identical to this one except with the supplied principals. Used
    * by {@code SecurityFilter} on success; the returned instance carries the principals through to
    * the {@link RequestHandler}.
    */
   public Request withPrincipals(Map<String, Object> principals) {
     return new Request(
-        body, parsed, bodyMapper, operationId, pathParameters, rawQuery, headerLookup, principals);
+        body,
+        parsed,
+        bodyMapper,
+        operationId,
+        pathParameters,
+        rawQuery,
+        headerLookup,
+        principals,
+        method);
   }
 
   private static Map<String, String> parseQuery(String query) {

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retailsvc.http.internal.DispatchHandler;
+import com.retailsvc.http.spec.HttpMethod;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -229,6 +230,16 @@ class RequestTest {
     mutable.put("a", "MUTATED");
 
     assertThat(copy.principal("a")).contains("b");
+  }
+
+  @Test
+  void exposesMethod() {
+    Request req =
+        new Request(
+            new byte[0], null, null, "op", Map.of(), null, NO_HEADERS, Map.of(), HttpMethod.POST);
+
+    assertThat(req.method()).isEqualTo(HttpMethod.POST);
+    assertThat(req.withPrincipals(Map.of("k", "v")).method()).isEqualTo(HttpMethod.POST);
   }
 
   @Test
