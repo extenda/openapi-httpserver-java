@@ -23,34 +23,10 @@ public final class HealthRenderer {
       }
       Dependency d = dependencies.get(i);
       sb.append("{\"id\":");
-      appendJsonString(sb, d.id());
+      JsonStrings.appendQuoted(sb, d.id());
       sb.append(",\"status\":\"").append(label(d.up())).append("\"}");
     }
     return sb.append("]}").toString();
-  }
-
-  private static void appendJsonString(StringBuilder sb, String s) {
-    sb.append('"');
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      switch (c) {
-        case '"' -> sb.append("\\\"");
-        case '\\' -> sb.append("\\\\");
-        case '\b' -> sb.append("\\b");
-        case '\f' -> sb.append("\\f");
-        case '\n' -> sb.append("\\n");
-        case '\r' -> sb.append("\\r");
-        case '\t' -> sb.append("\\t");
-        default -> {
-          if (c < 0x20) {
-            sb.append(String.format("\\u%04x", (int) c));
-          } else {
-            sb.append(c);
-          }
-        }
-      }
-    }
-    sb.append('"');
   }
 
   private static String label(boolean up) {

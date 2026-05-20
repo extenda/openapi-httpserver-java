@@ -14,6 +14,7 @@ import com.retailsvc.http.internal.ResponseRenderer;
 import com.retailsvc.http.internal.Router;
 import com.retailsvc.http.internal.SecurityFilter;
 import com.retailsvc.http.internal.TextTypeMapper;
+import com.retailsvc.http.internal.gson.GsonJsonMapper;
 import com.retailsvc.http.spec.Operation;
 import com.retailsvc.http.spec.Spec;
 import com.retailsvc.http.spec.security.SecurityRequirement;
@@ -47,7 +48,6 @@ public class OpenApiServer implements AutoCloseable {
   private static final int DEFAULT_PORT = 8080;
   private static final String JSON = "application/json";
   private static final String GSON_CLASS = "com.google.gson.Gson";
-  private static final String GSON_MAPPER_CLASS = "com.retailsvc.http.internal.gson.GsonJsonMapper";
 
   private final HttpServer httpServer;
   private final int shutdownTimeoutSeconds;
@@ -112,8 +112,7 @@ public class OpenApiServer implements AutoCloseable {
                 spec.securitySchemes(),
                 spec.security(),
                 handlerConfig.securityValidators(),
-                handlerConfig.externalAuth(),
-                bodyMappers.get(JSON)));
+                handlerConfig.externalAuth()));
     ctx.setHandler(
         new DispatchHandler(
             handlerConfig.handlers(),
@@ -342,9 +341,7 @@ public class OpenApiServer implements AutoCloseable {
       }
       Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
       ExceptionHandler effectiveExceptionHandler =
-          exceptionHandler != null
-              ? exceptionHandler
-              : Handlers.defaultExceptionHandler(resolved.get(JSON));
+          exceptionHandler != null ? exceptionHandler : Handlers.defaultExceptionHandler();
       HandlerConfig handlerConfig =
           new HandlerConfig(
               handlers,
@@ -410,12 +407,7 @@ public class OpenApiServer implements AutoCloseable {
       } catch (ClassNotFoundException _) {
         return null;
       }
-      try {
-        Class<?> cls = Class.forName(GSON_MAPPER_CLASS, true, OpenApiServer.class.getClassLoader());
-        return (TypeMapper) cls.getDeclaredConstructor().newInstance();
-      } catch (ReflectiveOperationException e) {
-        throw new IllegalStateException("Failed to load " + GSON_MAPPER_CLASS, e);
-      }
+      return new GsonJsonMapper();
     }
   }
 }

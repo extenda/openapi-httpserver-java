@@ -11,6 +11,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.retailsvc.http.internal.HealthRenderer;
 import com.retailsvc.http.internal.ProblemDetail;
+import com.retailsvc.http.internal.ProblemDetailRenderer;
 import com.retailsvc.http.internal.ResourceSource;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -27,19 +28,18 @@ public final class Handlers {
 
   private Handlers() {}
 
-  public static ExceptionHandler defaultExceptionHandler(TypeMapper jsonMapper) {
-    Objects.requireNonNull(jsonMapper, "jsonMapper must not be null");
+  public static ExceptionHandler defaultExceptionHandler() {
     return t ->
         switch (t) {
           case ValidationException ve ->
               Response.bytes(
                   HTTP_BAD_REQUEST,
-                  jsonMapper.writeTo(ProblemDetail.forValidation(ve.error())),
+                  ProblemDetailRenderer.renderJson(ProblemDetail.forValidation(ve.error())),
                   "application/problem+json");
           case BadRequestException bre ->
               Response.bytes(
                   bre.status(),
-                  jsonMapper.writeTo(ProblemDetail.forBadRequest(bre)),
+                  ProblemDetailRenderer.renderJson(ProblemDetail.forBadRequest(bre)),
                   "application/problem+json");
           case NotFoundException _ -> Response.notFound();
           case MethodNotAllowedException mna ->

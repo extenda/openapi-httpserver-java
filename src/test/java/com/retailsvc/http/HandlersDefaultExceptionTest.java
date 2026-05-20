@@ -16,7 +16,7 @@ class HandlersDefaultExceptionTest {
   @Test
   void validationExceptionRendersProblemJson() {
     Response resp =
-        Handlers.defaultExceptionHandler(JSON)
+        Handlers.defaultExceptionHandler()
             .handle(
                 new ValidationException(
                     new ValidationError("/x", "type", "expected string", null)));
@@ -35,7 +35,7 @@ class HandlersDefaultExceptionTest {
   @Test
   void badRequestExceptionRendersProblemJsonWithCustomStatus() {
     Response resp =
-        Handlers.defaultExceptionHandler(JSON)
+        Handlers.defaultExceptionHandler()
             .handle(new BadRequestException(422, "email taken", "/email", "unique"));
 
     assertThat(resp.status()).isEqualTo(422);
@@ -53,7 +53,7 @@ class HandlersDefaultExceptionTest {
 
   @Test
   void notFoundReturns404() {
-    Response resp = Handlers.defaultExceptionHandler(JSON).handle(new NotFoundException("GET /x"));
+    Response resp = Handlers.defaultExceptionHandler().handle(new NotFoundException("GET /x"));
 
     assertThat(resp.status()).isEqualTo(404);
     assertThat(resp.body()).isNull();
@@ -62,7 +62,7 @@ class HandlersDefaultExceptionTest {
   @Test
   void methodNotAllowedReturns405WithAllowHeader() {
     Response resp =
-        Handlers.defaultExceptionHandler(JSON)
+        Handlers.defaultExceptionHandler()
             .handle(new MethodNotAllowedException(Set.of(HttpMethod.GET, HttpMethod.POST)));
 
     assertThat(resp.status()).isEqualTo(405);
@@ -72,7 +72,7 @@ class HandlersDefaultExceptionTest {
 
   @Test
   void unknownExceptionReturns500() {
-    Response resp = Handlers.defaultExceptionHandler(JSON).handle(new RuntimeException("kaboom"));
+    Response resp = Handlers.defaultExceptionHandler().handle(new RuntimeException("kaboom"));
 
     assertThat(resp.status()).isEqualTo(500);
     assertThat(resp.body()).isNull();
