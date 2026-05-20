@@ -6,17 +6,20 @@ import java.util.Objects;
 /**
  * Carrier for the {@link Handlers#healthHandler health handler} response.
  *
- * <p>The library translates {@code up} into the wire value {@code "Up"} or {@code "Down"} on the
- * way out; callers work in booleans. Construct the outcome from whatever check-running mechanism
- * the caller prefers — this library has no opinion.
+ * <p>Overall health is derived from {@link #dependencies()}: an empty list reports as {@code "Up"};
+ * otherwise the outcome is {@code "Up"} only when every dependency is up. Callers describe their
+ * dependencies and the library aggregates.
  *
- * @param up overall health — {@code true} renders as {@code "Up"} with HTTP 200; {@code false}
- *     renders as {@code "Down"} with HTTP 503
  * @param dependencies per-dependency statuses; {@code null} is normalised to an empty list
  */
-public record HealthOutcome(boolean up, List<Dependency> dependencies) {
+public record HealthOutcome(List<Dependency> dependencies) {
 
   public HealthOutcome {
     dependencies = List.copyOf(Objects.requireNonNullElse(dependencies, List.of()));
+  }
+
+  /** {@code true} when every dependency is up (vacuously true for an empty list). */
+  public boolean up() {
+    return dependencies.stream().allMatch(Dependency::up);
   }
 }
