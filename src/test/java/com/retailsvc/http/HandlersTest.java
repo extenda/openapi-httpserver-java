@@ -1,71 +1,62 @@
 package com.retailsvc.http;
 
+import static com.retailsvc.http.spec.HttpMethod.GET;
+import static com.retailsvc.http.spec.HttpMethod.HEAD;
+import static com.retailsvc.http.spec.HttpMethod.POST;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import com.retailsvc.http.spec.HttpMethod;
+import java.util.Map;
+import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.Test;
 
 class HandlersTest {
 
-  @Test
-  void aliveHandlerReturns204OnGet() throws IOException {
-    HttpExchange ex = newExchange("GET");
-    Handlers.aliveHandler().handle(ex);
-    verify(ex).sendResponseHeaders(204, -1);
+  private static final UnaryOperator<String> NO_HEADERS = name -> null;
+
+  private static Request request(HttpMethod method) {
+    return new Request(new byte[0], null, null, null, Map.of(), null, NO_HEADERS, Map.of(), method);
   }
 
   @Test
-  void aliveHandlerReturns204OnHead() throws IOException {
-    HttpExchange ex = newExchange("HEAD");
-    Handlers.aliveHandler().handle(ex);
-    verify(ex).sendResponseHeaders(204, -1);
+  void aliveHandlerReturns204OnGet() {
+    Response resp = Handlers.aliveHandler().handle(request(GET));
+
+    assertThat(resp.status()).isEqualTo(204);
+    assertThat(resp.body()).isNull();
   }
 
   @Test
-  void aliveHandlerReturns405OnPost() throws IOException {
-    HttpExchange ex = newExchange("POST");
-    Headers headers = new Headers();
-    when(ex.getResponseHeaders()).thenReturn(headers);
-    Handlers.aliveHandler().handle(ex);
-    verify(ex).sendResponseHeaders(405, -1);
-    assertThat(headers.getFirst("Allow")).isEqualTo("GET, HEAD");
+  void aliveHandlerReturns204OnHead() {
+    Response resp = Handlers.aliveHandler().handle(request(HEAD));
+
+    assertThat(resp.status()).isEqualTo(204);
   }
 
   @Test
-  void specHandlerServesYamlWithInferredContentType() throws IOException {
-    HttpExchange ex = newExchange("GET");
-    Headers responseHeaders = new Headers();
-    when(ex.getResponseHeaders()).thenReturn(responseHeaders);
-    ByteArrayOutputStream body = new ByteArrayOutputStream();
-    when(ex.getResponseBody()).thenReturn(body);
+  void aliveHandlerReturns405OnPost() {
+    Response resp = Handlers.aliveHandler().handle(request(POST));
 
-    Handlers.specHandler("/openapi.yaml").handle(ex);
-
-    assertThat(responseHeaders.getFirst("Content-Type")).isEqualTo("application/yaml");
-    verify(ex)
-        .sendResponseHeaders(
-            org.mockito.ArgumentMatchers.eq(200),
-            org.mockito.ArgumentMatchers.longThat(n -> n > 0));
-    assertThat(body.toByteArray()).isNotEmpty();
+    assertThat(resp.status()).isEqualTo(405);
+    assertThat(resp.headers()).containsEntry("Allow", "GET, HEAD");
   }
 
   @Test
-  void specHandlerInfersJsonContentType() throws IOException {
-    HttpExchange ex = newExchange("GET");
-    Headers responseHeaders = new Headers();
-    when(ex.getResponseHeaders()).thenReturn(responseHeaders);
-    when(ex.getResponseBody()).thenReturn(new ByteArrayOutputStream());
+  void specHandlerServesYamlBytesWithInferredContentType() {
+    Response resp = Handlers.specHandler("/openapi.yaml").handle(request(GET));
 
-    Handlers.specHandler("/openapi.json").handle(ex);
+    assertThat(resp.status()).isEqualTo(200);
+    assertThat(resp.contentType()).isEqualTo("application/yaml");
+    assertThat(resp.body()).isInstanceOf(byte[].class);
+    assertThat((byte[]) resp.body()).isNotEmpty();
+  }
 
-    assertThat(responseHeaders.getFirst("Content-Type")).isEqualTo("application/json");
+  @Test
+  void specHandlerInfersJsonContentType() {
+    Response resp = Handlers.specHandler("/openapi.json").handle(request(GET));
+
+    assertThat(resp.contentType()).isEqualTo("application/json");
   }
 
   @Test
@@ -76,21 +67,20 @@ class HandlersTest {
   }
 
   @Test
-  void specHandlerReturns405OnPost() throws IOException {
-    HttpExchange ex = newExchange("POST");
-    Headers headers = new Headers();
-    when(ex.getResponseHeaders()).thenReturn(headers);
+  void specHandlerReturns405OnPost() {
+    Response resp = Handlers.specHandler("/openapi.yaml").handle(request(POST));
 
-    Handlers.specHandler("/openapi.yaml").handle(ex);
-
-    verify(ex).sendResponseHeaders(405, -1);
-    assertThat(headers.getFirst("Allow")).isEqualTo("GET, HEAD");
+    assertThat(resp.status()).isEqualTo(405);
+    assertThat(resp.headers()).containsEntry("Allow", "GET, HEAD");
   }
 
-  private static HttpExchange newExchange(String method) {
-    HttpExchange ex = mock(HttpExchange.class);
-    when(ex.getRequestMethod()).thenReturn(method);
-    when(ex.getResponseHeaders()).thenReturn(new Headers());
-    return ex;
+  @Test
+  void specHandlerHeadReturnsContentLengthWithoutBody() {
+    Response resp = Handlers.specHandler("/openapi.yaml").handle(request(HEAD));
+
+    assertThat(resp.status()).isEqualTo(200);
+    assertThat(resp.body()).isNull();
+    assertThat(resp.headers()).containsKey("Content-Length");
+    assertThat(Integer.parseInt(resp.headers().get("Content-Length"))).isGreaterThan(0);
   }
 }

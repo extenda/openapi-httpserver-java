@@ -1,0 +1,410 @@
+openapi: 3.1.0
+
+info:
+  title: API Title
+  version: 0.0.1-local
+
+servers:
+  - url: http://localhost:8080/api/v1
+
+paths:
+  /data:
+    get:
+      operationId: get-data
+      parameters:
+        - in: header
+          name: correlation-id
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/Name-Header'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetDataResponse'
+
+    post:
+      operationId: post-data
+      x-permissions:
+        - pro.promotion.create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostDataRequest'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDataResponse'
+
+  /list/objects:
+    post:
+      operationId: post-list-objects
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ListItem'
+      responses:
+        "200":
+          description: OK
+
+  /params/query:
+    get:
+      operationId: query-params
+      parameters:
+        - in: query
+          name: q1
+          schema:
+            type: string
+        - in: query
+          name: q2
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+
+  /params/path/{ID}:
+    get:
+      operationId: path-params
+      parameters:
+        - in: path
+          name: ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+
+  /params/path/{ID}/{Name}/{Surname}:
+    get:
+      operationId: path-params-multi
+      parameters:
+        - in: path
+          name: ID
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: Name
+          required: true
+          schema:
+            type: string
+            pattern: '[A-Za-z]+'
+        - in: path
+          name: Surname
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+
+  /shapes:
+    post:
+      operationId: post-shape
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [kind, radius]
+                  properties:
+                    kind:
+                      type: string
+                      enum: [circle]
+                    radius:
+                      type: number
+                - type: object
+                  required: [kind, side]
+                  properties:
+                    kind:
+                      type: string
+                      enum: [square]
+                    side:
+                      type: number
+      responses:
+        "200":
+          description: OK
+
+  /filters:
+    post:
+      operationId: post-filter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  anyOf:
+                    - type: string
+                      minLength: 3
+                    - type: integer
+      responses:
+        "200":
+          description: OK
+
+  /blocked:
+    post:
+      operationId: post-blocked
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  not:
+                    enum: [forbidden]
+      responses:
+        "200":
+          description: OK
+
+  /format/email:
+    get:
+      operationId: format-email
+      parameters:
+        - in: query
+          name: addr
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        "200":
+          description: OK
+
+  /format/int32:
+    get:
+      operationId: format-int32
+      parameters:
+        - in: query
+          name: n
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: OK
+
+  /format/byte:
+    get:
+      operationId: format-byte
+      parameters:
+        - in: query
+          name: data
+          required: true
+          schema:
+            type: string
+            format: byte
+      responses:
+        "200":
+          description: OK
+
+  /gates:
+    post:
+      operationId: post-gate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [open]
+              properties:
+                open: true
+                blocked: false
+      responses:
+        "200":
+          description: OK
+  /form-echo:
+    post:
+      operationId: form-echo
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                age: { type: integer }
+                tags:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200": { description: ok }
+  /text-echo:
+    post:
+      operationId: text-echo
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema: { type: string }
+      responses:
+        "200": { description: ok }
+
+  /secure/api-key:
+    get:
+      operationId: secureApiKey
+      security:
+        - apiKeyAuth: []
+      responses:
+        "200":
+          description: ok
+
+  /secure/bearer:
+    get:
+      operationId: secureBearer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: ok
+
+  /secure/basic:
+    get:
+      operationId: secureBasic
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: ok
+
+  /secure/open:
+    get:
+      operationId: secureOpen
+      security: []
+      responses:
+        "200":
+          description: ok
+
+components:
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      name: X-API-Key
+      in: header
+    bearerAuth:
+      type: http
+      scheme: bearer
+    basicAuth:
+      type: http
+      scheme: basic
+
+  parameters:
+    Name-Header:
+      in: header
+      name: X-Name
+      schema:
+        type: string
+        pattern: '^[Aa].+'
+
+  schemas:
+    GetDataResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+
+    NestedObject:
+      type: object
+      required:
+        - nestedValue
+      properties:
+        nestedValue:
+          type: integer
+          format: int32
+
+    InnerObject:
+      type: object
+      required:
+        - id
+        - age
+      properties:
+        id:
+          type: string
+        age:
+          type: integer
+          format: int32
+        longNumber:
+          type: integer
+          format: int64
+          maximum: 1000
+          minimum: 100
+        nested:
+          $ref: '#/components/schemas/NestedObject'
+
+    ListItem:
+      type: object
+      properties:
+        value:
+          type: integer
+
+    PostDataRequest:
+      type: object
+      required:
+        - aList
+        - feelingGood
+      properties:
+        id:
+          type: string
+          pattern: '^s.+d$'
+        age:
+          type: integer
+        score:
+          type: number
+          format: double
+        random:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - COMPLETED
+            - ERROR
+        feelingGood:
+          type: boolean
+        aList:
+          type: array
+          items:
+            type: string
+        aListOfObjects:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListItem'
+        anObject:
+          $ref: '#/components/schemas/InnerObject'
+        aDate:
+          type: string
+          format: date
+        aDateTime:
+          type: string
+          format: date-time
+
+    PostDataResponse:
+      type: object
+      properties:
+        id:
+          type: string

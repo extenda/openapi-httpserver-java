@@ -1,7 +1,5 @@
 package com.retailsvc.http.start;
 
-import com.retailsvc.http.ExceptionHandler;
-import com.retailsvc.http.Handlers;
 import com.retailsvc.http.OpenApiServer;
 import com.retailsvc.http.RequestHandler;
 import com.retailsvc.http.Response;
@@ -44,12 +42,9 @@ public class ServerLauncher {
     handlers.put("secureBasic", req -> Response.status(200));
     handlers.put("secureOpen", req -> Response.status(200));
 
-    ExceptionHandler exceptionHandler = Handlers.defaultExceptionHandler();
-
     OpenApiServer.builder()
         .spec(spec)
         .handlers(handlers)
-        .exceptionHandler(exceptionHandler)
         .securityValidator("apiKeyAuth", (req, cred) -> Optional.empty())
         .securityValidator("bearerAuth", (req, cred) -> Optional.empty())
         .securityValidator("basicAuth", (req, cred) -> Optional.empty())

@@ -32,6 +32,16 @@ class SpecFromPathTest {
   }
 
   @Test
+  void loadsYmlSpecViaSnakeYaml() throws Exception {
+    Path resource = Path.of(getClass().getResource("/openapi.yml").toURI());
+
+    Spec spec = Spec.fromPath(resource);
+
+    assertThat(spec.openapi()).startsWith("3.1");
+    assertThat(spec.operations()).isNotEmpty();
+  }
+
+  @Test
   void rejectsUnknownExtension(@TempDir Path tmp) throws Exception {
     Path unknown = tmp.resolve("spec.txt");
     Files.writeString(unknown, "{}");

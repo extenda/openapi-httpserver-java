@@ -1,16 +1,14 @@
 package com.retailsvc.http;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import java.io.IOException;
-
 /**
- * Handle exceptions thrown from a {@link HttpHandler}.
+ * Maps a {@link Throwable} thrown anywhere in the request pipeline to a {@link Response}.
  *
- * @author thced
+ * <p>Runs outside any {@code ScopedValue} bindings established by filters or interceptors — scopes
+ * are torn down as the exception unwinds. Context-aware error mapping (trace IDs, etc.) should be
+ * done in a {@link RequestInterceptor} that wraps {@code next.proceed()} in try/catch.
  */
 @FunctionalInterface
 public interface ExceptionHandler {
 
-  void handle(HttpExchange exchange, Throwable t) throws IOException;
+  Response handle(Throwable t);
 }

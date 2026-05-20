@@ -1,54 +1,80 @@
 package com.retailsvc.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 
 import com.retailsvc.http.spec.HttpMethod;
 import com.retailsvc.http.validate.ValidationError;
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 class HandlersDefaultExceptionTest {
-  private HttpExchange newExchange(ByteArrayOutputStream sink) {
-    HttpExchange ex = mock(HttpExchange.class);
-    Mockito.when(ex.getResponseHeaders()).thenReturn(new Headers());
-    Mockito.when(ex.getResponseBody()).thenReturn(sink);
-    return ex;
+
+  private static final TypeMapper JSON = new GsonTypeMapper();
+
+  @Test
+  void validationExceptionRendersProblemJson() {
+    Response resp =
+        Handlers.defaultExceptionHandler(JSON)
+            .handle(
+                new ValidationException(
+                    new ValidationError("/x", "type", "expected string", null)));
+
+    assertThat(resp.status()).isEqualTo(400);
+    assertThat(resp.contentType()).isEqualTo("application/problem+json");
+    byte[] bytes = (byte[]) resp.body();
+    String json = new String(bytes, StandardCharsets.UTF_8);
+    @SuppressWarnings("unchecked")
+    Map<String, Object> parsed = (Map<String, Object>) JSON.readFrom(bytes, "application/json");
+    assertThat(parsed).containsEntry("keyword", "type");
+    assertThat(((Number) parsed.get("status")).intValue()).isEqualTo(400);
+    assertThat(json).contains("expected string");
   }
 
   @Test
-  void validationExceptionRendersProblem() throws Exception {
-    ByteArrayOutputStream sink = new ByteArrayOutputStream();
-    HttpExchange ex = newExchange(sink);
+  void badRequestExceptionRendersProblemJsonWithCustomStatus() {
+    Response resp =
+        Handlers.defaultExceptionHandler(JSON)
+            .handle(new BadRequestException(422, "email taken", "/email", "unique"));
 
-    Handlers.defaultExceptionHandler()
-        .handle(
-            ex,
-            new ValidationException(new ValidationError("/x", "type", "expected string", null)));
-
-    Mockito.verify(ex).sendResponseHeaders(Mockito.eq(400), Mockito.anyLong());
-    assertThat(ex.getResponseHeaders().getFirst("Content-Type"))
-        .isEqualTo("application/problem+json");
-    assertThat(sink.toString()).contains("\"keyword\":\"type\"");
+    assertThat(resp.status()).isEqualTo(422);
+    assertThat(resp.contentType()).isEqualTo("application/problem+json");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> parsed =
+        (Map<String, Object>) JSON.readFrom((byte[]) resp.body(), "application/json");
+    assertThat(((Number) parsed.get("status")).intValue()).isEqualTo(422);
+    assertThat(parsed)
+        .containsEntry("title", "Unprocessable Content")
+        .containsEntry("detail", "email taken")
+        .containsEntry("pointer", "/email")
+        .containsEntry("keyword", "unique");
   }
 
   @Test
-  void notFoundReturns404() throws Exception {
-    HttpExchange ex = newExchange(new ByteArrayOutputStream());
-    Handlers.defaultExceptionHandler().handle(ex, new NotFoundException("GET /x"));
-    Mockito.verify(ex).sendResponseHeaders(404, -1);
+  void notFoundReturns404() {
+    Response resp = Handlers.defaultExceptionHandler(JSON).handle(new NotFoundException("GET /x"));
+
+    assertThat(resp.status()).isEqualTo(404);
+    assertThat(resp.body()).isNull();
   }
 
   @Test
-  void methodNotAllowedReturns405WithAllowHeader() throws Exception {
-    HttpExchange ex = newExchange(new ByteArrayOutputStream());
-    Handlers.defaultExceptionHandler()
-        .handle(ex, new MethodNotAllowedException(Set.of(HttpMethod.GET, HttpMethod.POST)));
-    Mockito.verify(ex).sendResponseHeaders(405, -1);
-    assertThat(ex.getResponseHeaders().getFirst("Allow")).contains("GET").contains("POST");
+  void methodNotAllowedReturns405WithAllowHeader() {
+    Response resp =
+        Handlers.defaultExceptionHandler(JSON)
+            .handle(new MethodNotAllowedException(Set.of(HttpMethod.GET, HttpMethod.POST)));
+
+    assertThat(resp.status()).isEqualTo(405);
+    assertThat(resp.headers()).containsKey("Allow");
+    assertThat(resp.headers().get("Allow")).contains("GET").contains("POST");
+  }
+
+  @Test
+  void unknownExceptionReturns500() {
+    Response resp = Handlers.defaultExceptionHandler(JSON).handle(new RuntimeException("kaboom"));
+
+    assertThat(resp.status()).isEqualTo(500);
+    assertThat(resp.body()).isNull();
   }
 }

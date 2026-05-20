@@ -1,18 +1,14 @@
 package com.retailsvc.http.internal;
 
-import static java.net.HttpURLConnection.HTTP_OK;
-
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
 
 /**
- * Serves bytes loaded eagerly from a classpath resource. Content-Type is inferred from the file
- * extension. Throws {@link IllegalArgumentException} if the resource is missing.
+ * Eagerly-loaded bytes for a classpath resource. Content-Type is inferred from the file extension.
+ * Throws {@link IllegalArgumentException} if the resource is missing.
  */
-public final class ClasspathResourceHandler implements HttpHandler {
+public final class ClasspathResourceHandler {
 
   private final byte[] bytes;
   private final String contentType;
@@ -30,18 +26,12 @@ public final class ClasspathResourceHandler implements HttpHandler {
     this.contentType = contentTypeFor(classpathResource);
   }
 
-  @Override
-  public void handle(HttpExchange exchange) throws IOException {
-    try (exchange) {
-      exchange.getResponseHeaders().add("Content-Type", contentType);
-      if ("HEAD".equals(exchange.getRequestMethod())) {
-        exchange.getResponseHeaders().add("Content-Length", String.valueOf(bytes.length));
-        exchange.sendResponseHeaders(HTTP_OK, -1);
-        return;
-      }
-      exchange.sendResponseHeaders(HTTP_OK, bytes.length);
-      exchange.getResponseBody().write(bytes);
-    }
+  public byte[] bytes() {
+    return bytes;
+  }
+
+  public String contentType() {
+    return contentType;
   }
 
   private static String contentTypeFor(String path) {
