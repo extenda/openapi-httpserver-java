@@ -128,8 +128,9 @@ public class YourServerLauncher {
 To load a spec from the classpath (including from inside a JAR) use the `InputStream` overloads:
 
 ``` java
+Spec spec;
 try (InputStream in = YourServerLauncher.class.getResourceAsStream("/openapi.json")) {
-  Spec spec = Spec.fromJson(in);   // Gson on the classpath
+  spec = Spec.fromJson(in);   // Gson on the classpath
 }
 ```
 
@@ -137,8 +138,9 @@ The matching `Spec.fromYaml(InputStream)` uses SnakeYAML. Both close the stream 
 
 ``` java
 ObjectMapper jackson = new ObjectMapper();
+Spec spec;
 try (InputStream in = YourServerLauncher.class.getResourceAsStream("/openapi.json")) {
-  Spec spec = Spec.fromJson(in, bytes -> jackson.readValue(bytes, Map.class));
+  spec = Spec.fromJson(in, bytes -> jackson.readValue(bytes, Map.class));
 }
 ```
 
