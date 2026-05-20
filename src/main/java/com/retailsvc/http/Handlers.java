@@ -5,13 +5,19 @@ import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
+import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.retailsvc.http.internal.ClasspathResourceHandler;
+import com.retailsvc.http.internal.HealthRenderer;
 import com.retailsvc.http.internal.MethodLimitedHandler;
 import com.retailsvc.http.internal.ProblemDetailRenderer;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +69,40 @@ public final class Handlers {
         exchange -> {
           try (exchange) {
             exchange.sendResponseHeaders(HTTP_NO_CONTENT, -1);
+          }
+        });
+  }
+
+  /**
+   * Health endpoint handler. Accepts GET and HEAD; returns 200 with {@code application/json} body
+   * when the supplied probe reports {@code "Up"} (case-insensitive), and 503 with the same body
+   * shape otherwise. A probe that throws a {@link RuntimeException} or returns {@code null} is
+   * mapped to a {@code "Down"} outcome with an empty dependency list (and 503); the failure is
+   * never propagated to the default exception handler.
+   *
+   * @param probe supplier of the current {@link HealthOutcome}
+   */
+  public static HttpHandler healthHandler(Supplier<HealthOutcome> probe) {
+    Objects.requireNonNull(probe, "probe");
+    return new MethodLimitedHandler(
+        exchange -> {
+          try (exchange) {
+            HealthOutcome outcome;
+            try {
+              HealthOutcome result = probe.get();
+              if (result == null) {
+                throw new IllegalStateException("Health probe returned null");
+              }
+              outcome = result;
+            } catch (RuntimeException e) {
+              LOG.warn("Health probe failed", e);
+              outcome = new HealthOutcome("Down", List.of());
+            }
+            byte[] body = HealthRenderer.toJson(outcome).getBytes(UTF_8);
+            int status = outcome.isUp() ? HTTP_OK : HTTP_UNAVAILABLE;
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(status, body.length);
+            exchange.getResponseBody().write(body);
           }
         });
   }
