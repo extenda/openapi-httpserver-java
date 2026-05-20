@@ -50,7 +50,9 @@ jobs:
         uses: extenda/actions/conventional-release@v0
         id: release
         with:
-          name: openapi-httpserver-java
+          name: ''
+          tag-prefix: 'v'
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
