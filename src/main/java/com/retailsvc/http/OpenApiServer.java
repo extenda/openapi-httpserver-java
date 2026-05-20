@@ -6,7 +6,9 @@ import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 import com.retailsvc.http.internal.DispatchHandler;
 import com.retailsvc.http.internal.ExceptionFilter;
+import com.retailsvc.http.internal.ExtraRouteAdapter;
 import com.retailsvc.http.internal.FormTypeMapper;
+import com.retailsvc.http.internal.NotFoundHandler;
 import com.retailsvc.http.internal.RequestPreparationFilter;
 import com.retailsvc.http.internal.ResponseRenderer;
 import com.retailsvc.http.internal.Router;
@@ -18,7 +20,6 @@ import com.retailsvc.http.spec.security.SecurityRequirement;
 import com.retailsvc.http.spec.security.SecurityScheme;
 import com.retailsvc.http.validate.DefaultValidator;
 import com.sun.net.httpserver.HttpContext;
-import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -57,7 +58,7 @@ public class OpenApiServer implements AutoCloseable {
       List<RequestInterceptor> interceptors,
       List<ResponseDecorator> decorators,
       ExceptionHandler exceptionHandler,
-      Map<String, HttpHandler> extras,
+      Map<String, RequestHandler> extras,
       Map<String, SchemeValidator> securityValidators,
       boolean externalAuth) {}
 
@@ -110,14 +111,14 @@ public class OpenApiServer implements AutoCloseable {
             handlerConfig.decorators(),
             renderer));
 
-    for (Map.Entry<String, HttpHandler> e : handlerConfig.extras().entrySet()) {
+    for (Map.Entry<String, RequestHandler> e : handlerConfig.extras().entrySet()) {
       HttpContext extraCtx = httpServer.createContext(e.getKey());
       extraCtx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
-      extraCtx.setHandler(e.getValue());
+      extraCtx.setHandler(new ExtraRouteAdapter(e.getValue(), renderer));
     }
 
     if (!"/".equals(basePath)) {
-      httpServer.createContext("/", Handlers.notFoundHandler());
+      httpServer.createContext("/", new NotFoundHandler());
     }
     httpServer.start();
 
@@ -180,7 +181,7 @@ public class OpenApiServer implements AutoCloseable {
     private int port = DEFAULT_PORT;
     private InetAddress bindAddress;
     private int shutdownTimeoutSeconds = 0;
-    private final LinkedHashMap<String, HttpHandler> extras = new LinkedHashMap<>();
+    private final LinkedHashMap<String, RequestHandler> extras = new LinkedHashMap<>();
     private final Map<String, SchemeValidator> securityValidators = new LinkedHashMap<>();
     private boolean externalAuth = false;
 
@@ -294,7 +295,7 @@ public class OpenApiServer implements AutoCloseable {
      * anything that isn't an OpenAPI {@code operationId}. For OpenAPI-described operations use
      * {@link #handlers(Map)}.
      */
-    public Builder extraRoute(String path, HttpHandler handler) {
+    public Builder extraRoute(String path, RequestHandler handler) {
       requireNonNull(path, "path must not be null");
       requireNonNull(handler, "handler must not be null");
       if (extras.containsKey(path)) {

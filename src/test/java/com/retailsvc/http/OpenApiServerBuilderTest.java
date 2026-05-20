@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.retailsvc.http.spec.Spec;
-import com.sun.net.httpserver.HttpHandler;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -26,9 +25,7 @@ class OpenApiServerBuilderTest {
 
   @Test
   void rejectsDuplicateExtraPathOnSecondAddHandler() {
-    // MIGRATED-IN-TASK-6: replace stub with Handlers.aliveHandler() once extraRoute accepts
-    // RequestHandler
-    HttpHandler duplicate = exchange -> {};
+    RequestHandler duplicate = req -> Response.empty();
     OpenApiServer.Builder b =
         OpenApiServer.builder().spec(spec).handlers(emptyMap()).extraRoute("/alive", duplicate);
 
@@ -40,13 +37,11 @@ class OpenApiServerBuilderTest {
   @Test
   void rejectsExtraPathEqualToSpecBasePathAtBuildTime() {
     // testSpec() uses "/api" as the basePath (servers[0].url = http://localhost:8080/api).
-    // MIGRATED-IN-TASK-6: replace stub with Handlers.aliveHandler() once extraRoute accepts
-    // RequestHandler
     OpenApiServer.Builder b =
         OpenApiServer.builder()
             .spec(spec)
             .handlers(emptyMap())
-            .extraRoute("/api", exchange -> {})
+            .extraRoute("/api", Handlers.aliveHandler())
             .port(0);
 
     assertThatThrownBy(b::build)

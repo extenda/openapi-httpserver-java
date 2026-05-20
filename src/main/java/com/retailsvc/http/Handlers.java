@@ -5,13 +5,11 @@ import static com.retailsvc.http.spec.HttpMethod.HEAD;
 import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
-import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 
 import com.retailsvc.http.internal.ClasspathResourceHandler;
 import com.retailsvc.http.internal.ProblemDetail;
-import com.sun.net.httpserver.HttpHandler;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -50,14 +48,6 @@ public final class Handlers {
             yield Response.status(HTTP_INTERNAL_ERROR);
           }
         };
-  }
-
-  public static HttpHandler notFoundHandler() {
-    return exchange -> {
-      try (exchange) {
-        exchange.sendResponseHeaders(HTTP_NOT_FOUND, -1);
-      }
-    };
   }
 
   /** Returns 204 No Content on GET/HEAD; 405 with {@code Allow: GET, HEAD} otherwise. */
