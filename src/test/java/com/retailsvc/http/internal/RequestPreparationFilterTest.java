@@ -27,7 +27,6 @@ import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;

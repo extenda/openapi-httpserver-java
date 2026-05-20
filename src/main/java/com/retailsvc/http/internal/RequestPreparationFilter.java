@@ -143,14 +143,14 @@ public final class RequestPreparationFilter extends Filter {
     for (AfterResponseHook hook : afterHooks) {
       try {
         hook.after(request, response);
-      } catch (Throwable t) {
+      } catch (Exception t) {
         LOG.debug("after-response hook threw", t);
       }
     }
     for (Runnable runnable : snapshot) {
       try {
         runnable.run();
-      } catch (Throwable t) {
+      } catch (Exception t) {
         LOG.debug("after-response runnable threw", t);
       }
     }
