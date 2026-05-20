@@ -2,6 +2,8 @@ package com.retailsvc.http.internal.gson;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -10,6 +12,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -116,6 +119,24 @@ class GsonJsonMapperTest {
 
     assertThat(value.ts).isEqualTo(Instant.parse("2026-05-13T10:00:00Z"));
     assertThat(value.day).isEqualTo(LocalDate.of(2026, 5, 13));
+  }
+
+  @Test
+  void constructorWithGsonUsesSuppliedInstance() {
+    Gson custom = new GsonBuilder().serializeNulls().create();
+    GsonJsonMapper m = new GsonJsonMapper(custom);
+
+    byte[] out = m.writeTo(Collections.singletonMap("k", null));
+
+    assertThat(new String(out, StandardCharsets.UTF_8)).isEqualTo("{\"k\":null}");
+  }
+
+  @Test
+  void gsonAccessorReturnsWrappedInstance() {
+    Gson custom = new GsonBuilder().serializeNulls().create();
+    GsonJsonMapper m = new GsonJsonMapper(custom);
+
+    assertThat(m.gson()).isSameAs(custom);
   }
 
   static final class Item {

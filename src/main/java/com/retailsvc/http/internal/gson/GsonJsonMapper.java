@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
@@ -47,18 +48,30 @@ public final class GsonJsonMapper implements TypedTypeMapper {
   private final Gson gson;
 
   public GsonJsonMapper() {
-    this.gson =
-        new GsonBuilder()
-            .registerTypeAdapter(Instant.class, iso(Instant::toString, Instant::parse))
-            .registerTypeAdapter(
-                OffsetDateTime.class, iso(OffsetDateTime::toString, OffsetDateTime::parse))
-            .registerTypeAdapter(
-                ZonedDateTime.class, iso(ZonedDateTime::toString, ZonedDateTime::parse))
-            .registerTypeAdapter(
-                LocalDateTime.class, iso(LocalDateTime::toString, LocalDateTime::parse))
-            .registerTypeAdapter(LocalDate.class, iso(LocalDate::toString, LocalDate::parse))
-            .registerTypeAdapter(LocalTime.class, iso(LocalTime::toString, LocalTime::parse))
-            .create();
+    this(defaultGson());
+  }
+
+  public GsonJsonMapper(Gson gson) {
+    this.gson = Objects.requireNonNull(gson, "gson must not be null");
+  }
+
+  /** Returns the wrapped {@link Gson} instance. */
+  public Gson gson() {
+    return gson;
+  }
+
+  private static Gson defaultGson() {
+    return new GsonBuilder()
+        .registerTypeAdapter(Instant.class, iso(Instant::toString, Instant::parse))
+        .registerTypeAdapter(
+            OffsetDateTime.class, iso(OffsetDateTime::toString, OffsetDateTime::parse))
+        .registerTypeAdapter(
+            ZonedDateTime.class, iso(ZonedDateTime::toString, ZonedDateTime::parse))
+        .registerTypeAdapter(
+            LocalDateTime.class, iso(LocalDateTime::toString, LocalDateTime::parse))
+        .registerTypeAdapter(LocalDate.class, iso(LocalDate::toString, LocalDate::parse))
+        .registerTypeAdapter(LocalTime.class, iso(LocalTime::toString, LocalTime::parse))
+        .create();
   }
 
   @Override
