@@ -93,7 +93,8 @@ public class OpenApiServer implements AutoCloseable {
     this.httpServer = HttpServer.create(socketAddress, 0);
     httpServer.setExecutor(newThreadPerTaskExecutor(ofVirtual().name("http-", 0).factory()));
 
-    HttpContext ctx = httpServer.createContext(Optional.ofNullable(spec.basePath()).orElse("/"));
+    String basePath = Optional.ofNullable(spec.basePath()).orElse("/");
+    HttpContext ctx = httpServer.createContext(basePath);
     ctx.getFilters().add(new ExceptionFilter(exceptionHandler));
     ctx.getFilters().add(new RequestPreparationFilter(spec, router, validator, bodyMappers));
     ctx.getFilters()
@@ -117,7 +118,9 @@ public class OpenApiServer implements AutoCloseable {
       extraCtx.setHandler(e.getValue());
     }
 
-    httpServer.createContext("/", Handlers.notFoundHandler());
+    if (!"/".equals(basePath)) {
+      httpServer.createContext("/", Handlers.notFoundHandler());
+    }
     httpServer.start();
 
     this.shutdownTimeoutSeconds = shutdownTimeoutSeconds;

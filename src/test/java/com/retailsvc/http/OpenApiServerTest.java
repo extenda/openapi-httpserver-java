@@ -90,6 +90,45 @@ class OpenApiServerTest {
   }
 
   @Test
+  void shouldDispatchHandlerOnRootPathWhenServerUrlHasNoPath() throws Exception {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi", "3.1.0",
+            "info", Map.of("title", "Test API", "version", "1.0"),
+            "servers", List.of(Map.of("url", "http://127.0.0.1:4444")),
+            "paths",
+                Map.of(
+                    "/",
+                    Map.of(
+                        "get",
+                        Map.of(
+                            "operationId",
+                            "root",
+                            "responses",
+                            Map.of("204", Map.of("description", "ok"))))));
+    Spec spec = Spec.from(raw);
+    RequestHandler rootHandler = request -> Response.empty();
+    try (var server =
+        OpenApiServer.builder()
+            .spec(spec)
+            .handlers(Map.of("root", rootHandler))
+            .port(0)
+            .bindAddress(InetAddress.getLoopbackAddress())
+            .build()) {
+      int port = server.listenPort();
+      HttpClient client =
+          HttpClient.newBuilder()
+              .executor(newVirtualThreadPerTaskExecutor())
+              .version(HTTP_1_1)
+              .build();
+      HttpRequest request =
+          HttpRequest.newBuilder().uri(URI.create("http://127.0.0.1:" + port + "/")).GET().build();
+      HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
+      assertThat(response.statusCode()).isEqualTo(HttpURLConnection.HTTP_NO_CONTENT);
+    }
+  }
+
+  @Test
   void shouldBindToWildcardWhenBindAddressIsUnset() throws IOException {
     try (var server =
         OpenApiServer.builder().spec(testSpec()).handlers(emptyMap()).port(0).build()) {
