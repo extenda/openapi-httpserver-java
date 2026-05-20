@@ -38,6 +38,12 @@ class ClasspathResourceHandlerTest {
   }
 
   @Test
+  void infersApplicationYamlForYmlExtension() {
+    assertThat(new ClasspathResourceHandler("/openapi.yml").contentType())
+        .isEqualTo("application/yaml");
+  }
+
+  @Test
   void infersTextPlainForTxtExtension() {
     assertThat(new ClasspathResourceHandler("/sample.txt").contentType())
         .isEqualTo("text/plain; charset=utf-8");
