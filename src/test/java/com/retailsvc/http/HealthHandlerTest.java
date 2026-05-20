@@ -38,8 +38,7 @@ class HealthHandlerTest {
 
   @Test
   void getReturns200WithEmptyDependencyArrayWhenNoDeps() {
-    Response resp =
-        Handlers.healthHandler(() -> new HealthOutcome(List.of())).handle(request(GET));
+    Response resp = Handlers.healthHandler(() -> new HealthOutcome(List.of())).handle(request(GET));
 
     assertThat(resp.status()).isEqualTo(HTTP_OK);
     assertThat(new String((byte[]) resp.body(), StandardCharsets.UTF_8))
@@ -107,6 +106,7 @@ class HealthHandlerTest {
 
     assertThat(new String((byte[]) resp.body(), StandardCharsets.UTF_8))
         .isEqualTo(
-            "{\"outcome\":\"Up\",\"dependencies\":[{\"id\":\"a\\\"b\\\\c\\nd\",\"status\":\"Up\"}]}");
+            "{\"outcome\":\"Up\",\"dependencies\":[{\"id\":\"a\\\"b\\\\c\\n"
+                + "d\",\"status\":\"Up\"}]}");
   }
 }
