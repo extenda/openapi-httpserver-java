@@ -21,6 +21,7 @@ import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -65,6 +66,7 @@ public class OpenApiServer implements AutoCloseable {
       Map<String, TypeMapper> bodyMappers,
       HandlerConfig handlerConfig,
       int port,
+      InetAddress bindAddress,
       int shutdownTimeoutSeconds)
       throws IOException {
 
@@ -84,7 +86,11 @@ public class OpenApiServer implements AutoCloseable {
             .collect(Collectors.toUnmodifiableMap(Operation::operationId, op -> op));
     DefaultValidator validator = new DefaultValidator(spec::resolveSchema);
 
-    this.httpServer = HttpServer.create(new InetSocketAddress(port), 0);
+    InetSocketAddress socketAddress =
+        (bindAddress == null)
+            ? new InetSocketAddress(port)
+            : new InetSocketAddress(bindAddress, port);
+    this.httpServer = HttpServer.create(socketAddress, 0);
     httpServer.setExecutor(newThreadPerTaskExecutor(ofVirtual().name("http-", 0).factory()));
 
     HttpContext ctx = httpServer.createContext(Optional.ofNullable(spec.basePath()).orElse("/"));
@@ -116,11 +122,25 @@ public class OpenApiServer implements AutoCloseable {
 
     this.shutdownTimeoutSeconds = shutdownTimeoutSeconds;
 
-    LOG.info("Server started (port {}) in {}ms", port, System.currentTimeMillis() - t0);
+    String host = httpServer.getAddress().getHostString();
+    String displayHost = host.contains(":") ? "[" + host + "]" : host;
+    LOG.info(
+        "Server started ({}:{}) in {}ms",
+        displayHost,
+        httpServer.getAddress().getPort(),
+        System.currentTimeMillis() - t0);
   }
 
   public int listenPort() {
     return httpServer.getAddress().getPort();
+  }
+
+  /**
+   * Returns the local address the server is bound to. For a wildcard-bound server this is the
+   * wildcard address; for a loopback-bound server this is the loopback address.
+   */
+  public InetAddress bindAddress() {
+    return httpServer.getAddress().getAddress();
   }
 
   /**
@@ -157,6 +177,7 @@ public class OpenApiServer implements AutoCloseable {
     private final List<RequestInterceptor> interceptors = new ArrayList<>();
     private ExceptionHandler exceptionHandler;
     private int port = DEFAULT_PORT;
+    private InetAddress bindAddress;
     private int shutdownTimeoutSeconds = 0;
     private final LinkedHashMap<String, HttpHandler> extras = new LinkedHashMap<>();
     private final Map<String, SchemeValidator> securityValidators = new LinkedHashMap<>();
@@ -233,8 +254,22 @@ public class OpenApiServer implements AutoCloseable {
       return this;
     }
 
+    /**
+     * Sets the TCP port to listen on. Defaults to {@value #DEFAULT_PORT} when not set. Use {@code
+     * 0} to bind on an ephemeral port (read it back via {@link OpenApiServer#listenPort()}).
+     */
     public Builder port(int port) {
       this.port = port;
+      return this;
+    }
+
+    /**
+     * Restricts the server to a specific local interface. {@code null} (the default) binds to the
+     * wildcard address (all interfaces). Use {@link InetAddress#getLoopbackAddress()} to listen on
+     * loopback only.
+     */
+    public Builder bindAddress(InetAddress bindAddress) {
+      this.bindAddress = bindAddress;
       return this;
     }
 
@@ -291,7 +326,8 @@ public class OpenApiServer implements AutoCloseable {
               extras,
               Map.copyOf(securityValidators),
               externalAuth);
-      return new OpenApiServer(spec, resolved, handlerConfig, port, shutdownTimeoutSeconds);
+      return new OpenApiServer(
+          spec, resolved, handlerConfig, port, bindAddress, shutdownTimeoutSeconds);
     }
 
     private static void validateSecurityWiring(Spec spec, Map<String, SchemeValidator> validators) {
