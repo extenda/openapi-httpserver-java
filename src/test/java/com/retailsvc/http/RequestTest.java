@@ -273,7 +273,12 @@ class RequestTest {
     }
 
     assertThat(log).containsExactly("from-original", "from-enriched");
-    assertThat(original.afterHooks()).isSameAs(enriched.afterHooks());
+    // Adding via one Request is visible via the other — the backing list is shared.
+    original.afterResponse(() -> log.add("from-original-again"));
+    List<Runnable> enrichedView = enriched.afterHooks();
+    assertThat(enrichedView).hasSize(3);
+    enrichedView.get(2).run();
+    assertThat(log).containsExactly("from-original", "from-enriched", "from-original-again");
   }
 
   @Test

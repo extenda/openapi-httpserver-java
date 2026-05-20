@@ -4,6 +4,7 @@ import com.retailsvc.http.spec.HttpMethod;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -338,7 +339,7 @@ public final class Request {
 
   /** Internal accessor for the after-hook queue; used by RequestPreparationFilter. */
   public List<Runnable> afterHooks() {
-    return afterHooks;
+    return Collections.unmodifiableList(afterHooks);
   }
 
   private static Map<String, String> parseQuery(String query) {
