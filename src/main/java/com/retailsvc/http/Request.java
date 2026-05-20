@@ -3,7 +3,9 @@ package com.retailsvc.http;
 import com.retailsvc.http.spec.HttpMethod;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -33,6 +35,7 @@ public final class Request {
   private final UnaryOperator<String> headerLookup;
   private final Map<String, Object> principals;
   private Map<String, String> queryParamCache;
+  private final List<Runnable> afterHooks;
 
   /**
    * Builds a {@code Request} from transport-neutral primitives. Adapters call this; handlers
@@ -145,6 +148,34 @@ public final class Request {
     this.method = method;
     this.headerLookup = headerLookup;
     this.principals = Map.copyOf(principals);
+    this.afterHooks = new ArrayList<>();
+  }
+
+  // Package-private: lets withPrincipals(...) thread the after-hook queue through so that
+  // runnables registered on either the original Request or the principals-enriched copy
+  // land in the same backing list.
+  @SuppressWarnings("java:S107")
+  Request(
+      byte[] body,
+      Object parsed,
+      TypeMapper bodyMapper,
+      String operationId,
+      Map<String, String> pathParameters,
+      String rawQuery,
+      UnaryOperator<String> headerLookup,
+      Map<String, Object> principals,
+      HttpMethod method,
+      List<Runnable> afterHooks) {
+    this.body = body;
+    this.parsed = parsed;
+    this.bodyMapper = bodyMapper;
+    this.operationId = operationId;
+    this.pathParameters = pathParameters;
+    this.rawQuery = rawQuery;
+    this.method = method;
+    this.headerLookup = headerLookup;
+    this.principals = Map.copyOf(principals);
+    this.afterHooks = afterHooks;
   }
 
   public byte[] bytes() {
@@ -286,7 +317,28 @@ public final class Request {
         rawQuery,
         headerLookup,
         principals,
-        method);
+        method,
+        afterHooks);
+  }
+
+  /**
+   * Queues a {@link Runnable} to execute after the HTTP response has been sent to the client. Runs
+   * on the request thread inside the library's request {@link ScopedValue} binding. Multiple calls
+   * queue FIFO. Exceptions thrown by the runnable are logged at DEBUG and swallowed.
+   *
+   * <p>Calls made after the runner has snapshotted the queue (e.g. from inside a running hook, or
+   * from a leaked {@code Request} reference held past the response) are silently ignored.
+   *
+   * @throws NullPointerException if {@code runnable} is null
+   */
+  public void afterResponse(Runnable runnable) {
+    Objects.requireNonNull(runnable, "runnable must not be null");
+    afterHooks.add(runnable);
+  }
+
+  /** Package-private accessor for the after-hook queue; used by RequestPreparationFilter. */
+  List<Runnable> afterHooks() {
+    return afterHooks;
   }
 
   private static Map<String, String> parseQuery(String query) {
