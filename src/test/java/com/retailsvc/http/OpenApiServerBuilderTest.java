@@ -26,7 +26,9 @@ class OpenApiServerBuilderTest {
 
   @Test
   void rejectsDuplicateExtraPathOnSecondAddHandler() {
-    HttpHandler duplicate = Handlers.aliveHandler();
+    // MIGRATED-IN-TASK-6: replace stub with Handlers.aliveHandler() once extraRoute accepts
+    // RequestHandler
+    HttpHandler duplicate = exchange -> {};
     OpenApiServer.Builder b =
         OpenApiServer.builder().spec(spec).handlers(emptyMap()).extraRoute("/alive", duplicate);
 
@@ -38,11 +40,13 @@ class OpenApiServerBuilderTest {
   @Test
   void rejectsExtraPathEqualToSpecBasePathAtBuildTime() {
     // testSpec() uses "/api" as the basePath (servers[0].url = http://localhost:8080/api).
+    // MIGRATED-IN-TASK-6: replace stub with Handlers.aliveHandler() once extraRoute accepts
+    // RequestHandler
     OpenApiServer.Builder b =
         OpenApiServer.builder()
             .spec(spec)
             .handlers(emptyMap())
-            .extraRoute("/api", Handlers.aliveHandler())
+            .extraRoute("/api", exchange -> {})
             .port(0);
 
     assertThatThrownBy(b::build)

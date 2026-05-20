@@ -1,136 +1,105 @@
 package com.retailsvc.http;
 
+import static com.retailsvc.http.spec.HttpMethod.GET;
+import static com.retailsvc.http.spec.HttpMethod.HEAD;
+import static com.retailsvc.http.spec.HttpMethod.POST;
 import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.retailsvc.http.internal.gson.GsonJsonMapper;
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import com.retailsvc.http.spec.HttpMethod;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.Test;
 
 class HealthHandlerTest {
 
   private static final TypeMapper JSON = new GsonJsonMapper();
+  private static final UnaryOperator<String> NO_HEADERS = name -> null;
+
+  private static Request request(HttpMethod method) {
+    return new Request(new byte[0], null, null, null, Map.of(), null, NO_HEADERS, Map.of(), method);
+  }
 
   @Test
-  void getReturns200AndJsonBodyWhenUp() throws IOException {
+  void getReturns200AndJsonBodyWhenUp() {
     HealthOutcome outcome = new HealthOutcome(true, List.of(new Dependency("jdbc", true)));
-    HttpExchange ex = newExchange("GET");
-    Headers headers = new Headers();
-    when(ex.getResponseHeaders()).thenReturn(headers);
-    ByteArrayOutputStream body = new ByteArrayOutputStream();
-    when(ex.getResponseBody()).thenReturn(body);
 
-    Handlers.healthHandler(JSON, () -> outcome).handle(ex);
+    Response resp = Handlers.healthHandler(JSON, () -> outcome).handle(request(GET));
 
-    verify(ex).sendResponseHeaders(HTTP_OK, (long) body.size());
-    assertThat(headers.getFirst("Content-Type")).isEqualTo("application/json");
-    assertThat(body)
-        .hasToString("{\"outcome\":\"Up\",\"dependencies\":[{\"id\":\"jdbc\",\"status\":\"Up\"}]}");
+    assertThat(resp.status()).isEqualTo(HTTP_OK);
+    assertThat(resp.contentType()).isEqualTo("application/json");
+    assertThat(new String((byte[]) resp.body(), StandardCharsets.UTF_8))
+        .isEqualTo("{\"outcome\":\"Up\",\"dependencies\":[{\"id\":\"jdbc\",\"status\":\"Up\"}]}");
   }
 
   @Test
-  void getReturns200WithEmptyDependencyArrayWhenNoDeps() throws IOException {
-    HttpExchange ex = newExchange("GET");
-    Headers headers = new Headers();
-    when(ex.getResponseHeaders()).thenReturn(headers);
-    ByteArrayOutputStream body = new ByteArrayOutputStream();
-    when(ex.getResponseBody()).thenReturn(body);
+  void getReturns200WithEmptyDependencyArrayWhenNoDeps() {
+    Response resp =
+        Handlers.healthHandler(JSON, () -> new HealthOutcome(true, List.of())).handle(request(GET));
 
-    Handlers.healthHandler(JSON, () -> new HealthOutcome(true, List.of())).handle(ex);
-
-    verify(ex).sendResponseHeaders(HTTP_OK, (long) body.size());
-    assertThat(body).hasToString("{\"outcome\":\"Up\",\"dependencies\":[]}");
+    assertThat(resp.status()).isEqualTo(HTTP_OK);
+    assertThat(new String((byte[]) resp.body(), StandardCharsets.UTF_8))
+        .isEqualTo("{\"outcome\":\"Up\",\"dependencies\":[]}");
   }
 
   @Test
-  void getReturns503WhenDown() throws IOException {
+  void getReturns503WhenDown() {
     HealthOutcome outcome = new HealthOutcome(false, List.of(new Dependency("jdbc", false)));
-    HttpExchange ex = newExchange("GET");
-    Headers headers = new Headers();
-    when(ex.getResponseHeaders()).thenReturn(headers);
-    ByteArrayOutputStream body = new ByteArrayOutputStream();
-    when(ex.getResponseBody()).thenReturn(body);
 
-    Handlers.healthHandler(JSON, () -> outcome).handle(ex);
+    Response resp = Handlers.healthHandler(JSON, () -> outcome).handle(request(GET));
 
-    verify(ex).sendResponseHeaders(HTTP_UNAVAILABLE, (long) body.size());
-    assertThat(headers.getFirst("Content-Type")).isEqualTo("application/json");
-    assertThat(body)
-        .hasToString(
+    assertThat(resp.status()).isEqualTo(HTTP_UNAVAILABLE);
+    assertThat(resp.contentType()).isEqualTo("application/json");
+    assertThat(new String((byte[]) resp.body(), StandardCharsets.UTF_8))
+        .isEqualTo(
             "{\"outcome\":\"Down\",\"dependencies\":[{\"id\":\"jdbc\",\"status\":\"Down\"}]}");
   }
 
   @Test
-  void headIsAccepted() throws IOException {
-    HttpExchange ex = newExchange("HEAD");
-    Headers headers = new Headers();
-    when(ex.getResponseHeaders()).thenReturn(headers);
-    ByteArrayOutputStream body = new ByteArrayOutputStream();
-    when(ex.getResponseBody()).thenReturn(body);
+  void headIsAccepted() {
+    Response resp =
+        Handlers.healthHandler(JSON, () -> new HealthOutcome(true, List.of()))
+            .handle(request(HEAD));
 
-    Handlers.healthHandler(JSON, () -> new HealthOutcome(true, List.of())).handle(ex);
-
-    verify(ex).sendResponseHeaders(HTTP_OK, (long) body.size());
+    assertThat(resp.status()).isEqualTo(HTTP_OK);
   }
 
   @Test
-  void postReturns405WithAllowHeader() throws IOException {
-    HttpExchange ex = newExchange("POST");
-    Headers headers = new Headers();
-    when(ex.getResponseHeaders()).thenReturn(headers);
+  void postReturns405WithAllowHeader() {
+    Response resp =
+        Handlers.healthHandler(JSON, () -> new HealthOutcome(true, List.of()))
+            .handle(request(POST));
 
-    Handlers.healthHandler(JSON, () -> new HealthOutcome(true, List.of())).handle(ex);
-
-    verify(ex).sendResponseHeaders(HTTP_BAD_METHOD, -1);
-    assertThat(headers.getFirst("Allow")).isEqualTo("GET, HEAD");
+    assertThat(resp.status()).isEqualTo(HTTP_BAD_METHOD);
+    assertThat(resp.headers()).containsEntry("Allow", "GET, HEAD");
   }
 
   @Test
-  void runtimeExceptionFromProbeMapsToDown503() throws IOException {
-    HttpExchange ex = newExchange("GET");
-    Headers headers = new Headers();
-    when(ex.getResponseHeaders()).thenReturn(headers);
-    ByteArrayOutputStream body = new ByteArrayOutputStream();
-    when(ex.getResponseBody()).thenReturn(body);
-
+  void runtimeExceptionFromProbeMapsToDown503() {
     Supplier<HealthOutcome> failing =
         () -> {
           throw new IllegalStateException("boom");
         };
-    Handlers.healthHandler(JSON, failing).handle(ex);
 
-    verify(ex).sendResponseHeaders(HTTP_UNAVAILABLE, (long) body.size());
-    assertThat(body).hasToString("{\"outcome\":\"Down\",\"dependencies\":[]}");
+    Response resp = Handlers.healthHandler(JSON, failing).handle(request(GET));
+
+    assertThat(resp.status()).isEqualTo(HTTP_UNAVAILABLE);
+    assertThat(new String((byte[]) resp.body(), StandardCharsets.UTF_8))
+        .isEqualTo("{\"outcome\":\"Down\",\"dependencies\":[]}");
   }
 
   @Test
-  void nullReturnFromProbeMapsToDown503() throws IOException {
-    HttpExchange ex = newExchange("GET");
-    Headers headers = new Headers();
-    when(ex.getResponseHeaders()).thenReturn(headers);
-    ByteArrayOutputStream body = new ByteArrayOutputStream();
-    when(ex.getResponseBody()).thenReturn(body);
+  void nullReturnFromProbeMapsToDown503() {
+    Response resp = Handlers.healthHandler(JSON, () -> null).handle(request(GET));
 
-    Handlers.healthHandler(JSON, () -> null).handle(ex);
-
-    verify(ex).sendResponseHeaders(HTTP_UNAVAILABLE, (long) body.size());
-    assertThat(body).hasToString("{\"outcome\":\"Down\",\"dependencies\":[]}");
-  }
-
-  private static HttpExchange newExchange(String method) {
-    HttpExchange ex = mock(HttpExchange.class);
-    when(ex.getRequestMethod()).thenReturn(method);
-    when(ex.getResponseHeaders()).thenReturn(new Headers());
-    return ex;
+    assertThat(resp.status()).isEqualTo(HTTP_UNAVAILABLE);
+    assertThat(new String((byte[]) resp.body(), StandardCharsets.UTF_8))
+        .isEqualTo("{\"outcome\":\"Down\",\"dependencies\":[]}");
   }
 }

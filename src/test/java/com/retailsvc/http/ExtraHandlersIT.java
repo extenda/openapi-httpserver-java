@@ -11,14 +11,16 @@ import org.junit.jupiter.api.Test;
 class ExtraHandlersIT extends ServerBaseTest {
 
   @Test
+  // MIGRATED-IN-TASK-6: re-enable Handlers.aliveHandler() once extraRoute accepts RequestHandler
   void aliveExtraReturns204AndBypassesValidation() throws Exception {
+    com.sun.net.httpserver.HttpHandler alive =
+        ex -> {
+          try (ex) {
+            ex.sendResponseHeaders(204, -1);
+          }
+        };
     try (var s =
-            newBuilder()
-                .spec(spec)
-                .handlers(Map.of())
-                .port(0)
-                .extraRoute("/alive", Handlers.aliveHandler())
-                .build();
+            newBuilder().spec(spec).handlers(Map.of()).port(0).extraRoute("/alive", alive).build();
         var client = httpClient()) {
 
       var req =
@@ -34,13 +36,23 @@ class ExtraHandlersIT extends ServerBaseTest {
   }
 
   @Test
+  // MIGRATED-IN-TASK-6: re-enable Handlers.specHandler() once extraRoute accepts RequestHandler
   void specHandlerServesClasspathResource() throws Exception {
+    byte[] yamlBytes = ExtraHandlersIT.class.getResourceAsStream("/openapi.yaml").readAllBytes();
+    com.sun.net.httpserver.HttpHandler serveYaml =
+        ex -> {
+          try (ex) {
+            ex.getResponseHeaders().add("Content-Type", "application/yaml");
+            ex.sendResponseHeaders(200, yamlBytes.length);
+            ex.getResponseBody().write(yamlBytes);
+          }
+        };
     try (var s =
             newBuilder()
                 .spec(spec)
                 .handlers(Map.of())
                 .port(0)
-                .extraRoute("/openapi.yaml", Handlers.specHandler("/openapi.yaml"))
+                .extraRoute("/openapi.yaml", serveYaml)
                 .build();
         var client = httpClient()) {
 

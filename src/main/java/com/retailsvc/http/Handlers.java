@@ -1,15 +1,15 @@
 package com.retailsvc.http;
 
+import static com.retailsvc.http.spec.HttpMethod.GET;
+import static com.retailsvc.http.spec.HttpMethod.HEAD;
 import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
-import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 
 import com.retailsvc.http.internal.ClasspathResourceHandler;
-import com.retailsvc.http.internal.MethodLimitedHandler;
 import com.retailsvc.http.internal.ProblemDetail;
 import com.sun.net.httpserver.HttpHandler;
 import java.util.List;
@@ -61,13 +61,12 @@ public final class Handlers {
   }
 
   /** Returns 204 No Content on GET/HEAD; 405 with {@code Allow: GET, HEAD} otherwise. */
-  public static HttpHandler aliveHandler() {
-    return new MethodLimitedHandler(
-        exchange -> {
-          try (exchange) {
-            exchange.sendResponseHeaders(HTTP_NO_CONTENT, -1);
-          }
-        });
+  public static RequestHandler aliveHandler() {
+    return req ->
+        switch (req.method()) {
+          case GET, HEAD -> Response.empty();
+          default -> Response.status(HTTP_BAD_METHOD).withHeader("Allow", "GET, HEAD");
+        };
   }
 
   /**
@@ -91,26 +90,24 @@ public final class Handlers {
    * @param jsonMapper used to encode the wire-shape DTO to bytes
    * @param probe supplier of the current {@link HealthOutcome}
    */
-  public static HttpHandler healthHandler(TypeMapper jsonMapper, Supplier<HealthOutcome> probe) {
+  public static RequestHandler healthHandler(TypeMapper jsonMapper, Supplier<HealthOutcome> probe) {
     Objects.requireNonNull(jsonMapper, "jsonMapper");
     Objects.requireNonNull(probe, "probe");
-    return new MethodLimitedHandler(
-        exchange -> {
-          try (exchange) {
-            HealthOutcome outcome;
-            try {
-              outcome = Objects.requireNonNull(probe.get(), "Health probe returned null");
-            } catch (RuntimeException e) {
-              LOG.warn("Health probe failed", e);
-              outcome = new HealthOutcome(false, List.of());
-            }
-            byte[] body = jsonMapper.writeTo(toWireShape(outcome));
-            int status = outcome.up() ? HTTP_OK : HTTP_UNAVAILABLE;
-            exchange.getResponseHeaders().add("Content-Type", "application/json");
-            exchange.sendResponseHeaders(status, body.length);
-            exchange.getResponseBody().write(body);
-          }
-        });
+    return req -> {
+      if (req.method() != GET && req.method() != HEAD) {
+        return Response.status(HTTP_BAD_METHOD).withHeader("Allow", "GET, HEAD");
+      }
+      HealthOutcome outcome;
+      try {
+        outcome = Objects.requireNonNull(probe.get(), "Health probe returned null");
+      } catch (RuntimeException e) {
+        LOG.warn("Health probe failed", e);
+        outcome = new HealthOutcome(false, List.of());
+      }
+      byte[] body = jsonMapper.writeTo(toWireShape(outcome));
+      int status = outcome.up() ? HTTP_OK : HTTP_UNAVAILABLE;
+      return Response.bytes(status, body, "application/json");
+    };
   }
 
   private static HealthBody toWireShape(HealthOutcome outcome) {
@@ -137,7 +134,18 @@ public final class Handlers {
    *
    * @param classpathResource absolute classpath path, e.g. {@code /schemas/v1/openapi.yaml}
    */
-  public static HttpHandler specHandler(String classpathResource) {
-    return new MethodLimitedHandler(new ClasspathResourceHandler(classpathResource));
+  public static RequestHandler specHandler(String classpathResource) {
+    ClasspathResourceHandler resource = new ClasspathResourceHandler(classpathResource);
+    byte[] bytes = resource.bytes();
+    String contentType = resource.contentType();
+    return req ->
+        switch (req.method()) {
+          case GET -> Response.bytes(HTTP_OK, bytes, contentType);
+          case HEAD ->
+              Response.status(HTTP_OK)
+                  .withContentType(contentType)
+                  .withHeader("Content-Length", String.valueOf(bytes.length));
+          default -> Response.status(HTTP_BAD_METHOD).withHeader("Allow", "GET, HEAD");
+        };
   }
 }
