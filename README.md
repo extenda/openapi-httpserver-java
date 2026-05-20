@@ -368,7 +368,7 @@ Map<String, RequestHandler> handlers = Map.of(
 ```
 
 Global hooks run first (registration order), then per-request runnables (FIFO). Pre-request
-failures (404, 405, validation) do not fire hooks.
+failures (404, 405, validation) do not fire hooks. On the error path (when a handler throws), `Response#body()` is `null` and the bytes have already been streamed; use `Response#status()` to detect errors.
 
 ### End-to-end example
 

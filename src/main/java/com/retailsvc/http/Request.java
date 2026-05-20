@@ -337,7 +337,11 @@ public final class Request {
     afterHooks.add(runnable);
   }
 
-  /** Internal accessor for the after-hook queue; used by RequestPreparationFilter. */
+  /**
+   * Returns an unmodifiable view of the queued after-response runnables. Intended for the framework
+   * runner; consumers should use {@link #afterResponse(Runnable)} to register runnables rather than
+   * inspecting this list directly.
+   */
   public List<Runnable> afterHooks() {
     return Collections.unmodifiableList(afterHooks);
   }

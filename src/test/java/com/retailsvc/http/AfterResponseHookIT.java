@@ -205,8 +205,6 @@ class AfterResponseHookIT {
                   BodyHandlers.discarding());
 
       assertThat(resp.statusCode()).isEqualTo(HTTP_NOT_FOUND);
-      // Give the server-side thread a moment to complete any potential async work
-      Thread.sleep(100);
       assertThat(log).isEmpty();
     }
   }
@@ -244,6 +242,35 @@ class AfterResponseHookIT {
       assertThat(hookScopedRequest.get()).isNotNull();
       assertThat(hookScopedRequest.get().operationId()).isEqualTo(OK_OPERATION_ID);
       assertThat(hookThread.get()).isSameAs(handlerThread.get());
+    }
+  }
+
+  @Test
+  void hookFiresWhenHandlerIsMissing() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Response> capturedResponse = new AtomicReference<>();
+
+    try (OpenApiServer server =
+        baseBuilder()
+            .handlers(Map.of()) // no handler registered for OK_OPERATION_ID
+            .afterResponseHook(
+                (req, resp) -> {
+                  capturedResponse.set(resp);
+                  latch.countDown();
+                })
+            .build()) {
+
+      HttpResponse<Void> resp =
+          HttpClient.newHttpClient()
+              .send(
+                  HttpRequest.newBuilder(uri(server, OK_PATH)).GET().build(),
+                  BodyHandlers.discarding());
+
+      assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+      assertThat(resp.statusCode()).isEqualTo(HTTP_INTERNAL_ERROR);
+      assertThat(capturedResponse.get()).isNotNull();
+      assertThat(capturedResponse.get().status()).isEqualTo(HTTP_INTERNAL_ERROR);
+      assertThat(capturedResponse.get().body()).isNull();
     }
   }
 }
