@@ -74,10 +74,6 @@ public class OpenApiServer implements AutoCloseable {
     requireNonNull(bodyMappers, "bodyMappers must not be null");
     requireNonNull(handlerConfig.handlers(), "handlers must not be null");
     ExceptionHandler exceptionHandler = handlerConfig.exceptionHandler();
-    if (exceptionHandler == null) {
-      LOG.warn("No ExceptionHandler set, using default");
-      exceptionHandler = Handlers.defaultExceptionHandler();
-    }
 
     long t0 = System.currentTimeMillis();
     Router router = new Router(spec.operations());
@@ -93,9 +89,11 @@ public class OpenApiServer implements AutoCloseable {
     this.httpServer = HttpServer.create(socketAddress, 0);
     httpServer.setExecutor(newThreadPerTaskExecutor(ofVirtual().name("http-", 0).factory()));
 
+    ResponseRenderer renderer = new ResponseRenderer(bodyMappers);
+
     String basePath = Optional.ofNullable(spec.basePath()).orElse("/");
     HttpContext ctx = httpServer.createContext(basePath);
-    ctx.getFilters().add(new ExceptionFilter(exceptionHandler));
+    ctx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
     ctx.getFilters().add(new RequestPreparationFilter(spec, router, validator, bodyMappers));
     ctx.getFilters()
         .add(
@@ -110,11 +108,11 @@ public class OpenApiServer implements AutoCloseable {
             handlerConfig.handlers(),
             handlerConfig.interceptors(),
             handlerConfig.decorators(),
-            new ResponseRenderer(bodyMappers)));
+            renderer));
 
     for (Map.Entry<String, HttpHandler> e : handlerConfig.extras().entrySet()) {
       HttpContext extraCtx = httpServer.createContext(e.getKey());
-      extraCtx.getFilters().add(new ExceptionFilter(exceptionHandler));
+      extraCtx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
       extraCtx.setHandler(e.getValue());
     }
 
@@ -320,12 +318,16 @@ public class OpenApiServer implements AutoCloseable {
         validateSecurityWiring(spec, securityValidators);
       }
       Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
+      ExceptionHandler effectiveExceptionHandler =
+          exceptionHandler != null
+              ? exceptionHandler
+              : Handlers.defaultExceptionHandler(resolved.get(JSON));
       HandlerConfig handlerConfig =
           new HandlerConfig(
               handlers,
               interceptors,
               decorators,
-              exceptionHandler,
+              effectiveExceptionHandler,
               extras,
               Map.copyOf(securityValidators),
               externalAuth);

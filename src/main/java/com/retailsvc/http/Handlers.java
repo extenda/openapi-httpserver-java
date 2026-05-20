@@ -7,13 +7,11 @@ import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.retailsvc.http.internal.ClasspathResourceHandler;
 import com.retailsvc.http.internal.MethodLimitedHandler;
-import com.retailsvc.http.internal.ProblemDetailRenderer;
+import com.retailsvc.http.internal.ProblemDetail;
 import com.sun.net.httpserver.HttpHandler;
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -27,31 +25,31 @@ public final class Handlers {
 
   private Handlers() {}
 
-  public static ExceptionHandler defaultExceptionHandler() {
-    return (exchange, t) -> {
-      try (exchange) {
+  public static ExceptionHandler defaultExceptionHandler(TypeMapper jsonMapper) {
+    Objects.requireNonNull(jsonMapper, "jsonMapper must not be null");
+    return t ->
         switch (t) {
-          case ValidationException ve -> {
-            byte[] body = ProblemDetailRenderer.render(ve.error()).getBytes(UTF_8);
-            exchange.getResponseHeaders().add("Content-Type", "application/problem+json");
-            exchange.sendResponseHeaders(HTTP_BAD_REQUEST, body.length);
-            exchange.getResponseBody().write(body);
-          }
-          case NotFoundException _ -> exchange.sendResponseHeaders(HTTP_NOT_FOUND, -1);
-          case MethodNotAllowedException mna -> {
-            String allow = mna.allowed().stream().map(Enum::name).collect(Collectors.joining(", "));
-            exchange.getResponseHeaders().add("Allow", allow);
-            exchange.sendResponseHeaders(HTTP_BAD_METHOD, -1);
-          }
+          case ValidationException ve ->
+              Response.bytes(
+                  HTTP_BAD_REQUEST,
+                  jsonMapper.writeTo(ProblemDetail.forValidation(ve.error())),
+                  "application/problem+json");
+          case BadRequestException bre ->
+              Response.bytes(
+                  bre.status(),
+                  jsonMapper.writeTo(ProblemDetail.forBadRequest(bre)),
+                  "application/problem+json");
+          case NotFoundException _ -> Response.notFound();
+          case MethodNotAllowedException mna ->
+              Response.status(HTTP_BAD_METHOD)
+                  .withHeader(
+                      "Allow",
+                      mna.allowed().stream().map(Enum::name).collect(Collectors.joining(", ")));
           default -> {
             LOG.error("Unhandled exception in handler", t);
-            exchange.sendResponseHeaders(HTTP_INTERNAL_ERROR, -1);
+            yield Response.status(HTTP_INTERNAL_ERROR);
           }
-        }
-      } catch (IOException io) {
-        LOG.error("Failed writing error response", io);
-      }
-    };
+        };
   }
 
   public static HttpHandler notFoundHandler() {

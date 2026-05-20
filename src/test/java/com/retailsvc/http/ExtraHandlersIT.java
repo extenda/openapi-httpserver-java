@@ -1,6 +1,5 @@
 package com.retailsvc.http;
 
-import static com.retailsvc.http.Handlers.defaultExceptionHandler;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
@@ -17,7 +16,6 @@ class ExtraHandlersIT extends ServerBaseTest {
             newBuilder()
                 .spec(spec)
                 .handlers(Map.of())
-                .exceptionHandler(defaultExceptionHandler())
                 .port(0)
                 .extraRoute("/alive", Handlers.aliveHandler())
                 .build();
@@ -41,7 +39,6 @@ class ExtraHandlersIT extends ServerBaseTest {
             newBuilder()
                 .spec(spec)
                 .handlers(Map.of())
-                .exceptionHandler(defaultExceptionHandler())
                 .port(0)
                 .extraRoute("/openapi.yaml", Handlers.specHandler("/openapi.yaml"))
                 .build();
@@ -68,13 +65,7 @@ class ExtraHandlersIT extends ServerBaseTest {
         };
 
     try (var s =
-            newBuilder()
-                .spec(spec)
-                .handlers(Map.of())
-                .exceptionHandler(defaultExceptionHandler())
-                .port(0)
-                .extraRoute("/boom", boom)
-                .build();
+            newBuilder().spec(spec).handlers(Map.of()).port(0).extraRoute("/boom", boom).build();
         var client = httpClient()) {
 
       var req =
