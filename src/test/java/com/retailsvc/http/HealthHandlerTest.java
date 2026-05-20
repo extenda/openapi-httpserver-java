@@ -4,7 +4,6 @@ import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,10 +32,10 @@ class HealthHandlerTest {
 
     Handlers.healthHandler(JSON, () -> outcome).handle(ex);
 
-    verify(ex).sendResponseHeaders(eq(HTTP_OK), eq((long) body.size()));
+    verify(ex).sendResponseHeaders(HTTP_OK, (long) body.size());
     assertThat(headers.getFirst("Content-Type")).isEqualTo("application/json");
-    assertThat(body.toString())
-        .isEqualTo("{\"outcome\":\"Up\",\"dependencies\":[{\"id\":\"jdbc\",\"status\":\"Up\"}]}");
+    assertThat(body)
+        .hasToString("{\"outcome\":\"Up\",\"dependencies\":[{\"id\":\"jdbc\",\"status\":\"Up\"}]}");
   }
 
   @Test
@@ -49,8 +48,8 @@ class HealthHandlerTest {
 
     Handlers.healthHandler(JSON, () -> new HealthOutcome(true, List.of())).handle(ex);
 
-    verify(ex).sendResponseHeaders(eq(HTTP_OK), eq((long) body.size()));
-    assertThat(body.toString()).isEqualTo("{\"outcome\":\"Up\",\"dependencies\":[]}");
+    verify(ex).sendResponseHeaders(HTTP_OK, (long) body.size());
+    assertThat(body).hasToString("{\"outcome\":\"Up\",\"dependencies\":[]}");
   }
 
   @Test
@@ -64,10 +63,10 @@ class HealthHandlerTest {
 
     Handlers.healthHandler(JSON, () -> outcome).handle(ex);
 
-    verify(ex).sendResponseHeaders(eq(HTTP_UNAVAILABLE), eq((long) body.size()));
+    verify(ex).sendResponseHeaders(HTTP_UNAVAILABLE, (long) body.size());
     assertThat(headers.getFirst("Content-Type")).isEqualTo("application/json");
-    assertThat(body.toString())
-        .isEqualTo(
+    assertThat(body)
+        .hasToString(
             "{\"outcome\":\"Down\",\"dependencies\":[{\"id\":\"jdbc\",\"status\":\"Down\"}]}");
   }
 
@@ -81,7 +80,7 @@ class HealthHandlerTest {
 
     Handlers.healthHandler(JSON, () -> new HealthOutcome(true, List.of())).handle(ex);
 
-    verify(ex).sendResponseHeaders(eq(HTTP_OK), eq((long) body.size()));
+    verify(ex).sendResponseHeaders(HTTP_OK, (long) body.size());
   }
 
   @Test
@@ -110,8 +109,8 @@ class HealthHandlerTest {
         };
     Handlers.healthHandler(JSON, failing).handle(ex);
 
-    verify(ex).sendResponseHeaders(eq(HTTP_UNAVAILABLE), eq((long) body.size()));
-    assertThat(body.toString()).isEqualTo("{\"outcome\":\"Down\",\"dependencies\":[]}");
+    verify(ex).sendResponseHeaders(HTTP_UNAVAILABLE, (long) body.size());
+    assertThat(body).hasToString("{\"outcome\":\"Down\",\"dependencies\":[]}");
   }
 
   @Test
@@ -124,8 +123,8 @@ class HealthHandlerTest {
 
     Handlers.healthHandler(JSON, () -> null).handle(ex);
 
-    verify(ex).sendResponseHeaders(eq(HTTP_UNAVAILABLE), eq((long) body.size()));
-    assertThat(body.toString()).isEqualTo("{\"outcome\":\"Down\",\"dependencies\":[]}");
+    verify(ex).sendResponseHeaders(HTTP_UNAVAILABLE, (long) body.size());
+    assertThat(body).hasToString("{\"outcome\":\"Down\",\"dependencies\":[]}");
   }
 
   private static HttpExchange newExchange(String method) {
