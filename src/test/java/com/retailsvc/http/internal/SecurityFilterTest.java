@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.retailsvc.http.Request;
 import com.retailsvc.http.SchemeValidator;
+import com.retailsvc.http.TypeMapper;
 import com.retailsvc.http.spec.HttpMethod;
 import com.retailsvc.http.spec.Operation;
 import com.retailsvc.http.spec.security.SecurityRequirement;
@@ -23,6 +24,7 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -49,7 +51,8 @@ class SecurityFilterTest {
         Map.of("bearerAuth", (req, cred) -> Optional.of("user-1"));
 
     SecurityFilter filter =
-        new SecurityFilter(Map.of("getX", op), schemes, List.of(), validators, false);
+        new SecurityFilter(
+            Map.of("getX", op), schemes, List.of(), validators, false, mockJsonMapper());
 
     HttpExchange ex = mock(HttpExchange.class);
     Headers headers = new Headers();
@@ -88,7 +91,8 @@ class SecurityFilterTest {
             Optional.empty()); // inherits root, root is empty
 
     SecurityFilter filter =
-        new SecurityFilter(Map.of("getY", op), Map.of(), List.of(), Map.of(), false);
+        new SecurityFilter(
+            Map.of("getY", op), Map.of(), List.of(), Map.of(), false, mockJsonMapper());
 
     HttpExchange ex = mock(HttpExchange.class);
     Chain chain = mock(Chain.class);
@@ -117,7 +121,8 @@ class SecurityFilterTest {
             Map.of("bearerAuth", new HttpBearer(Optional.empty())),
             List.of(),
             Map.of("bearerAuth", (req, cred) -> Optional.of("never-called")),
-            false);
+            false,
+            mockJsonMapper());
 
     HttpExchange ex = mock(HttpExchange.class);
     Headers headers = new Headers();
@@ -159,7 +164,8 @@ class SecurityFilterTest {
             Map.of("bearerAuth", new HttpBearer(Optional.empty())),
             List.of(),
             Map.of("bearerAuth", (req, cred) -> Optional.empty()),
-            false);
+            false,
+            mockJsonMapper());
 
     HttpExchange ex = mock(HttpExchange.class);
     Headers headers = new Headers();
@@ -196,7 +202,8 @@ class SecurityFilterTest {
             Map.of("apiKeyAuth", new ApiKey("X-API-Key", Location.HEADER)),
             List.of(),
             Map.of("apiKeyAuth", (req, cred) -> Optional.of("ok")),
-            false);
+            false,
+            mockJsonMapper());
 
     HttpExchange ex = mock(HttpExchange.class);
     when(ex.getRequestHeaders()).thenReturn(new Headers());
@@ -241,7 +248,8 @@ class SecurityFilterTest {
             "bearerAuth", (req, cred) -> Optional.of("bearer-principal"));
 
     SecurityFilter filter =
-        new SecurityFilter(Map.of("getX", op), schemes, List.of(), validators, false);
+        new SecurityFilter(
+            Map.of("getX", op), schemes, List.of(), validators, false, mockJsonMapper());
 
     HttpExchange ex = mock(HttpExchange.class);
     Headers headers = new Headers();
@@ -295,7 +303,8 @@ class SecurityFilterTest {
             "bearerAuth", (req, cred) -> Optional.of("bearer-ok"));
 
     SecurityFilter filter =
-        new SecurityFilter(Map.of("getX", op), schemes, List.of(), validators, false);
+        new SecurityFilter(
+            Map.of("getX", op), schemes, List.of(), validators, false, mockJsonMapper());
 
     HttpExchange ex = mock(HttpExchange.class);
     Headers headers = new Headers();
@@ -339,7 +348,8 @@ class SecurityFilterTest {
             Map.of("bearerAuth", new HttpBearer(Optional.empty())),
             List.of(),
             Map.of(), // NO validators
-            /* externalAuth= */ true);
+            /* externalAuth= */ true,
+            mockJsonMapper());
 
     HttpExchange ex = mock(HttpExchange.class);
     Chain chain = mock(Chain.class);
@@ -350,5 +360,25 @@ class SecurityFilterTest {
 
   private static Request newMinimalRequest(String operationId) {
     return new Request(new byte[0], null, null, operationId, Map.of(), null, h -> null);
+  }
+
+  private static TypeMapper mockJsonMapper() {
+    return new TypeMapper() {
+      @Override
+      public Object readFrom(byte[] body, String contentTypeHeader) {
+        return null;
+      }
+
+      @Override
+      public byte[] writeTo(Object value) {
+        if (value instanceof ProblemDetail pd) {
+          return String.format(
+                  "{\"type\":\"%s\",\"title\":\"%s\",\"status\":%d,\"detail\":\"%s\"}",
+                  pd.type(), pd.title(), pd.status(), pd.detail())
+              .getBytes(StandardCharsets.UTF_8);
+        }
+        return "{}".getBytes(StandardCharsets.UTF_8);
+      }
+    };
   }
 }

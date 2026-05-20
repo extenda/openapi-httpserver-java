@@ -103,7 +103,8 @@ public class OpenApiServer implements AutoCloseable {
                 spec.securitySchemes(),
                 spec.security(),
                 handlerConfig.securityValidators(),
-                handlerConfig.externalAuth()));
+                handlerConfig.externalAuth(),
+                bodyMappers.get(JSON)));
     ctx.setHandler(
         new DispatchHandler(
             handlerConfig.handlers(),
