@@ -137,15 +137,18 @@ exactly where any third-party integration belongs.
 
 ## Error handling
 
-- `Supplier` returns `null`: `Objects.requireNonNull` inside the handler
-  produces an NPE; this falls outside the `RuntimeException` catch and
-  propagates up through `ExceptionFilter` (yielding a 500). Probes are
-  expected to return a value; treating a `null` return as a programming
-  error is intentional.
+Health endpoints should never 500 — load balancers and orchestrators interpret
+5xx-from-health-probe as "treat instance as unhealthy" only some of the time;
+a 503 with a `Down` body is the unambiguous signal. The handler therefore
+funnels every probe failure into the same `Down`+503 path:
+
 - `Supplier` throws `RuntimeException`: caught; logged at `warn`; rendered
   as `Down` with empty dependency list and 503.
+- `Supplier` returns `null`: treated identically to a throwing probe —
+  logged at `warn` and rendered as `Down`+503. (The handler asserts
+  non-null via an explicit check inside the same `try` block.)
 - IOException while writing the response: not caught here; `ExceptionFilter`
-  handles it.
+  handles it (this is a transport-level failure, not a probe failure).
 
 ## Testing
 
@@ -161,8 +164,8 @@ Unit tests only (Surefire). New file `HealthHandlerTest` (or extension of
 - HEAD → status code only, no body bytes.
 - POST → 405 with `Allow: GET, HEAD` header.
 - Probe throws `RuntimeException` → 503, body `{"outcome":"Down","dependencies":[]}`.
-- Probe returns `null` → propagates (assertion: 500 via the default
-  exception handler).
+- Probe returns `null` → 503, body `{"outcome":"Down","dependencies":[]}`
+  (same behaviour as a throwing probe).
 
 New file `HealthRendererTest`:
 

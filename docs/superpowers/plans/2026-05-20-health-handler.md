@@ -522,6 +522,20 @@ class HealthHandlerTest {
     assertThat(body.toString()).isEqualTo("{\"outcome\":\"Down\",\"dependencies\":[]}");
   }
 
+  @Test
+  void nullReturnFromProbeMapsToDown503() throws IOException {
+    HttpExchange ex = newExchange("GET");
+    Headers headers = new Headers();
+    when(ex.getResponseHeaders()).thenReturn(headers);
+    ByteArrayOutputStream body = new ByteArrayOutputStream();
+    when(ex.getResponseBody()).thenReturn(body);
+
+    Handlers.healthHandler(() -> null).handle(ex);
+
+    verify(ex).sendResponseHeaders(eq(HTTP_UNAVAILABLE), eq((long) body.size()));
+    assertThat(body.toString()).isEqualTo("{\"outcome\":\"Down\",\"dependencies\":[]}");
+  }
+
   private static HttpExchange newExchange(String method) {
     HttpExchange ex = mock(HttpExchange.class);
     when(ex.getRequestMethod()).thenReturn(method);
@@ -572,9 +586,13 @@ Append the new method to the body of the `Handlers` class, right after `aliveHan
           try (exchange) {
             HealthOutcome outcome;
             try {
-              outcome = probe.get();
+              HealthOutcome result = probe.get();
+              if (result == null) {
+                throw new IllegalStateException("Health probe returned null");
+              }
+              outcome = result;
             } catch (RuntimeException e) {
-              LOG.warn("Health probe threw", e);
+              LOG.warn("Health probe failed", e);
               outcome = new HealthOutcome("Down", List.of());
             }
             byte[] body = HealthRenderer.toJson(outcome).getBytes(UTF_8);
@@ -596,7 +614,7 @@ import com.retailsvc.http.internal.HealthRenderer;
 - [ ] **Step 4: Run the new tests**
 
 Run: `mvn test -Dtest=HealthHandlerTest`
-Expected: PASS (6 tests).
+Expected: PASS (7 tests).
 
 - [ ] **Step 5: Run the full unit-test suite to catch regressions**
 
@@ -662,14 +680,7 @@ The gh CLI cannot create PRs in this repo (see `MEMORY.md`); after the push, han
 | `HealthOutcome` defensively copies the dependency list | 2 |
 | `HealthOutcome` accepts `null` deps as empty list | 2 |
 | `HealthRenderer` package-private under `internal`, hand-rolled, escapes `\\ \" \n \r \t \b \f` and `\uXXXX` for `<0x20` | 3 |
-| `null` return from `Supplier` propagates as 500 (intentional) | Covered indirectly: NPE thrown by `HealthRenderer.toJson(null)` → falls outside the `RuntimeException` catch is FALSE — `NullPointerException` extends `RuntimeException` and **would** be caught. See note below. |
-
-**Note on `null` return:** The spec says a `null` return "propagates a 500". But the handler's `try { outcome = probe.get(); } catch (RuntimeException e)` block catches `NullPointerException` too (since NPE extends RuntimeException), so a `null` return is silently mapped to `Down`+503, **not** a 500. Two ways forward:
-
-1. Accept the actual behavior and update the spec wording — `null` return = treated identically to a throwing probe (`Down`+503). This is arguably nicer behavior anyway: health endpoints should never 500.
-2. Explicitly null-check the probe result before the catch and re-throw as a non-RuntimeException, or check after the try and let it propagate.
-
-Recommended: option 1 (spec edit, no code change). Flag this to the user at execution time before writing the test for the null case. The plan above intentionally does NOT include a test for the `null`-return case; resolve the spec ambiguity first.
+| `null` return from `Supplier` → `Down`+503 (same as throwing probe) | 4 (explicit null check inside try; `nullReturnFromProbeMapsToDown503` test) |
 
 **Type consistency:** `HealthOutcome`, `Dependency`, `HealthRenderer.toJson(HealthOutcome)`, `Handlers.healthHandler(Supplier<HealthOutcome>)` are consistent across all tasks. Field names (`outcome`, `dependencies`, `id`, `status`) match the spec's wire format.
 
