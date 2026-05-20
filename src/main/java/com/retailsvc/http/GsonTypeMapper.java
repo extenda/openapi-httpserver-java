@@ -6,9 +6,8 @@ import com.retailsvc.http.internal.gson.GsonJsonMapper;
 import java.util.Objects;
 
 /**
- * {@link TypeMapper} for {@code application/json} backed by Gson. Mirrors the ergonomics of {@link
- * Jackson2JsonTypeMapper} / {@link Jackson3JsonTypeMapper}: the caller supplies a fully configured
- * {@link Gson}; this class never silently mutates it.
+ * {@link TypeMapper} for {@code application/json} backed by Gson. The caller supplies a fully
+ * configured {@link Gson}; this class never silently mutates it.
  *
  * <p>The no-argument constructor uses the library's default {@link Gson} — the same JSR-310-aware
  * instance the built-in auto-registration produces — making this a drop-in replacement for the
