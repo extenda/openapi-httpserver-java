@@ -95,8 +95,16 @@ public class OpenApiServer implements AutoCloseable {
 
     String basePath = Optional.ofNullable(spec.basePath()).orElse("/");
     HttpContext ctx = httpServer.createContext(basePath);
-    ctx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
-    ctx.getFilters().add(new RequestPreparationFilter(spec, router, validator, bodyMappers));
+    ctx.getFilters()
+        .add(
+            new RequestPreparationFilter(
+                spec,
+                router,
+                validator,
+                bodyMappers,
+                exceptionHandler,
+                renderer,
+                handlerConfig.afterHooks()));
     ctx.getFilters()
         .add(
             new SecurityFilter(
