@@ -7,8 +7,10 @@ import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.retailsvc.http.internal.ClasspathResourceHandler;
+import com.retailsvc.http.internal.HealthRenderer;
 import com.retailsvc.http.internal.ProblemDetail;
 import java.util.List;
 import java.util.Objects;
@@ -61,10 +63,10 @@ public final class Handlers {
 
   /**
    * Health endpoint handler. Accepts GET and HEAD; returns 200 with {@code application/json} body
-   * when the supplied probe reports {@code up == true}, and 503 with the same body shape otherwise.
-   * A probe that throws a {@link RuntimeException} or returns {@code null} is mapped to a {@code
-   * Down} outcome with an empty dependency list (and 503); the failure is never propagated to the
-   * default exception handler.
+   * when the supplied probe reports up (all dependencies up, or no dependencies), and 503 with the
+   * same body shape otherwise. A probe that throws a {@link RuntimeException} or returns {@code
+   * null} is mapped to a {@code Down} response with an empty dependency list (and 503); the failure
+   * is never propagated to the default exception handler.
    *
    * <p>The wire shape is
    *
@@ -72,51 +74,32 @@ public final class Handlers {
    * {"outcome":"Up","dependencies":[{"id":"jdbc","status":"Up"}]}
    * }</pre>
    *
-   * <p>Serialisation is delegated to the supplied {@code jsonMapper} — typically the same {@link
-   * TypeMapper} the caller registered for {@code application/json} on the server. The handler hands
-   * the mapper a record-shaped DTO with the components in the order shown above; any standard JSON
-   * library (Gson, Jackson, …) serialises it identically.
+   * <p>The body is rendered by a built-in writer; no JSON library on the classpath is required.
    *
-   * @param jsonMapper used to encode the wire-shape DTO to bytes
    * @param probe supplier of the current {@link HealthOutcome}
    */
-  public static RequestHandler healthHandler(TypeMapper jsonMapper, Supplier<HealthOutcome> probe) {
-    Objects.requireNonNull(jsonMapper, "jsonMapper");
+  public static RequestHandler healthHandler(Supplier<HealthOutcome> probe) {
     Objects.requireNonNull(probe, "probe");
     return req -> {
       if (req.method() != GET && req.method() != HEAD) {
         return Response.status(HTTP_BAD_METHOD).withHeader("Allow", "GET, HEAD");
       }
-      HealthOutcome outcome;
+      boolean up;
+      List<Dependency> dependencies;
       try {
-        outcome = Objects.requireNonNull(probe.get(), "Health probe returned null");
+        HealthOutcome outcome = Objects.requireNonNull(probe.get(), "Health probe returned null");
+        up = outcome.up();
+        dependencies = outcome.dependencies();
       } catch (RuntimeException e) {
         LOG.warn("Health probe failed", e);
-        outcome = new HealthOutcome(false, List.of());
+        up = false;
+        dependencies = List.of();
       }
-      byte[] body = jsonMapper.writeTo(toWireShape(outcome));
-      int status = outcome.up() ? HTTP_OK : HTTP_UNAVAILABLE;
+      byte[] body = HealthRenderer.renderJson(up, dependencies).getBytes(UTF_8);
+      int status = up ? HTTP_OK : HTTP_UNAVAILABLE;
       return Response.bytes(status, body, "application/json");
     };
   }
-
-  private static HealthBody toWireShape(HealthOutcome outcome) {
-    return new HealthBody(
-        label(outcome.up()),
-        outcome.dependencies().stream()
-            .map(d -> new DependencyBody(d.id(), label(d.up())))
-            .toList());
-  }
-
-  private static String label(boolean up) {
-    return up ? "Up" : "Down";
-  }
-
-  /** Wire-shape DTO for the health endpoint. Component order defines JSON field order. */
-  private record HealthBody(String outcome, List<DependencyBody> dependencies) {}
-
-  /** Wire-shape DTO for a single dependency entry. */
-  private record DependencyBody(String id, String status) {}
 
   /**
    * Serves a classpath resource. Content-Type is inferred from the file extension. The resource is
