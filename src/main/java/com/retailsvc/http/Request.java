@@ -336,8 +336,8 @@ public final class Request {
     afterHooks.add(runnable);
   }
 
-  /** Package-private accessor for the after-hook queue; used by RequestPreparationFilter. */
-  List<Runnable> afterHooks() {
+  /** Internal accessor for the after-hook queue; used by RequestPreparationFilter. */
+  public List<Runnable> afterHooks() {
     return afterHooks;
   }
 

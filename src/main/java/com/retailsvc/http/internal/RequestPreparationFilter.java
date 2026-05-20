@@ -17,9 +17,11 @@ import com.retailsvc.http.spec.Spec;
 import com.retailsvc.http.validate.ValidationError;
 import com.retailsvc.http.validate.Validator;
 import com.sun.net.httpserver.Filter;
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -78,8 +80,11 @@ public final class RequestPreparationFilter extends Filter {
       ScopedValue.where(DispatchHandler.CURRENT, request)
           .call(
               () -> {
-                runInnerChain(exchange, chain);
-                fireAfterHooks(exchange, request);
+                try {
+                  runInnerChain(exchange, chain);
+                } finally {
+                  fireAfterHooks(exchange, request);
+                }
                 return null;
               });
     } catch (IOException | RuntimeException e) {
@@ -132,7 +137,42 @@ public final class RequestPreparationFilter extends Filter {
   }
 
   private void fireAfterHooks(HttpExchange exchange, Request request) {
-    // implemented in Task 5
+    Response response = resolveResponse(exchange);
+    List<Runnable> snapshot = List.copyOf(request.afterHooks());
+
+    for (AfterResponseHook hook : afterHooks) {
+      try {
+        hook.after(request, response);
+      } catch (Throwable t) {
+        LOG.debug("after-response hook threw", t);
+      }
+    }
+    for (Runnable runnable : snapshot) {
+      try {
+        runnable.run();
+      } catch (Throwable t) {
+        LOG.debug("after-response runnable threw", t);
+      }
+    }
+  }
+
+  private static Response resolveResponse(HttpExchange exchange) {
+    Object stashed = exchange.getAttribute(DispatchHandler.RESPONSE_ATTR);
+    if (stashed instanceof Response r) {
+      return r;
+    }
+    Headers headers = exchange.getResponseHeaders();
+    String contentType = headers != null ? headers.getFirst("Content-Type") : null;
+    Map<String, String> flat = new LinkedHashMap<>();
+    if (headers != null) {
+      for (Map.Entry<String, List<String>> e : headers.entrySet()) {
+        List<String> values = e.getValue();
+        if (values != null && !values.isEmpty()) {
+          flat.put(e.getKey(), values.get(0));
+        }
+      }
+    }
+    return new Response(exchange.getResponseCode(), null, contentType, flat);
   }
 
   private String stripBasePath(String path) {
