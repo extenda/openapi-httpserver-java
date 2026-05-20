@@ -125,6 +125,12 @@ class OpenApiServerBuilderTest {
         .isInstanceOf(NullPointerException.class);
   }
 
+  @Test
+  void afterResponseHookRejectsNull() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+    assertThatThrownBy(() -> b.afterResponseHook(null)).isInstanceOf(NullPointerException.class);
+  }
+
   private static Spec testSpec() {
     Map<String, Object> raw =
         Map.of(

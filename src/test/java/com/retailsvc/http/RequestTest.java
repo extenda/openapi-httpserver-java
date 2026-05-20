@@ -2,12 +2,15 @@ package com.retailsvc.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retailsvc.http.internal.DispatchHandler;
 import com.retailsvc.http.spec.HttpMethod;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
@@ -230,6 +233,52 @@ class RequestTest {
     mutable.put("a", "MUTATED");
 
     assertThat(copy.principal("a")).contains("b");
+  }
+
+  private static Request newRequest() {
+    return new Request(new byte[0], null, null, "op", Map.of(), null, name -> null);
+  }
+
+  @Test
+  void afterResponseRejectsNull() {
+    Request request = newRequest();
+    assertThrows(NullPointerException.class, () -> request.afterResponse(null));
+  }
+
+  @Test
+  void afterResponseQueuesInOrder() {
+    Request request = newRequest();
+    List<String> log = new ArrayList<>();
+    request.afterResponse(() -> log.add("first"));
+    request.afterResponse(() -> log.add("second"));
+
+    for (Runnable r : request.afterHooks()) {
+      r.run();
+    }
+
+    assertThat(log).containsExactly("first", "second");
+  }
+
+  @Test
+  void withPrincipalsSharesAfterHookQueue() {
+    Request original = newRequest();
+    List<String> log = new ArrayList<>();
+    original.afterResponse(() -> log.add("from-original"));
+
+    Request enriched = original.withPrincipals(Map.of("scheme", "principal"));
+    enriched.afterResponse(() -> log.add("from-enriched"));
+
+    for (Runnable r : original.afterHooks()) {
+      r.run();
+    }
+
+    assertThat(log).containsExactly("from-original", "from-enriched");
+    // Adding via one Request is visible via the other — the backing list is shared.
+    original.afterResponse(() -> log.add("from-original-again"));
+    List<Runnable> enrichedView = enriched.afterHooks();
+    assertThat(enrichedView).hasSize(3);
+    enrichedView.get(2).run();
+    assertThat(log).containsExactly("from-original", "from-enriched", "from-original-again");
   }
 
   @Test

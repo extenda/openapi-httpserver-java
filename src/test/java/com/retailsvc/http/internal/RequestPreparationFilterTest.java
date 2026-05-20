@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
+import com.retailsvc.http.ExceptionHandler;
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
 import com.retailsvc.http.Request;
@@ -77,8 +78,21 @@ class RequestPreparationFilterTest {
           }
         };
     Map<String, TypeMapper> mappers = Map.of("application/json", textMapper);
+    ExceptionHandler rethrow =
+        t -> {
+          if (t instanceof RuntimeException re) {
+            throw re;
+          }
+          throw new IllegalStateException(t);
+        };
     return new RequestPreparationFilter(
-        spec, new Router(spec.operations()), new DefaultValidator(spec::resolveSchema), mappers);
+        spec,
+        new Router(spec.operations()),
+        new DefaultValidator(spec::resolveSchema),
+        mappers,
+        rethrow,
+        new ResponseRenderer(mappers),
+        List.of());
   }
 
   @Test

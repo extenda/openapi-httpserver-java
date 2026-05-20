@@ -1,8 +1,11 @@
 package com.retailsvc.http.internal;
 
+import com.retailsvc.http.AfterResponseHook;
+import com.retailsvc.http.ExceptionHandler;
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
 import com.retailsvc.http.Request;
+import com.retailsvc.http.Response;
 import com.retailsvc.http.TypeMapper;
 import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.HttpMethod;
@@ -14,28 +17,47 @@ import com.retailsvc.http.spec.Spec;
 import com.retailsvc.http.validate.ValidationError;
 import com.retailsvc.http.validate.Validator;
 import com.sun.net.httpserver.Filter;
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class RequestPreparationFilter extends Filter {
 
+  private static final Logger LOG = LoggerFactory.getLogger(RequestPreparationFilter.class);
   private static final String BODY_POINTER = "/body";
 
   private final Spec spec;
   private final Router router;
   private final Validator validator;
   private final Map<String, TypeMapper> bodyMappers;
+  private final ExceptionHandler exceptionHandler;
+  private final ResponseRenderer renderer;
+  private final List<AfterResponseHook> afterHooks;
 
+  @SuppressWarnings("java:S107")
   public RequestPreparationFilter(
-      Spec spec, Router router, Validator validator, Map<String, TypeMapper> bodyMappers) {
+      Spec spec,
+      Router router,
+      Validator validator,
+      Map<String, TypeMapper> bodyMappers,
+      ExceptionHandler exceptionHandler,
+      ResponseRenderer renderer,
+      List<AfterResponseHook> afterHooks) {
     this.spec = spec;
     this.router = router;
     this.validator = validator;
     this.bodyMappers = Map.copyOf(bodyMappers);
+    this.exceptionHandler = exceptionHandler;
+    this.renderer = renderer;
+    this.afterHooks = List.copyOf(afterHooks);
   }
 
   @Override
@@ -45,6 +67,34 @@ public final class RequestPreparationFilter extends Filter {
 
   @Override
   public void doFilter(HttpExchange exchange, Chain chain) throws IOException {
+    Request request;
+    try {
+      request = buildRequest(exchange);
+    } catch (RuntimeException | IOException t) {
+      Response response = exceptionHandler.handle(t);
+      renderer.render(exchange, response);
+      return;
+    }
+
+    try {
+      ScopedValue.where(DispatchHandler.CURRENT, request)
+          .call(
+              () -> {
+                try {
+                  runInnerChain(exchange, chain);
+                } finally {
+                  fireAfterHooks(exchange, request);
+                }
+                return null;
+              });
+    } catch (IOException | RuntimeException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new IOException(e);
+    }
+  }
+
+  private Request buildRequest(HttpExchange exchange) throws IOException {
     byte[] body = exchange.getRequestBody().readAllBytes();
 
     HttpMethod method = HttpMethod.parse(exchange.getRequestMethod());
@@ -65,30 +115,64 @@ public final class RequestPreparationFilter extends Filter {
     ParsedBody parsedBody = validateAndParseBody(exchange, op, body);
 
     var headers = exchange.getRequestHeaders();
-    Request request =
-        new Request(
-            body,
-            parsedBody.value(),
-            parsedBody.mapper(),
-            op.operationId(),
-            match.pathParameters(),
-            exchange.getRequestURI().getRawQuery(),
-            headers::getFirst,
-            Map.of(),
-            method);
+    return new Request(
+        body,
+        parsedBody.value(),
+        parsedBody.mapper(),
+        op.operationId(),
+        match.pathParameters(),
+        exchange.getRequestURI().getRawQuery(),
+        headers::getFirst,
+        Map.of(),
+        method);
+  }
 
+  private void runInnerChain(HttpExchange exchange, Chain chain) throws IOException {
     try {
-      ScopedValue.where(DispatchHandler.CURRENT, request)
-          .call(
-              () -> {
-                chain.doFilter(exchange);
-                return null;
-              });
-    } catch (IOException | RuntimeException e) {
-      throw e;
-    } catch (Exception e) {
-      throw new IOException(e);
+      chain.doFilter(exchange);
+    } catch (RuntimeException | IOException t) {
+      Response response = exceptionHandler.handle(t);
+      renderer.render(exchange, response);
     }
+  }
+
+  private void fireAfterHooks(HttpExchange exchange, Request request) {
+    Response response = resolveResponse(exchange);
+    List<Runnable> snapshot = List.copyOf(request.afterHooks());
+
+    for (AfterResponseHook hook : afterHooks) {
+      try {
+        hook.after(request, response);
+      } catch (Exception t) {
+        LOG.debug("after-response hook threw", t);
+      }
+    }
+    for (Runnable runnable : snapshot) {
+      try {
+        runnable.run();
+      } catch (Exception t) {
+        LOG.debug("after-response runnable threw", t);
+      }
+    }
+  }
+
+  private static Response resolveResponse(HttpExchange exchange) {
+    Object stashed = exchange.getAttribute(DispatchHandler.RESPONSE_ATTR);
+    if (stashed instanceof Response r) {
+      return r;
+    }
+    Headers headers = exchange.getResponseHeaders();
+    String contentType = headers != null ? headers.getFirst("Content-Type") : null;
+    Map<String, String> flat = new LinkedHashMap<>();
+    if (headers != null) {
+      for (Map.Entry<String, List<String>> e : headers.entrySet()) {
+        List<String> values = e.getValue();
+        if (values != null && !values.isEmpty()) {
+          flat.put(e.getKey(), values.get(0));
+        }
+      }
+    }
+    return new Response(exchange.getResponseCode(), null, contentType, flat);
   }
 
   private String stripBasePath(String path) {

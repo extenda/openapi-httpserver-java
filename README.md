@@ -343,6 +343,33 @@ public class GetPromotionHandler implements RequestHandler {
 }
 ```
 
+### After-response hooks
+
+Register code to run after the response has been sent. Hooks run on the request virtual thread,
+inside the library's request scope, with exceptions swallowed.
+
+``` java
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .afterResponseHook((req, resp) ->
+        metrics.timer("http.request").record(req.operationId(), resp.status()))
+    .build();
+```
+
+Handlers can also queue per-request runnables:
+
+``` java
+Map<String, RequestHandler> handlers = Map.of(
+    "getThings", req -> {
+      req.afterResponse(() -> auditLog.flush());
+      return Response.ok(things);
+    });
+```
+
+Global hooks run first (registration order), then per-request runnables (FIFO). Pre-request
+failures (404, 405, validation) do not fire hooks. On the error path (when a handler throws), `Response#body()` is `null` and the bytes have already been streamed; use `Response#status()` to detect errors.
+
 ### End-to-end example
 
 Gson on the classpath for request/response JSON, SnakeYAML on the classpath for the spec, one interceptor binding a request-scoped tenant + correlation id, one decorator stamping the correlation id on every response, one handler. No extra wiring.

@@ -15,6 +15,7 @@ import java.util.Map;
 public final class DispatchHandler implements HttpHandler {
 
   public static final ScopedValue<Request> CURRENT = ScopedValue.newInstance();
+  public static final String RESPONSE_ATTR = "com.retailsvc.http.response";
 
   private final Map<String, RequestHandler> handlers;
   private final List<RequestInterceptor> interceptors;
@@ -43,6 +44,7 @@ public final class DispatchHandler implements HttpHandler {
     for (ResponseDecorator decorator : decorators) {
       response = decorator.decorate(request, response);
     }
+    exchange.setAttribute(RESPONSE_ATTR, response);
     renderer.render(exchange, response);
   }
 
