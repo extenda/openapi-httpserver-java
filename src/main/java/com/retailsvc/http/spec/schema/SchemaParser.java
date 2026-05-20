@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/** Parses raw OpenAPI / JSON Schema input ({@code Map} or {@code Boolean}) into {@link Schema}. */
 public final class SchemaParser {
   private SchemaParser() {}
 
@@ -22,6 +23,13 @@ public final class SchemaParser {
     return Map.copyOf(out);
   }
 
+  /**
+   * Parses a raw schema node into a {@link Schema}.
+   *
+   * @param raw a {@link Boolean} (JSON Schema shorthand) or a {@link Map} of schema keywords
+   * @return the parsed schema
+   * @throws IllegalArgumentException if {@code raw} is neither a boolean nor a map
+   */
   public static Schema parse(Object raw) {
     if (raw instanceof Boolean b) {
       boolean allow = b;

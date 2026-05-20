@@ -11,6 +11,13 @@ public final class FormTypeMapper implements TypeMapper {
 
   private final FormUrlEncodedParser parser = new FormUrlEncodedParser();
 
+  /**
+   * Creates a form-urlencoded type mapper. The mapper is stateless beyond a lazily-shared parser.
+   */
+  public FormTypeMapper() {
+    // State is held by the final parser field above.
+  }
+
   @Override
   public Object readFrom(byte[] body, String contentTypeHeader) {
     return parser.parse(body, contentTypeHeader);

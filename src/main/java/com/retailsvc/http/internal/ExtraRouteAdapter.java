@@ -22,6 +22,12 @@ public final class ExtraRouteAdapter implements HttpHandler {
   private final RequestHandler handler;
   private final ResponseRenderer renderer;
 
+  /**
+   * Create an adapter wrapping a user-supplied extra-route handler.
+   *
+   * @param handler the user-supplied handler for this extra (out-of-spec) route
+   * @param renderer the shared response renderer
+   */
   public ExtraRouteAdapter(RequestHandler handler, ResponseRenderer renderer) {
     this.handler = handler;
     this.renderer = renderer;

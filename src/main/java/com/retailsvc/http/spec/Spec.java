@@ -22,6 +22,22 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
+/**
+ * Parsed OpenAPI 3.1 specification used to drive request routing and validation.
+ *
+ * @param openapi OpenAPI document version (e.g. {@code "3.1.0"})
+ * @param info top-level {@code info} object
+ * @param servers list of declared servers; the first one's path supplies {@link #basePath()}
+ * @param operations all operations across paths, in declaration order
+ * @param componentSchemas inline {@code components.schemas} map (raw name → schema)
+ * @param componentParameters inline {@code components.parameters} map (raw name → parameter)
+ * @param basePath URL path prefix derived from {@code servers[0].url}
+ * @param schemaRefIndex {@code $ref}-keyed view of {@code componentSchemas} for ref resolution
+ * @param parameterRefIndex {@code $ref}-keyed view of {@code componentParameters}
+ * @param extensions top-level {@code x-} extension keywords
+ * @param securitySchemes inline {@code components.securitySchemes} map
+ * @param security top-level security requirements applied to operations without their own
+ */
 public record Spec(
     String openapi,
     Info info,
@@ -66,6 +82,8 @@ public record Spec(
    * file's extension is not present, throws {@link IllegalStateException} — register your own
    * parser and call {@link #from(Map)} instead.
    *
+   * @param path filesystem path to the OpenAPI spec file
+   * @return the parsed specification
    * @throws UncheckedIOException if the file cannot be read
    * @throws IllegalStateException if the required parser is not on the classpath, or if the file
    *     has an unrecognised extension
@@ -109,6 +127,8 @@ public record Spec(
    * <p>To avoid the Gson dependency (e.g. when using Jackson), use {@link #fromJson(InputStream,
    * Function)} instead.
    *
+   * @param in stream containing the JSON OpenAPI spec
+   * @return the parsed specification
    * @throws NullPointerException if {@code in} is {@code null}
    * @throws UncheckedIOException if the stream cannot be read
    * @throws IllegalStateException if Gson is not on the classpath
@@ -129,6 +149,9 @@ public record Spec(
    * Spec spec = Spec.fromJson(in, bytes -> mapper.readValue(bytes, Map.class));
    * }</pre>
    *
+   * @param in stream containing the JSON OpenAPI spec
+   * @param parser function that decodes the raw bytes into a map
+   * @return the parsed specification
    * @throws NullPointerException if {@code in} or {@code parser} is {@code null}
    * @throws UncheckedIOException if the stream cannot be read
    */
@@ -142,6 +165,8 @@ public record Spec(
    * classpath; otherwise throws {@link IllegalStateException}. The stream is fully consumed and
    * closed before this method returns.
    *
+   * @param in stream containing the YAML OpenAPI spec
+   * @return the parsed specification
    * @throws NullPointerException if {@code in} is {@code null}
    * @throws UncheckedIOException if the stream cannot be read
    * @throws IllegalStateException if SnakeYAML is not on the classpath
@@ -205,6 +230,12 @@ public record Spec(
     }
   }
 
+  /**
+   * Builds a {@code Spec} from a pre-parsed OpenAPI document.
+   *
+   * @param raw map produced by decoding the JSON or YAML spec
+   * @return the parsed specification
+   */
   @SuppressWarnings("unchecked")
   public static Spec from(Map<String, Object> raw) {
     String openapi = (String) raw.get("openapi");
@@ -257,6 +288,13 @@ public record Spec(
     return Map.copyOf(out);
   }
 
+  /**
+   * Resolves a schema by its {@code $ref} string.
+   *
+   * @param ref full {@code $ref} value, e.g. {@code #/components/schemas/Pet}
+   * @return the referenced schema
+   * @throws IllegalArgumentException if no schema is registered under {@code ref}
+   */
   public Schema resolveSchema(String ref) {
     Schema s = schemaRefIndex.get(ref);
     if (s == null) {
@@ -265,6 +303,13 @@ public record Spec(
     return s;
   }
 
+  /**
+   * Resolves a parameter by its {@code $ref} string.
+   *
+   * @param ref full {@code $ref} value, e.g. {@code #/components/parameters/PetId}
+   * @return the referenced parameter
+   * @throws IllegalArgumentException if no parameter is registered under {@code ref}
+   */
   public Parameter resolveParameter(String ref) {
     Parameter p = parameterRefIndex.get(ref);
     if (p == null) {

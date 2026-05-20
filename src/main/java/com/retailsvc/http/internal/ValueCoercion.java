@@ -12,6 +12,15 @@ public final class ValueCoercion {
 
   private ValueCoercion() {}
 
+  /**
+   * Coerces a wire-format string to the Java type implied by the target schema.
+   *
+   * @param raw the raw string value (e.g. a query parameter or form field)
+   * @param schema the target schema
+   * @param pointer JSON pointer used in validation errors
+   * @return the coerced value ({@code Long}, {@code Double}, {@code Boolean}, or the raw string)
+   * @throws ValidationException if the value cannot be coerced to the schema type
+   */
   public static Object coerce(String raw, Schema schema, String pointer) {
     return switch (schema) {
       case IntegerSchema _ -> {

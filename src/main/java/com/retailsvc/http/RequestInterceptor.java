@@ -11,11 +11,23 @@ package com.retailsvc.http;
 @FunctionalInterface
 public interface RequestInterceptor {
 
+  /**
+   * Runs around the next interceptor or handler in the chain.
+   *
+   * @param request the incoming request
+   * @param next the continuation to invoke the rest of the chain
+   * @return the response produced by the chain, possibly transformed
+   */
   Response around(Request request, Continuation next);
 
   /** Continues the chain — calls the next interceptor, or the handler if this is the last one. */
   @FunctionalInterface
   interface Continuation {
+    /**
+     * Invokes the next link in the chain.
+     *
+     * @return the response from the downstream interceptor or handler
+     */
     Response proceed();
   }
 }

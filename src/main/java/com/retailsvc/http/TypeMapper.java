@@ -10,12 +10,22 @@ package com.retailsvc.http;
 public interface TypeMapper {
 
   /**
+   * Parses the raw request body bytes into a Java object suitable for OpenAPI schema validation
+   * (typically {@code Map<String, Object>} / {@code List<Object>} / String / Number / Boolean /
+   * null for JSON).
+   *
    * @param body raw request body bytes
    * @param contentTypeHeader the full raw {@code Content-Type} header, used for charset and other
    *     parameters (the JSON mapper ignores it)
+   * @return the parsed value, or {@code null} for an empty body
    */
   Object readFrom(byte[] body, String contentTypeHeader);
 
-  /** Serializes {@code value} to bytes suitable for writing as the response body. */
+  /**
+   * Serializes {@code value} to bytes suitable for writing as the response body.
+   *
+   * @param value the value to serialise; the accepted type is type-mapper-dependent
+   * @return the serialised bytes ready to write to the response output stream
+   */
   byte[] writeTo(Object value);
 }

@@ -14,11 +14,16 @@ import java.util.Objects;
  */
 public record HealthOutcome(List<Dependency> dependencies) {
 
+  /** Canonical constructor; normalises a {@code null} dependency list to an empty list. */
   public HealthOutcome {
     dependencies = List.copyOf(Objects.requireNonNullElse(dependencies, List.of()));
   }
 
-  /** {@code true} when every dependency is up (vacuously true for an empty list). */
+  /**
+   * Reports the aggregate health derived from {@link #dependencies()}.
+   *
+   * @return {@code true} when every dependency is up (vacuously true for an empty list)
+   */
   public boolean up() {
     return dependencies.stream().allMatch(Dependency::up);
   }

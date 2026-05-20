@@ -143,6 +143,11 @@ public class OpenApiServer implements AutoCloseable {
         System.currentTimeMillis() - t0);
   }
 
+  /**
+   * Returns the TCP port the server is listening on. Useful when bound to an ephemeral port.
+   *
+   * @return the active listen port
+   */
   public int listenPort() {
     return httpServer.getAddress().getPort();
   }
@@ -150,6 +155,8 @@ public class OpenApiServer implements AutoCloseable {
   /**
    * Returns the local address the server is bound to. For a wildcard-bound server this is the
    * wildcard address; for a loopback-bound server this is the loopback address.
+   *
+   * @return the bound local {@link InetAddress}
    */
   public InetAddress bindAddress() {
     return httpServer.getAddress().getAddress();
@@ -175,6 +182,11 @@ public class OpenApiServer implements AutoCloseable {
     stop(shutdownTimeoutSeconds);
   }
 
+  /**
+   * Creates a new fluent {@link Builder} for configuring and starting an {@link OpenApiServer}.
+   *
+   * @return a fresh builder
+   */
   public static Builder builder() {
     return new Builder();
   }
@@ -198,11 +210,24 @@ public class OpenApiServer implements AutoCloseable {
 
     private Builder() {}
 
+    /**
+     * Sets the parsed OpenAPI {@link Spec} the server will expose. Required.
+     *
+     * @param spec the parsed OpenAPI specification
+     * @return this builder
+     */
     public Builder spec(Spec spec) {
       this.spec = spec;
       return this;
     }
 
+    /**
+     * Registers a {@link TypeMapper} for the given request/response media type.
+     *
+     * @param mediaType the media type (e.g. {@code application/json}); case-insensitive
+     * @param mapper the mapper to use for that media type
+     * @return this builder
+     */
     public Builder bodyMapper(String mediaType, TypeMapper mapper) {
       requireNonNull(mediaType, "mediaType must not be null");
       requireNonNull(mapper, "mapper must not be null");
@@ -210,10 +235,23 @@ public class OpenApiServer implements AutoCloseable {
       return this;
     }
 
+    /**
+     * Convenience shortcut for {@link #bodyMapper(String, TypeMapper)
+     * bodyMapper("application/json", mapper)}.
+     *
+     * @param mapper the JSON {@link TypeMapper}
+     * @return this builder
+     */
     public Builder jsonMapper(TypeMapper mapper) {
       return bodyMapper(JSON, mapper);
     }
 
+    /**
+     * Sets the map of OpenAPI {@code operationId} to {@link RequestHandler}. Required.
+     *
+     * @param handlers the operation-id to handler map
+     * @return this builder
+     */
     public Builder handlers(Map<String, RequestHandler> handlers) {
       this.handlers = handlers;
       return this;
@@ -223,6 +261,9 @@ public class OpenApiServer implements AutoCloseable {
      * Registers a {@link ResponseDecorator} that transforms the {@link Response} returned by the
      * handler before it is rendered. Decorators compose in registration order; decorator-supplied
      * headers override handler-supplied ones on conflict.
+     *
+     * @param decorator the response decorator to register
+     * @return this builder
      */
     public Builder responseDecorator(ResponseDecorator decorator) {
       decorators.add(requireNonNull(decorator, "decorator must not be null"));
@@ -232,6 +273,9 @@ public class OpenApiServer implements AutoCloseable {
     /**
      * Registers a {@link RequestInterceptor} that wraps the handler invocation. Interceptors run in
      * registration order; the first registered is the outermost.
+     *
+     * @param interceptor the request interceptor to register
+     * @return this builder
      */
     public Builder interceptor(RequestInterceptor interceptor) {
       interceptors.add(requireNonNull(interceptor, "interceptor must not be null"));
@@ -243,6 +287,9 @@ public class OpenApiServer implements AutoCloseable {
      * request thread inside the library's request scope, in registration order, with all exceptions
      * swallowed. Hooks fire only when a {@link Request} was successfully built — pre-request
      * failures (404, 405, 400 validation) do not fire hooks.
+     *
+     * @param hook the after-response hook to register
+     * @return this builder
      */
     public Builder afterResponseHook(AfterResponseHook hook) {
       afterHooks.add(requireNonNull(hook, "hook must not be null"));
@@ -254,6 +301,10 @@ public class OpenApiServer implements AutoCloseable {
      * The library extracts a {@link Credential} per request and hands it to this callback; return a
      * non-empty {@link Optional} carrying the principal on success, or {@link Optional#empty()} to
      * deny. Library renders 401/403 on denial.
+     *
+     * @param schemeName the OpenAPI security scheme name this validator authenticates
+     * @param validator the validator that resolves the credential to a principal
+     * @return this builder
      */
     public Builder securityValidator(String schemeName, SchemeValidator validator) {
       requireNonNull(schemeName, "schemeName must not be null");
@@ -267,12 +318,21 @@ public class OpenApiServer implements AutoCloseable {
      * authenticates requests upstream. The library still parses {@code securitySchemes} into the
      * {@link Spec}, but {@code SecurityFilter} short-circuits and the boot-time
      * validator-registration check is skipped.
+     *
+     * @return this builder
      */
     public Builder useExternalAuthentication() {
       this.externalAuth = true;
       return this;
     }
 
+    /**
+     * Sets the {@link ExceptionHandler} used to render uncaught handler exceptions. When unset, a
+     * default JSON {@code application/problem+json} handler is used.
+     *
+     * @param exceptionHandler the exception handler
+     * @return this builder
+     */
     public Builder exceptionHandler(ExceptionHandler exceptionHandler) {
       this.exceptionHandler = exceptionHandler;
       return this;
@@ -281,6 +341,9 @@ public class OpenApiServer implements AutoCloseable {
     /**
      * Sets the TCP port to listen on. Defaults to {@value #DEFAULT_PORT} when not set. Use {@code
      * 0} to bind on an ephemeral port (read it back via {@link OpenApiServer#listenPort()}).
+     *
+     * @param port the TCP port to bind, or {@code 0} for an ephemeral port
+     * @return this builder
      */
     public Builder port(int port) {
       this.port = port;
@@ -291,6 +354,9 @@ public class OpenApiServer implements AutoCloseable {
      * Restricts the server to a specific local interface. {@code null} (the default) binds to the
      * wildcard address (all interfaces). Use {@link InetAddress#getLoopbackAddress()} to listen on
      * loopback only.
+     *
+     * @param bindAddress the local interface to bind, or {@code null} for the wildcard address
+     * @return this builder
      */
     public Builder bindAddress(InetAddress bindAddress) {
       this.bindAddress = bindAddress;
@@ -301,6 +367,9 @@ public class OpenApiServer implements AutoCloseable {
      * Sets the default drain timeout used by {@link OpenApiServer#close()}. {@code 0} (the default)
      * stops immediately; positive values wait up to that many seconds for in-flight exchanges to
      * finish.
+     *
+     * @param shutdownTimeoutSeconds non-negative drain timeout in seconds
+     * @return this builder
      */
     public Builder shutdownTimeoutSeconds(int shutdownTimeoutSeconds) {
       if (shutdownTimeoutSeconds < 0) {
@@ -316,6 +385,10 @@ public class OpenApiServer implements AutoCloseable {
      * Use for side concerns like {@code /alive}, {@code /health}, or serving the spec itself —
      * anything that isn't an OpenAPI {@code operationId}. For OpenAPI-described operations use
      * {@link #handlers(Map)}.
+     *
+     * @param path the exact context path to expose
+     * @param handler the handler to invoke for that path
+     * @return this builder
      */
     public Builder extraRoute(String path, RequestHandler handler) {
       requireNonNull(path, "path must not be null");
@@ -327,6 +400,12 @@ public class OpenApiServer implements AutoCloseable {
       return this;
     }
 
+    /**
+     * Builds and starts the {@link OpenApiServer} with the configured settings.
+     *
+     * @return a started server bound to the configured address and port
+     * @throws IOException if the underlying {@link HttpServer} cannot be created or bound
+     */
     public OpenApiServer build() throws IOException {
       requireNonNull(spec, "Spec must not be null");
       requireNonNull(handlers, "handlers must not be null");

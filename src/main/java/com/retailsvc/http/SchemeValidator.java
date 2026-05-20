@@ -8,5 +8,12 @@ import java.util.Optional;
  */
 @FunctionalInterface
 public interface SchemeValidator {
+  /**
+   * Validates the extracted credential for the given request.
+   *
+   * @param request the incoming request
+   * @param credential the credential extracted from the request
+   * @return the authenticated principal, or {@link Optional#empty()} to deny
+   */
   Optional<Object> validate(Request request, Credential credential);
 }

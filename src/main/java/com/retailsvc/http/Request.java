@@ -179,12 +179,19 @@ public final class Request {
     this.afterHooks = afterHooks;
   }
 
+  /**
+   * Raw request body bytes.
+   *
+   * @return body bytes; never {@code null}, may be empty
+   */
   public byte[] bytes() {
     return body;
   }
 
   /**
    * Loose structural view of the body (typically a {@code Map} / {@code List} / boxed primitive).
+   *
+   * @return parsed body, or {@code null} if there is no body
    */
   public Object parsed() {
     return parsed;
@@ -198,6 +205,9 @@ public final class Request {
    * the loose {@link #parsed()} value already is an instance of {@code type}, it is returned
    * directly without re-deserialising.
    *
+   * @param <T> target POJO type
+   * @param type target class to deserialise the body into
+   * @return body deserialised as {@code type}
    * @throws NullPointerException if {@code type} is null
    * @throws IllegalStateException if there is no body, or if the body mapper does not implement
    *     {@link TypedTypeMapper}
@@ -223,20 +233,37 @@ public final class Request {
   /**
    * Value of the {@code Content-Type} request header, or {@link Optional#empty()} if absent or
    * blank. Convenience for {@code header("Content-Type")} — the most frequently inspected header.
+   *
+   * @return content type value, or empty if absent or blank
    */
   public Optional<String> contentType() {
     return header(CONTENT_TYPE);
   }
 
+  /**
+   * OpenAPI {@code operationId} the request was routed to.
+   *
+   * @return operation ID
+   */
   public String operationId() {
     return operationId;
   }
 
+  /**
+   * Path variables extracted by the router, keyed by parameter name.
+   *
+   * @return path parameter map
+   */
   public Map<String, String> pathParams() {
     return pathParameters;
   }
 
-  /** Value of the path parameter {@code name}, or {@code null} if absent. */
+  /**
+   * Value of the path parameter {@code name}, or {@code null} if absent.
+   *
+   * @param name path parameter name
+   * @return decoded value, or {@code null} if absent
+   */
   public String pathParam(String name) {
     return pathParameters.get(name);
   }
@@ -245,6 +272,9 @@ public final class Request {
    * First value of the request header {@code name}, or {@link Optional#empty()} if absent or blank.
    * Blank values are treated as missing so callers can write {@code req.header("X").map(...)}
    * without the extra {@code filter(v -> !v.isBlank())} step.
+   *
+   * @param name header name (case-insensitive)
+   * @return first header value, or empty if absent or blank
    */
   public Optional<String> header(String name) {
     String raw = headerLookup.apply(name);
@@ -254,6 +284,8 @@ public final class Request {
   /**
    * Raw (percent-encoded) query string from the request URI, or {@code null} if the URI has no
    * query component.
+   *
+   * @return raw query string, or {@code null} if absent
    */
   public String rawQuery() {
     return rawQuery;
@@ -262,6 +294,8 @@ public final class Request {
   /**
    * Decoded query parameters keyed by name. Empty if the URI has no query. For repeated keys, the
    * first occurrence wins. Values are URL-decoded with UTF-8.
+   *
+   * @return decoded query parameter map
    */
   public Map<String, String> queryParams() {
     if (queryParamCache == null) {
@@ -275,6 +309,9 @@ public final class Request {
    * blank. Blank values are treated as missing so callers can write {@code
    * req.queryParam("limit").map(Integer::parseInt).orElse(DEFAULT)} without the extra {@code
    * filter(v -> !v.isBlank())} step.
+   *
+   * @param name query parameter name
+   * @return first decoded value, or empty if absent or blank
    */
   public Optional<String> queryParam(String name) {
     String raw = queryParams().get(name);
@@ -284,12 +321,19 @@ public final class Request {
   /**
    * Principals stashed by {@code SecurityFilter}, keyed by securityScheme name. Empty when the
    * request had no security requirements or when {@code useExternalAuthentication()} is set.
+   *
+   * @return principals keyed by security scheme name
    */
   public Map<String, Object> principals() {
     return principals;
   }
 
-  /** Convenience for the common single-scheme case. */
+  /**
+   * Convenience for the common single-scheme case.
+   *
+   * @param schemeName OpenAPI security scheme name
+   * @return principal for that scheme, or empty if absent
+   */
   public Optional<Object> principal(String schemeName) {
     return Optional.ofNullable(principals.get(schemeName));
   }
@@ -298,6 +342,8 @@ public final class Request {
    * HTTP method of the request. Never {@code null} for requests routed through the standard
    * pipeline; {@code null} only when the {@code Request} was constructed via a legacy constructor
    * without a method.
+   *
+   * @return HTTP method, or {@code null} for legacy constructions
    */
   public HttpMethod method() {
     return method;
@@ -307,6 +353,9 @@ public final class Request {
    * Returns a new {@code Request} identical to this one except with the supplied principals. Used
    * by {@code SecurityFilter} on success; the returned instance carries the principals through to
    * the {@link RequestHandler}.
+   *
+   * @param principals principals keyed by security scheme name
+   * @return new {@code Request} carrying the supplied principals
    */
   public Request withPrincipals(Map<String, Object> principals) {
     return new Request(
@@ -330,6 +379,7 @@ public final class Request {
    * <p>Calls made after the runner has snapshotted the queue (e.g. from inside a running hook, or
    * from a leaked {@code Request} reference held past the response) are silently ignored.
    *
+   * @param runnable runnable to execute after the response is sent
    * @throws NullPointerException if {@code runnable} is null
    */
   public void afterResponse(Runnable runnable) {
@@ -338,9 +388,11 @@ public final class Request {
   }
 
   /**
-   * Returns an unmodifiable view of the queued after-response runnables. Intended for the framework
-   * runner; consumers should use {@link #afterResponse(Runnable)} to register runnables rather than
-   * inspecting this list directly.
+   * Returns an unmodifiable view of the queued after-response runnables. Intended for the server's
+   * dispatch runner; consumers should use {@link #afterResponse(Runnable)} to register runnables
+   * rather than inspecting this list directly.
+   *
+   * @return unmodifiable view of the queued runnables, in registration order
    */
   public List<Runnable> afterHooks() {
     return Collections.unmodifiableList(afterHooks);

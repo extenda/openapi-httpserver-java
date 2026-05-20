@@ -37,6 +37,11 @@ public final class Jackson3JsonTypeMapper implements TypedTypeMapper {
 
   private final ObjectMapper mapper;
 
+  /**
+   * Creates a new mapper backed by the given Jackson 3 {@link ObjectMapper}.
+   *
+   * @param mapper the fully-configured Jackson 3 mapper to delegate to; must not be {@code null}
+   */
   public Jackson3JsonTypeMapper(ObjectMapper mapper) {
     this.mapper = Objects.requireNonNull(mapper, "mapper must not be null");
   }

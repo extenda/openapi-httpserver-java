@@ -8,10 +8,23 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * A compiled OpenAPI path template that matches request paths and extracts named path parameters.
+ *
+ * @param raw the original template string, e.g. {@code /pets/{id}}
+ * @param compiled the regex compiled from {@code raw}
+ * @param parameterNames the parameter names in the order they appear in {@code raw}
+ */
 public record PathTemplate(String raw, Pattern compiled, List<String> parameterNames) {
 
   private static final Pattern TOKEN = Pattern.compile("\\{([^/}]+)}");
 
+  /**
+   * Compiles a path template such as {@code /pets/{id}} into a {@link PathTemplate}.
+   *
+   * @param template the OpenAPI path template
+   * @return the compiled template
+   */
   public static PathTemplate compile(String template) {
     StringBuilder regex = new StringBuilder("^");
     List<String> names = new ArrayList<>();
@@ -28,6 +41,13 @@ public record PathTemplate(String raw, Pattern compiled, List<String> parameterN
     return new PathTemplate(template, Pattern.compile(regex.toString()), List.copyOf(names));
   }
 
+  /**
+   * Matches a concrete request path against this template.
+   *
+   * @param path the request path to match
+   * @return the extracted parameter values keyed by name, or {@link Optional#empty()} if {@code
+   *     path} does not match this template
+   */
   public Optional<Map<String, String>> match(String path) {
     Matcher m = compiled.matcher(path);
     if (!m.matches()) {

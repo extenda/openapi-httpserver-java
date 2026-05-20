@@ -11,6 +11,10 @@ public final class ContentTypeHeader {
   /**
    * Returns the bare media type, stripping parameters and lower-casing for case-insensitive
    * matching (RFC 9110 / 2045). {@code null} → {@code application/json}.
+   *
+   * @param header raw {@code Content-Type} header value (nullable; missing header is treated as
+   *     {@code application/json}).
+   * @return the bare media type lower-cased with parameters stripped.
    */
   public static String mediaType(String header) {
     if (header == null) {
@@ -21,7 +25,13 @@ public final class ContentTypeHeader {
     return bare.trim().toLowerCase(Locale.ROOT);
   }
 
-  /** Returns the named parameter value (e.g. {@code charset}), or empty if absent. */
+  /**
+   * Returns the named parameter value (e.g. {@code charset}), or empty if absent.
+   *
+   * @param header raw {@code Content-Type} header value (nullable returns empty).
+   * @param name the parameter name to look up (case-insensitive, e.g. {@code charset}).
+   * @return the parameter value (unquoted if quoted), or empty if the header has no such parameter.
+   */
   public static Optional<String> parameter(String header, String name) {
     if (header == null) {
       return Optional.empty();

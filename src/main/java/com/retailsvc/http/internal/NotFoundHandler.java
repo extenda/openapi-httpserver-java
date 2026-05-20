@@ -6,8 +6,13 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 
-/** Returns 404 with no body. Used for the framework's catch-all {@code /} context. */
+/** Returns 404 with no body. Used for the server's catch-all {@code /} context. */
 public final class NotFoundHandler implements HttpHandler {
+
+  /** Creates a new handler. */
+  public NotFoundHandler() {
+    // Stateless; nothing to initialise.
+  }
 
   @Override
   public void handle(HttpExchange exchange) throws IOException {

@@ -12,9 +12,20 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Parses raw {@code securitySchemes} and {@code security} fragments from an OpenAPI document into
+ * typed {@link SecurityScheme} and {@link SecurityRequirement} instances.
+ */
 public final class SecuritySchemeParser {
   private SecuritySchemeParser() {}
 
+  /**
+   * Parses a single {@code securitySchemes} entry into a {@link SecurityScheme}.
+   *
+   * @param raw the raw map from {@code components.securitySchemes.<name>}
+   * @return the typed security scheme, or {@link SecurityScheme.Unsupported} for unknown types
+   * @throws IllegalArgumentException if required fields are missing
+   */
   public static SecurityScheme parse(Map<String, Object> raw) {
     String type = (String) raw.get("type");
     if (type == null) {
@@ -36,6 +47,13 @@ public final class SecuritySchemeParser {
     return new ApiKey(name, Location.valueOf(in.toUpperCase(Locale.ROOT)));
   }
 
+  /**
+   * Parses an OpenAPI {@code security} list (operation- or root-level) into typed requirements.
+   *
+   * @param raw the raw list of requirement objects, may be {@code null} or empty
+   * @return an immutable list of {@link SecurityRequirement}s; empty if {@code raw} is null/empty
+   * @throws IllegalArgumentException if any entry is not a JSON object
+   */
   public static List<SecurityRequirement> parseRequirements(List<Object> raw) {
     if (raw == null || raw.isEmpty()) {
       return List.of();

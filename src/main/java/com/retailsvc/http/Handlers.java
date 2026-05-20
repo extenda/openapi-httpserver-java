@@ -21,12 +21,20 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/** Built-in {@link RequestHandler} and {@link ExceptionHandler} factories. */
 public final class Handlers {
 
   private static final Logger LOG = LoggerFactory.getLogger(Handlers.class);
 
   private Handlers() {}
 
+  /**
+   * Default {@link ExceptionHandler} that maps common library exceptions to RFC 7807 problem
+   * responses and falls back to a 500 for anything unrecognised.
+   *
+   * @param jsonMapper mapper used to serialise problem detail bodies
+   * @return the exception handler
+   */
   public static ExceptionHandler defaultExceptionHandler(TypeMapper jsonMapper) {
     Objects.requireNonNull(jsonMapper, "jsonMapper must not be null");
     return t ->
@@ -54,7 +62,12 @@ public final class Handlers {
         };
   }
 
-  /** Returns 204 No Content on GET/HEAD; 405 with {@code Allow: GET, HEAD} otherwise. */
+  /**
+   * Liveness handler that returns 204 No Content on GET/HEAD; 405 with {@code Allow: GET, HEAD}
+   * otherwise.
+   *
+   * @return the liveness handler
+   */
   public static RequestHandler aliveHandler() {
     return req ->
         switch (req.method()) {
@@ -79,6 +92,7 @@ public final class Handlers {
    * <p>The body is rendered by a built-in writer; no JSON library on the classpath is required.
    *
    * @param probe supplier of the current {@link HealthOutcome}
+   * @return the health handler
    */
   public static RequestHandler healthHandler(Supplier<HealthOutcome> probe) {
     Objects.requireNonNull(probe, "probe");
@@ -110,6 +124,7 @@ public final class Handlers {
    * request — the handler owns the stream lifecycle.
    *
    * @param classpathResource absolute classpath path, e.g. {@code /schemas/v1/openapi.yaml}
+   * @return the spec handler
    */
   public static RequestHandler resourceHandler(String classpathResource) {
     return resourceHandler(ResourceSource.ofClasspath(classpathResource));
@@ -119,6 +134,9 @@ public final class Handlers {
    * Serves a filesystem file as a streaming response. Content-Type is inferred from the file
    * extension. Existence and length are resolved at construction; a missing file fails immediately
    * with {@link IllegalArgumentException}. The file is opened and closed per request.
+   *
+   * @param file path to the file to serve
+   * @return a handler that streams {@code file} on {@code GET}
    */
   public static RequestHandler resourceHandler(Path file) {
     return resourceHandler(ResourceSource.ofFile(file));

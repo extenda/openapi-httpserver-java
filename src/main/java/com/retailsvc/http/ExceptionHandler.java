@@ -10,5 +10,13 @@ package com.retailsvc.http;
 @FunctionalInterface
 public interface ExceptionHandler {
 
+  /**
+   * Maps the throwable to the {@link Response} to render.
+   *
+   * @param t the exception thrown anywhere in the request pipeline (never null)
+   * @return the response to write; library default maps {@code BadRequestException} to 4xx
+   *     problem+json and anything else to 500 problem+json with the exception message redacted by
+   *     default
+   */
   Response handle(Throwable t);
 }

@@ -18,5 +18,18 @@ package com.retailsvc.http;
 @FunctionalInterface
 public interface AfterResponseHook {
 
+  /**
+   * Invoked after the response has been written to the client.
+   *
+   * <p>Any exception thrown by this method is logged at DEBUG and swallowed; it does not affect the
+   * response (already sent) and does not prevent subsequent hooks from running.
+   *
+   * @param request the resolved {@link Request} that was handled; routing and parameter/body
+   *     validation have already passed by the time this is called
+   * @param response the {@link Response} that was written to the client. {@link Response#status()}
+   *     and {@link Response#headers()} reflect what was sent on the wire; {@link Response#body()}
+   *     may be {@code null} on streaming responses (and is always {@code null} on the error path,
+   *     since the body bytes have already been emitted)
+   */
   void after(Request request, Response response);
 }

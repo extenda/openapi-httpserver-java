@@ -22,6 +22,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Filter that enforces OpenAPI security requirements. Extracts credentials from the exchange,
+ * delegates validation to a per-scheme {@link SchemeValidator}, and renders an RFC 7807 problem
+ * response with appropriate {@code WWW-Authenticate} challenges on rejection.
+ */
 public final class SecurityFilter extends Filter {
 
   private final Map<String, Operation> operationsById;
@@ -31,6 +36,17 @@ public final class SecurityFilter extends Filter {
   private final boolean externalAuth;
   private final TypeMapper jsonMapper;
 
+  /**
+   * Creates a new security filter.
+   *
+   * @param operationsById all operations indexed by {@code operationId}
+   * @param schemes named security schemes declared in the OpenAPI spec
+   * @param rootSecurity the spec-level security requirements applied when an operation does not
+   *     declare its own
+   * @param validators per-scheme credential validators keyed by scheme name
+   * @param externalAuth if {@code true}, skip enforcement and delegate to a fronting authenticator
+   * @param jsonMapper mapper used to serialise the problem-details response body
+   */
   public SecurityFilter(
       Map<String, Operation> operationsById,
       Map<String, SecurityScheme> schemes,

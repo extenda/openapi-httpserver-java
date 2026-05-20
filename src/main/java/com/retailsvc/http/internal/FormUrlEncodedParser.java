@@ -15,7 +15,19 @@ import java.util.Map;
 /** Parses an {@code application/x-www-form-urlencoded} request body. */
 public final class FormUrlEncodedParser {
 
-  /** Parses the body to a {@code Map<String, Object>} ({@code String} or {@code List<String>}). */
+  /** Creates a new parser. */
+  public FormUrlEncodedParser() {
+    // Stateless; nothing to initialise.
+  }
+
+  /**
+   * Parses the body to a {@code Map<String, Object>} ({@code String} or {@code List<String>}).
+   *
+   * @param body raw request body bytes
+   * @param contentTypeHeader the request {@code Content-Type} header (used for the charset
+   *     parameter); may be {@code null}
+   * @return decoded form fields preserving insertion order
+   */
   public Map<String, Object> parse(byte[] body, String contentTypeHeader) {
     Charset charset = resolveCharset(contentTypeHeader);
     if (body.length == 0) {

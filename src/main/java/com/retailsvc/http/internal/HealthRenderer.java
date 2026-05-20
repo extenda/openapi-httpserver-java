@@ -14,6 +14,13 @@ public final class HealthRenderer {
 
   private HealthRenderer() {}
 
+  /**
+   * Renders the health outcome as a JSON document.
+   *
+   * @param up overall outcome ({@code true} = Up, {@code false} = Down)
+   * @param dependencies dependency outcomes to include
+   * @return a JSON string with {@code outcome} and {@code dependencies} fields
+   */
   public static String renderJson(boolean up, List<Dependency> dependencies) {
     StringBuilder sb = new StringBuilder(INITIAL_CAPACITY);
     sb.append("{\"outcome\":\"").append(label(up)).append("\",\"dependencies\":[");

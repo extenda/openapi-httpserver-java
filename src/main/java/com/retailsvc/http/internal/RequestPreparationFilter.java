@@ -29,6 +29,11 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Filter that reads the request body, resolves the OpenAPI operation, validates parameters and
+ * body, and exposes the parsed {@link Request} via {@link DispatchHandler#CURRENT} for downstream
+ * filters and the dispatch handler.
+ */
 public final class RequestPreparationFilter extends Filter {
 
   private static final Logger LOG = LoggerFactory.getLogger(RequestPreparationFilter.class);
@@ -42,6 +47,17 @@ public final class RequestPreparationFilter extends Filter {
   private final ResponseRenderer renderer;
   private final List<AfterResponseHook> afterHooks;
 
+  /**
+   * Creates a new request preparation filter.
+   *
+   * @param spec the parsed OpenAPI spec
+   * @param router routes requests to their {@link Operation}
+   * @param validator validates parameters and request bodies
+   * @param bodyMappers media-type to {@link TypeMapper} registry for parsing request bodies
+   * @param exceptionHandler handles exceptions thrown during request preparation and dispatch
+   * @param renderer renders the {@link Response} produced by the exception handler
+   * @param afterHooks hooks invoked after the response has been produced
+   */
   @SuppressWarnings("java:S107")
   public RequestPreparationFilter(
       Spec spec,

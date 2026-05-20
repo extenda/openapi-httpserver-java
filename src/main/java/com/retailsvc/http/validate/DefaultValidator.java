@@ -44,6 +44,42 @@ import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
+/**
+ * Library-provided implementation of {@link Validator}.
+ *
+ * <p>Validates a parsed JSON value (a {@link java.util.Map}, {@link java.util.List}, {@link
+ * String}, {@link Number}, {@link Boolean}, or {@code null}) against a {@link Schema} AST using
+ * {@code switch} pattern-match dispatch — there are no {@code instanceof} chains. Dispatch is
+ * delegated to the sealed {@link Schema} hierarchy so each schema kind is handled by a dedicated
+ * arm.
+ *
+ * <p>On the first validation failure, this class throws a {@link ValidationException} carrying a
+ * {@link ValidationError} that records the JSON Pointer path to the offending node, the failing
+ * JSON Schema keyword (for example {@code "type"}, {@code "required"}, {@code "format"}), and the
+ * rejected value. The server's exception filter renders that error as an {@code RFC 7807} {@code
+ * 400 application/problem+json} response.
+ *
+ * <p>Supported {@code string} formats:
+ *
+ * <ul>
+ *   <li>{@code uuid}
+ *   <li>{@code date}
+ *   <li>{@code date-time}
+ *   <li>{@code email}
+ *   <li>{@code uri}
+ *   <li>{@code uri-reference}
+ *   <li>{@code hostname}
+ *   <li>{@code ipv4}
+ *   <li>{@code ipv6}
+ *   <li>{@code regex}
+ *   <li>{@code byte} (base64-encoded)
+ *   <li>{@code binary}
+ *   <li>{@code password}
+ * </ul>
+ *
+ * <p>Supported {@code integer} formats: {@code int32}, {@code int64}. Supported {@code number}
+ * formats: {@code float}, {@code double}.
+ */
 public final class DefaultValidator implements Validator {
 
   private static final String FORMAT_KEYWORD = "format";
@@ -103,6 +139,19 @@ public final class DefaultValidator implements Validator {
   private final Function<String, Schema> refResolver;
   private final ConcurrentMap<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
 
+  /**
+   * Creates a validator that resolves {@code $ref} references through the supplied function.
+   *
+   * <p>The {@code refResolver} is consulted lazily during each call to {@link #validate}: whenever
+   * a {@link com.retailsvc.http.spec.schema.RefSchema} is encountered, its URI is passed to the
+   * resolver and validation continues against the returned target {@link Schema}. Because
+   * resolution happens per-validate (not eagerly at construction), the spec's ref map can be passed
+   * by reference and the validator will pick up its current contents on every request.
+   *
+   * @param refResolver function that maps a {@code $ref} URI string to the {@link Schema} it points
+   *     to; must not be {@code null} and must return a non-{@code null} schema for every ref
+   *     reachable from the validated documents
+   */
   public DefaultValidator(Function<String, Schema> refResolver) {
     this.refResolver = refResolver;
   }

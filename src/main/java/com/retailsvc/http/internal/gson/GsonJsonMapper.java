@@ -47,15 +47,25 @@ public final class GsonJsonMapper implements TypedTypeMapper {
 
   private final Gson gson;
 
+  /** Creates a mapper backed by a default {@link Gson} instance with JSR-310 adapters. */
   public GsonJsonMapper() {
     this(defaultGson());
   }
 
+  /**
+   * Creates a mapper backed by the supplied {@link Gson} instance.
+   *
+   * @param gson the Gson instance to delegate to; must not be {@code null}
+   */
   public GsonJsonMapper(Gson gson) {
     this.gson = Objects.requireNonNull(gson, "gson must not be null");
   }
 
-  /** Returns the wrapped {@link Gson} instance. */
+  /**
+   * Returns the wrapped {@link Gson} instance.
+   *
+   * @return the wrapped {@link Gson} instance
+   */
   public Gson gson() {
     return gson;
   }

@@ -37,6 +37,7 @@ public final class GsonTypeMapper implements TypedTypeMapper {
   /**
    * Creates a mapper backed by the supplied {@link Gson}.
    *
+   * @param gson the {@link Gson} instance to delegate to
    * @throws NullPointerException if {@code gson} is null
    */
   public GsonTypeMapper(Gson gson) {
@@ -47,6 +48,8 @@ public final class GsonTypeMapper implements TypedTypeMapper {
    * Returns a {@link GsonBuilder} pre-populated with the wrapped {@link Gson}'s configuration, so
    * callers can derive a customized {@link Gson} from the library default (or from their own
    * starting point).
+   *
+   * @return a new {@link GsonBuilder} seeded with the wrapped {@link Gson}'s configuration
    */
   public GsonBuilder gsonBuilder() {
     return delegate.gson().newBuilder();

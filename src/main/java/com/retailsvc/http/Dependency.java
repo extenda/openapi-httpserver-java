@@ -12,6 +12,11 @@ import java.util.Objects;
  * @param up whether the dependency is healthy
  */
 public record Dependency(String id, boolean up) {
+  /**
+   * Canonical constructor that validates {@code id} is non-null.
+   *
+   * @throws NullPointerException if {@code id} is {@code null}
+   */
   public Dependency {
     Objects.requireNonNull(id, "id");
   }

@@ -8,6 +8,18 @@ import java.nio.charset.UnsupportedCharsetException;
 /** Decodes a text/plain request body using the charset declared on {@code Content-Type}. */
 public final class TextPlainParser {
 
+  /** Creates a new parser. */
+  public TextPlainParser() {
+    // Stateless; nothing to initialise.
+  }
+
+  /**
+   * Decodes the body as text using the charset declared on {@code Content-Type} (default UTF-8).
+   *
+   * @param body raw request body bytes
+   * @param contentTypeHeader the request {@code Content-Type} header; may be {@code null}
+   * @return the decoded string
+   */
   public String parse(byte[] body, String contentTypeHeader) {
     Charset charset = resolveCharset(contentTypeHeader);
     return new String(body, charset);

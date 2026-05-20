@@ -15,14 +15,42 @@ import java.util.Objects;
  */
 public sealed interface ResourceSource {
 
+  /**
+   * Returns the resource's byte length, resolved at construction.
+   *
+   * @return byte length of the resource
+   */
   long length();
 
+  /**
+   * Returns the media type inferred from the resource's file extension.
+   *
+   * @return media type string
+   */
   String contentType();
 
+  /**
+   * Returns a human-readable description used in error messages and logs.
+   *
+   * @return description of the resource
+   */
   String describe();
 
+  /**
+   * Opens a fresh {@link InputStream} for reading the resource bytes.
+   *
+   * @return a new input stream the caller must close
+   * @throws IOException if the resource cannot be opened
+   */
   InputStream open() throws IOException;
 
+  /**
+   * Creates a {@code ResourceSource} backed by a classpath resource.
+   *
+   * @param classpathResource absolute classpath path (must start with {@code /})
+   * @return a fail-fast handle to the resource
+   * @throws IllegalArgumentException if the resource is missing or unreadable
+   */
   static ResourceSource ofClasspath(String classpathResource) {
     Objects.requireNonNull(classpathResource, "classpathResource");
     long length;
@@ -38,6 +66,14 @@ public sealed interface ResourceSource {
     return new Classpath(classpathResource, length, contentTypeFor(classpathResource));
   }
 
+  /**
+   * Creates a {@code ResourceSource} backed by a filesystem file.
+   *
+   * @param file path to a regular file
+   * @return a fail-fast handle to the file
+   * @throws IllegalArgumentException if {@code file} is not a regular file or its size cannot be
+   *     read
+   */
   static ResourceSource ofFile(Path file) {
     Objects.requireNonNull(file, "file");
     if (!Files.isRegularFile(file)) {
@@ -52,6 +88,13 @@ public sealed interface ResourceSource {
     return new File(file, length, contentTypeFor(file.getFileName().toString()));
   }
 
+  /**
+   * Maps a file extension to a Content-Type string.
+   *
+   * @param path file name or path; only the extension is inspected (case-insensitive)
+   * @return the inferred media type, or {@code application/octet-stream} if the extension is
+   *     unknown
+   */
   static String contentTypeFor(String path) {
     String lower = path.toLowerCase(Locale.ROOT);
     if (lower.endsWith(".json")) {
@@ -75,6 +118,13 @@ public sealed interface ResourceSource {
     return "application/octet-stream";
   }
 
+  /**
+   * Classpath-backed {@link ResourceSource}.
+   *
+   * @param path absolute classpath path (must start with {@code /})
+   * @param length pre-resolved byte length
+   * @param contentType media type inferred from the path's extension
+   */
   record Classpath(String path, long length, String contentType) implements ResourceSource {
     @Override
     public InputStream open() throws IOException {
@@ -91,6 +141,13 @@ public sealed interface ResourceSource {
     }
   }
 
+  /**
+   * Filesystem-backed {@link ResourceSource}.
+   *
+   * @param path file path
+   * @param length pre-resolved byte length
+   * @param contentType media type inferred from the file's extension
+   */
   record File(Path path, long length, String contentType) implements ResourceSource {
     @Override
     public InputStream open() throws IOException {

@@ -18,10 +18,23 @@ public final class ResponseRenderer {
 
   private final Map<String, TypeMapper> mappers;
 
+  /**
+   * Creates a new renderer.
+   *
+   * @param mappers media-type to {@link TypeMapper} registry used to serialise response bodies
+   */
   public ResponseRenderer(Map<String, TypeMapper> mappers) {
     this.mappers = Map.copyOf(mappers);
   }
 
+  /**
+   * Writes the response to the exchange, serialising the body using the registered mapper for the
+   * response content type.
+   *
+   * @param exchange the HTTP exchange to write to
+   * @param response the response to render
+   * @throws IOException if writing to the exchange fails
+   */
   public void render(HttpExchange exchange, Response response) throws IOException {
     try (exchange) {
       Headers headers = exchange.getResponseHeaders();

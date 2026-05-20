@@ -11,6 +11,11 @@ import java.nio.charset.StandardCharsets;
  */
 public final class TextTypeMapper implements TypeMapper {
 
+  /** Creates a new mapper. */
+  public TextTypeMapper() {
+    // State is held by the final parser field below.
+  }
+
   private final TextPlainParser parser = new TextPlainParser();
 
   @Override
