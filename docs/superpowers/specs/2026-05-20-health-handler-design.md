@@ -6,9 +6,7 @@
 ## Problem
 
 Services built on this library need a `/health` endpoint that reports
-overall health plus per-dependency status. The internal `hii-generate-health-java`
-library already provides the check-running machinery (`HealthCheckService`,
-`HealthCheck`, `HealthCheckResult`, `Status`) and a documented JSON shape:
+overall health plus per-dependency status. The expected wire format is:
 
 ```json
 {
@@ -20,8 +18,9 @@ library already provides the check-running machinery (`HealthCheckService`,
 ```
 
 We want a ready-to-use `HttpHandler` in this repo that produces that exact
-shape, **without** taking a compile-time dependency on the health library.
-Callers should be able to wire it up in one line.
+shape. The handler must not depend on any specific health-check provider —
+callers supply the data through a `Supplier`, so they can plug in whatever
+mechanism (off-the-shelf or in-house) computes their dependency statuses.
 
 ## Goals
 
@@ -32,21 +31,20 @@ Callers should be able to wire it up in one line.
     - Never propagates a probe failure as a 500 — a throwing `Supplier` yields
       `Down` + empty dependency list + 503.
 2. Define small public records `HealthOutcome` and `Dependency` in
-    `com.retailsvc.http` that mirror the health library's data shape on the wire,
-    so this repo stays decoupled from the library.
+    `com.retailsvc.http` that own the wire shape, so this library has no
+    runtime or compile-time dependency on any specific health-check provider.
 3. Reuse existing infrastructure (`MethodLimitedHandler`, hand-rolled
     JSON rendering á la `ProblemDetailRenderer`). No new third-party deps.
 
 ## Non-goals
 
-- Direct integration with `HealthCheckService` (callers adapt the library's
-  `HealthCheckResult` to `HealthOutcome` in a one-line lambda; that adapter
-  lives in the consuming service, not here).
-- Caching of probe results (the health library already supplies
-  `CachingHealthCheck`).
+- Bundling or running health checks. Callers compute their own outcome
+  (typically by adapting whatever check-runner they use into a
+  `HealthOutcome`) and pass it in via the `Supplier`.
+- Caching of probe results. If a caller's checks are expensive, they
+  memoize on their side of the `Supplier`.
 - A configurable wire format — the field names `outcome`, `dependencies`,
-  `id`, `status` and the string values `Up` / `Down` are fixed to match the
-  library's documented contract.
+  `id`, `status` and the string values `Up` / `Down` are fixed.
 - Configurable Content-Type or status codes — fixed at `application/json` +
   200/503.
 - An integration test — unit coverage is sufficient; `MethodLimitedHandler`
@@ -76,8 +74,8 @@ public record Dependency(String id, String status) {
 }
 ```
 
-`HealthOutcome.isUp()` is case-insensitive so callers that pass through a
-library-style "Up" or a custom-cased "UP" both work.
+`HealthOutcome.isUp()` is case-insensitive so callers that pass `"Up"`,
+`"UP"`, or `"up"` all map to a healthy 200 response.
 
 ### Public API — `Handlers.healthHandler`
 
@@ -117,26 +115,25 @@ remaining control characters below `0x20`.
 ### Caller-side wiring (illustrative, not part of this repo)
 
 ```java
-HealthCheckService service = new HealthCheckService();
-// register checks…
-
 server = OpenApiServer.builder()
     .spec(spec)
     .jsonMapper(mapper)
     .handlers(operationHandlers)
     .addHandler("/health", Handlers.healthHandler(() -> {
-      HealthCheckResult r = service.check();
-      return new HealthOutcome(
-          r.outcome(),
-          r.dependencies().stream()
-              .map(s -> new Dependency(s.id(), s.status()))
-              .toList());
+      // Caller computes per-dependency statuses however they choose
+      // and adapts the result into HealthOutcome / Dependency.
+      List<Dependency> deps = List.of(
+          new Dependency("jdbc", checkDatabase() ? "Up" : "Down"),
+          new Dependency("cache", checkCache() ? "Up" : "Down"));
+      String outcome = deps.stream().allMatch(d -> "Up".equalsIgnoreCase(d.status()))
+          ? "Up" : "Down";
+      return new HealthOutcome(outcome, deps);
     }))
     .build();
 ```
 
-The adapter lambda is the only place that knows about both libraries — which
-is exactly where the coupling belongs.
+The `Supplier` is the only place that knows how to compute health, which is
+exactly where any third-party integration belongs.
 
 ## Error handling
 
