@@ -89,11 +89,7 @@ public final class Handlers {
           try (exchange) {
             HealthOutcome outcome;
             try {
-              HealthOutcome result = probe.get();
-              if (result == null) {
-                throw new IllegalStateException("Health probe returned null");
-              }
-              outcome = result;
+              outcome = Objects.requireNonNull(probe.get(), "Health probe returned null");
             } catch (RuntimeException e) {
               LOG.warn("Health probe failed", e);
               outcome = new HealthOutcome("Down", List.of());

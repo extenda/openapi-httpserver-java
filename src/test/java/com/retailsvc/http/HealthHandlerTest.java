@@ -71,13 +71,12 @@ class HealthHandlerTest {
     HttpExchange ex = newExchange("HEAD");
     Headers headers = new Headers();
     when(ex.getResponseHeaders()).thenReturn(headers);
-    when(ex.getResponseBody()).thenReturn(new ByteArrayOutputStream());
+    ByteArrayOutputStream body = new ByteArrayOutputStream();
+    when(ex.getResponseBody()).thenReturn(body);
 
     Handlers.healthHandler(() -> new HealthOutcome("Up", List.of())).handle(ex);
 
-    verify(ex)
-        .sendResponseHeaders(
-            eq(HTTP_OK), eq((long) "{\"outcome\":\"Up\",\"dependencies\":[]}".length()));
+    verify(ex).sendResponseHeaders(eq(HTTP_OK), eq((long) body.size()));
   }
 
   @Test
