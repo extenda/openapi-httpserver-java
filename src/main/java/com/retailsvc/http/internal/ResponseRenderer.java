@@ -77,7 +77,8 @@ public final class ResponseRenderer {
   }
 
   private byte[] serialize(Object body, String contentType) {
-    TypeMapper mapper = mappers.get(contentType.toLowerCase(Locale.ROOT));
+    String mediaType = ContentTypeHeader.mediaType(contentType);
+    TypeMapper mapper = mappers.get(mediaType.toLowerCase(Locale.ROOT));
     if (mapper == null) {
       throw new IllegalStateException("No TypeMapper registered for " + contentType);
     }

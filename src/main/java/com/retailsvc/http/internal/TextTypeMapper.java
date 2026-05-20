@@ -4,9 +4,10 @@ import com.retailsvc.http.TypeMapper;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Built-in {@link TypeMapper} for {@code text/plain}. Reads decode bytes using the charset declared
- * on {@code Content-Type} (default UTF-8). Writes return {@code String.valueOf(value)} encoded as
- * UTF-8.
+ * Built-in {@link TypeMapper} for textual media types (e.g. {@code text/plain}, {@code text/html}).
+ * Media-type-agnostic — only the {@code charset} parameter on the {@code Content-Type} header is
+ * read. Reads decode bytes using that charset (default UTF-8). Writes return {@code
+ * String.valueOf(value)} encoded as UTF-8.
  */
 public final class TextTypeMapper implements TypeMapper {
 

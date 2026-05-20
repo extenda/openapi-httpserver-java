@@ -3,9 +3,9 @@ package com.retailsvc.http;
 /**
  * Reads and writes request/response bodies for a specific media type. Registered on {@link
  * OpenApiServer.Builder#bodyMapper(String, TypeMapper)} keyed by media type. The library ships
- * built-in mappers for {@code application/x-www-form-urlencoded} and {@code text/plain}; an {@code
- * application/json} mapper must be supplied by the caller or auto-detected via Gson on the
- * classpath.
+ * built-in mappers for {@code application/x-www-form-urlencoded}, {@code text/plain}, and {@code
+ * text/html}; an {@code application/json} mapper must be supplied by the caller or auto-detected
+ * via Gson on the classpath.
  */
 public interface TypeMapper {
 

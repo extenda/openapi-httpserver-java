@@ -366,6 +366,7 @@ public class OpenApiServer implements AutoCloseable {
       LinkedHashMap<String, TypeMapper> out = new LinkedHashMap<>();
       out.put("application/x-www-form-urlencoded", new FormTypeMapper());
       out.put("text/plain", new TextTypeMapper());
+      out.put("text/html", new TextTypeMapper());
       out.putAll(userSupplied);
       if (!out.containsKey(JSON)) {
         TypeMapper fallback = tryLoadGsonMapper();

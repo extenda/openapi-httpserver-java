@@ -58,6 +58,29 @@ class ExtraHandlersIT extends ServerBaseTest {
   }
 
   @Test
+  void textHtmlResponseIsSerializedByDefaultMapper() throws Exception {
+    RequestHandler html =
+        req -> Response.of(200, "<h1>hi</h1>").withContentType("text/html; charset=UTF-8");
+
+    try (var s =
+            newBuilder().spec(spec).handlers(Map.of()).port(0).extraRoute("/page", html).build();
+        var client = httpClient()) {
+
+      var req =
+          HttpRequest.newBuilder()
+              .uri(URI.create("http://localhost:" + s.listenPort() + "/page"))
+              .GET()
+              .build();
+      var resp = client.send(req, BodyHandlers.ofString());
+
+      assertThat(resp.statusCode()).isEqualTo(200);
+      assertThat(resp.headers().firstValue("Content-Type"))
+          .hasValueSatisfying(v -> assertThat(v).startsWith("text/html"));
+      assertThat(resp.body()).isEqualTo("<h1>hi</h1>");
+    }
+  }
+
+  @Test
   void extraHandlerExceptionFlowsThroughExceptionHandler() throws Exception {
     RequestHandler boom =
         req -> {
