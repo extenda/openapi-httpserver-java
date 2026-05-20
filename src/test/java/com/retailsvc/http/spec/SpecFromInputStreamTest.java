@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
-import org.yaml.snakeyaml.Yaml;
 
 class SpecFromInputStreamTest {
 
@@ -46,19 +45,6 @@ class SpecFromInputStreamTest {
 
     try (InputStream in = getClass().getResourceAsStream("/openapi.json")) {
       Spec spec = Spec.fromJson(in, parser);
-
-      assertThat(spec.openapi()).startsWith("3.1");
-    }
-  }
-
-  @Test
-  void fromYamlWithCustomParserDoesNotRequireSnakeYaml() throws Exception {
-    Yaml yaml = new Yaml();
-    Function<byte[], Map<String, Object>> parser =
-        bytes -> yaml.load(new String(bytes, StandardCharsets.UTF_8));
-
-    try (InputStream in = getClass().getResourceAsStream("/openapi.yaml")) {
-      Spec spec = Spec.fromYaml(in, parser);
 
       assertThat(spec.openapi()).startsWith("3.1");
     }
@@ -124,15 +110,6 @@ class SpecFromInputStreamTest {
 
     assertThatThrownBy(() -> Spec.fromJson(null, parser)).isInstanceOf(NullPointerException.class);
     assertThatThrownBy(() -> Spec.fromJson(in, null)).isInstanceOf(NullPointerException.class);
-  }
-
-  @Test
-  void fromYamlWithParserRejectsNullArgs() {
-    InputStream in = new ByteArrayInputStream(new byte[0]);
-    Function<byte[], Map<String, Object>> parser = bytes -> Map.of();
-
-    assertThatThrownBy(() -> Spec.fromYaml(null, parser)).isInstanceOf(NullPointerException.class);
-    assertThatThrownBy(() -> Spec.fromYaml(in, null)).isInstanceOf(NullPointerException.class);
   }
 
   @Test

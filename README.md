@@ -134,7 +134,7 @@ try (InputStream in = YourServerLauncher.class.getResourceAsStream("/openapi.jso
 }
 ```
 
-The matching `Spec.fromYaml(InputStream)` uses SnakeYAML. Both close the stream before returning. If you can't (or don't want to) depend on Gson/SnakeYAML, supply your own parser:
+The matching `Spec.fromYaml(InputStream)` uses SnakeYAML. Both close the stream before returning. If you can't (or don't want to) depend on Gson, supply your own JSON parser:
 
 ``` java
 ObjectMapper jackson = new ObjectMapper();
@@ -144,7 +144,7 @@ try (InputStream in = YourServerLauncher.class.getResourceAsStream("/openapi.jso
 }
 ```
 
-`Spec.fromYaml(InputStream, Function<byte[], Map<String, Object>>)` is the equivalent escape hatch for YAML.
+YAML always parses through SnakeYAML — there's no parser-injecting overload. If you want a different YAML library, decode the stream yourself and call `Spec.from(Map<String, Object>)`.
 
 ### JSON mapping
 

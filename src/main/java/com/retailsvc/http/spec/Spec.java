@@ -142,26 +142,12 @@ public record Spec(
    * classpath; otherwise throws {@link IllegalStateException}. The stream is fully consumed and
    * closed before this method returns.
    *
-   * <p>To avoid the SnakeYAML dependency, use {@link #fromYaml(InputStream, Function)} instead.
-   *
    * @throws NullPointerException if {@code in} is {@code null}
    * @throws UncheckedIOException if the stream cannot be read
    * @throws IllegalStateException if SnakeYAML is not on the classpath
    */
   public static Spec fromYaml(InputStream in) {
-    return fromYaml(in, Spec::parseYamlWithSnakeYaml);
-  }
-
-  /**
-   * Reads a YAML OpenAPI specification from {@code in} using the supplied {@code parser}. The
-   * stream is fully consumed and closed before this method returns.
-   *
-   * @throws NullPointerException if {@code in} or {@code parser} is {@code null}
-   * @throws UncheckedIOException if the stream cannot be read
-   */
-  public static Spec fromYaml(InputStream in, Function<byte[], Map<String, Object>> parser) {
-    Objects.requireNonNull(parser, "parser");
-    return from(parser.apply(readAll(in)));
+    return from(parseYamlWithSnakeYaml(readAll(in)));
   }
 
   private static byte[] readAll(InputStream in) {
