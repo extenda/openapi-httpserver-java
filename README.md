@@ -125,6 +125,27 @@ public class YourServerLauncher {
 
 `Spec.fromPath(Path)` picks the parser by file extension: `.json` is parsed by Gson, `.yaml` / `.yml` by SnakeYAML. Both are optional dependencies of this library — the same Gson that powers the built-in JSON `TypeMapper`, and the same SnakeYAML you'd add explicitly to parse YAML. If the required parser isn't on the classpath the call fails with `IllegalStateException`; parse the file yourself and use `Spec.from(Map<String, Object>)` instead. Any other extension is rejected.
 
+To load a spec from the classpath (including from inside a JAR) use the `InputStream` overloads:
+
+``` java
+Spec spec;
+try (InputStream in = YourServerLauncher.class.getResourceAsStream("/openapi.json")) {
+  spec = Spec.fromJson(in);   // Gson on the classpath
+}
+```
+
+The matching `Spec.fromYaml(InputStream)` uses SnakeYAML. Both close the stream before returning. If you can't (or don't want to) depend on Gson, supply your own JSON parser:
+
+``` java
+ObjectMapper jackson = new ObjectMapper();
+Spec spec;
+try (InputStream in = YourServerLauncher.class.getResourceAsStream("/openapi.json")) {
+  spec = Spec.fromJson(in, bytes -> jackson.readValue(bytes, Map.class));
+}
+```
+
+YAML always parses through SnakeYAML — there's no parser-injecting overload. If you want a different YAML library, decode the stream yourself and call `Spec.from(Map<String, Object>)`.
+
 ### JSON mapping
 
 The library ships an internal `GsonJsonMapper` that is auto-registered for `application/json` when Gson is on the classpath and no user-supplied JSON mapper has been registered. It:
