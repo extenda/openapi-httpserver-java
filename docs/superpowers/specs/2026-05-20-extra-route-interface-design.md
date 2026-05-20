@@ -110,6 +110,10 @@ public static ExceptionHandler defaultExceptionHandler(TypeMapper jsonMapper) {
         HTTP_BAD_REQUEST,
         jsonMapper.writeTo(ProblemDetail.forValidation(ve.error())),
         "application/problem+json");
+    case BadRequestException bre -> Response.bytes(
+        bre.status(),
+        jsonMapper.writeTo(ProblemDetail.forBadRequest(bre)),
+        "application/problem+json");
     case NotFoundException _ -> Response.notFound();
     case MethodNotAllowedException mna -> Response.status(HTTP_BAD_METHOD)
         .withHeader("Allow", mna.allowed().stream()
@@ -126,7 +130,55 @@ public static ExceptionHandler defaultExceptionHandler(TypeMapper jsonMapper) {
 
 Rationale: the exception path runs before a `Request` is necessarily built (e.g. a malformed URI in `RequestPreparationFilter` itself), so the handler signature cannot take `Request` — the simplest pre-`Request` signature is the right one.
 
-### 4a. `ProblemDetail` record replaces `ProblemDetailRenderer`
+### 4a. New public `BadRequestException`
+
+User handlers need a way to reject a syntactically-valid-but-semantically-wrong request (e.g. "email already taken" → 422 Unprocessable Content, "stale ETag" → 412 Precondition Failed) and have the framework render a problem+json response — without each handler re-implementing the problem-detail wire shape.
+
+New public class:
+
+```java
+package com.retailsvc.http;
+
+public final class BadRequestException extends RuntimeException {
+
+  private static final int DEFAULT_STATUS = 400;
+
+  private final int status;
+  private final String pointer;   // nullable
+  private final String keyword;   // nullable
+
+  public BadRequestException(String detail) {
+    this(DEFAULT_STATUS, detail, null, null);
+  }
+
+  public BadRequestException(int status, String detail) {
+    this(status, detail, null, null);
+  }
+
+  public BadRequestException(int status, String detail, String pointer, String keyword) {
+    super(Objects.requireNonNull(detail, "detail must not be null"));
+    if (status < 400 || status > 499) {
+      throw new IllegalArgumentException("status must be 4xx, got " + status);
+    }
+    this.status = status;
+    this.pointer = pointer;
+    this.keyword = keyword;
+  }
+
+  public int status() { return status; }
+  public Optional<String> pointer() { return Optional.ofNullable(pointer); }
+  public Optional<String> keyword() { return Optional.ofNullable(keyword); }
+}
+```
+
+Design points:
+
+- **Optional status, default 400.** The no-status constructor preserves the common "client sent something bad" case at zero ceremony; the overload accepts any 4xx for 409/412/422/429 etc.
+- **4xx range enforced.** Throwing at construction prevents accidentally surfacing a 500 through a "bad request" path. 5xx errors should propagate as ordinary `RuntimeException` and hit the default 500 branch.
+- **Optional pointer/keyword** mirror `ValidationError` so the problem+json document shape is consistent whether the body was rejected by the OpenAPI validator (`ValidationException`) or by handler-level domain rules (`BadRequestException`).
+- **`detail`** uses `super(message)` so standard exception machinery (logging, stack traces) sees the human-readable reason.
+
+### 4b. `ProblemDetail` record replaces `ProblemDetailRenderer`
 
 New `internal/ProblemDetail` record (or public if we want users to be able to return problem+json from handlers — TBD; start internal):
 
@@ -134,10 +186,26 @@ New `internal/ProblemDetail` record (or public if we want users to be able to re
 record ProblemDetail(
     String type, String title, int status, String detail,
     String pointer, String keyword) {
+
   static ProblemDetail forValidation(ValidationError e) {
     return new ProblemDetail(
         "about:blank", "Bad Request", 400, e.message(), e.pointer(), e.keyword());
   }
+
+  static ProblemDetail forBadRequest(BadRequestException e) {
+    return new ProblemDetail(
+        "about:blank",
+        titleFor(e.status()),
+        e.status(),
+        e.getMessage(),
+        e.pointer().orElse(null),
+        e.keyword().orElse(null));
+  }
+
+  // Small map of common 4xx codes to RFC-7231 reason phrases.
+  // Unknown 4xx falls back to "Bad Request" — the type field is "about:blank",
+  // so per RFC 7807 the title is advisory; the precise meaning rides on status.
+  private static String titleFor(int status) { ... }
 }
 ```
 
@@ -182,11 +250,12 @@ returns no results.
 2. Introduce `ExtraRouteAdapter`; switch `OpenApiServer` extras wiring to it.
 3. Change `Builder.extraRoute` signature; update `HandlerConfig` and tests.
 4. Change `ExceptionHandler` signature; update `ExceptionFilter` to accept a `ResponseRenderer`; rewrite `Handlers.defaultExceptionHandler(TypeMapper)` and wire it from `Builder.build()`.
-5. Add `internal/ProblemDetail`; delete `internal/ProblemDetailRenderer`.
-6. Migrate `Handlers.aliveHandler/healthHandler/specHandler` to `RequestHandler` with inline 405 checks.
-7. Move `Handlers.notFoundHandler` to `internal/NotFoundHandler`.
-8. Delete `MethodLimitedHandler`.
-9. Update tests: `OpenApiServerBuilderTest`, `ExtraHandlersIT`, `HandlersTest` (if present), exception-handler tests (problem+json wire-shape now asserted as parsed JSON, not byte-equality), integration tests.
+5. Add public `BadRequestException`; wire a `case` for it into the default exception handler.
+6. Add `internal/ProblemDetail`; delete `internal/ProblemDetailRenderer`.
+7. Migrate `Handlers.aliveHandler/healthHandler/specHandler` to `RequestHandler` with inline 405 checks.
+8. Move `Handlers.notFoundHandler` to `internal/NotFoundHandler`.
+9. Delete `MethodLimitedHandler`.
+10. Update tests: `OpenApiServerBuilderTest`, `ExtraHandlersIT`, `HandlersTest` (if present), exception-handler tests (problem+json wire-shape now asserted as parsed JSON, not byte-equality), integration tests, plus new tests for `BadRequestException` (default 400, custom status, 4xx-range guard, pointer/keyword propagation to problem+json).
 
 ## Test plan
 
