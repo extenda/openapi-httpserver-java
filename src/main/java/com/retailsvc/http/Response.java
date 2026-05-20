@@ -101,6 +101,12 @@ public record Response(int status, Object body, String contentType, Map<String, 
         status, body.getBytes(StandardCharsets.UTF_8), "text/plain; charset=UTF-8", Map.of());
   }
 
+  /** {@code status} with {@code body} written as UTF-8 with {@code Content-Type: text/html}. */
+  public static Response html(int status, String body) {
+    return new Response(
+        status, body.getBytes(StandardCharsets.UTF_8), "text/html; charset=UTF-8", Map.of());
+  }
+
   /**
    * {@code status} with pre-serialised {@code bytes} written verbatim under {@code contentType}.
    */

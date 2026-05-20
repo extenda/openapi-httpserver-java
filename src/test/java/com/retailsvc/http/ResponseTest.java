@@ -4,8 +4,10 @@ import static java.net.HttpURLConnection.HTTP_ACCEPTED;
 import static java.net.HttpURLConnection.HTTP_CREATED;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_NOT_IMPLEMENTED;
+import static java.net.HttpURLConnection.HTTP_OK;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -62,6 +64,15 @@ class ResponseTest {
 
     assertThat(r.status()).isEqualTo(HTTP_NOT_FOUND);
     assertThat(r.body()).isEqualTo(problem);
+  }
+
+  @Test
+  void htmlBody() {
+    Response r = Response.html(HTTP_OK, "<h1>hi</h1>");
+
+    assertThat(r.status()).isEqualTo(HTTP_OK);
+    assertThat(r.contentType()).isEqualTo("text/html; charset=UTF-8");
+    assertThat((byte[]) r.body()).isEqualTo("<h1>hi</h1>".getBytes(StandardCharsets.UTF_8));
   }
 
   @Test
