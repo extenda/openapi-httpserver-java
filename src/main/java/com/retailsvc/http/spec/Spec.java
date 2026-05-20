@@ -6,9 +6,11 @@ import com.retailsvc.http.spec.security.SecurityRequirement;
 import com.retailsvc.http.spec.security.SecurityScheme;
 import com.retailsvc.http.spec.security.SecuritySchemeParser;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -16,7 +18,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 public record Spec(
     String openapi,
@@ -67,18 +71,18 @@ public record Spec(
    *     has an unrecognised extension
    */
   public static Spec fromPath(Path path) {
-    String text;
+    byte[] bytes;
     try {
-      text = Files.readString(path);
+      bytes = Files.readAllBytes(path);
     } catch (IOException e) {
       throw new UncheckedIOException("Failed to read OpenAPI spec from " + path, e);
     }
     String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
     Map<String, Object> raw;
     if (name.endsWith(".json")) {
-      raw = parseJson(text);
+      raw = parseJsonWithGson(bytes);
     } else if (name.endsWith(".yaml") || name.endsWith(".yml")) {
-      raw = parseYaml(text);
+      raw = parseYamlWithSnakeYaml(bytes);
     } else {
       throw new IllegalStateException(
           "Unrecognised OpenAPI spec extension for "
@@ -89,8 +93,89 @@ public record Spec(
     return from(raw);
   }
 
-  private static Map<String, Object> parseJson(String text) {
-    Class<?> gsonClass = loadOptional(GSON_CLASS, "JSON", "Gson");
+  /**
+   * Reads a JSON OpenAPI specification from {@code in} using Gson. Gson must be on the classpath;
+   * otherwise throws {@link IllegalStateException}. The stream is fully consumed and closed before
+   * this method returns.
+   *
+   * <p>Useful for loading specs from the classpath:
+   *
+   * <pre>{@code
+   * try (InputStream in = getClass().getResourceAsStream("/openapi.json")) {
+   *   Spec spec = Spec.fromJson(in);
+   * }
+   * }</pre>
+   *
+   * <p>To avoid the Gson dependency (e.g. when using Jackson), use {@link #fromJson(InputStream,
+   * Function)} instead.
+   *
+   * @throws NullPointerException if {@code in} is {@code null}
+   * @throws UncheckedIOException if the stream cannot be read
+   * @throws IllegalStateException if Gson is not on the classpath
+   */
+  public static Spec fromJson(InputStream in) {
+    return fromJson(in, Spec::parseJsonWithGson);
+  }
+
+  /**
+   * Reads a JSON OpenAPI specification from {@code in} using the supplied {@code parser}. The
+   * parser receives the full body as bytes and returns the decoded map. The stream is fully
+   * consumed and closed before this method returns.
+   *
+   * <p>Example with Jackson:
+   *
+   * <pre>{@code
+   * ObjectMapper mapper = new ObjectMapper();
+   * Spec spec = Spec.fromJson(in, bytes -> mapper.readValue(bytes, Map.class));
+   * }</pre>
+   *
+   * @throws NullPointerException if {@code in} or {@code parser} is {@code null}
+   * @throws UncheckedIOException if the stream cannot be read
+   */
+  public static Spec fromJson(InputStream in, Function<byte[], Map<String, Object>> parser) {
+    Objects.requireNonNull(parser, "parser");
+    return from(parser.apply(readAll(in)));
+  }
+
+  /**
+   * Reads a YAML OpenAPI specification from {@code in} using SnakeYAML. SnakeYAML must be on the
+   * classpath; otherwise throws {@link IllegalStateException}. The stream is fully consumed and
+   * closed before this method returns.
+   *
+   * <p>To avoid the SnakeYAML dependency, use {@link #fromYaml(InputStream, Function)} instead.
+   *
+   * @throws NullPointerException if {@code in} is {@code null}
+   * @throws UncheckedIOException if the stream cannot be read
+   * @throws IllegalStateException if SnakeYAML is not on the classpath
+   */
+  public static Spec fromYaml(InputStream in) {
+    return fromYaml(in, Spec::parseYamlWithSnakeYaml);
+  }
+
+  /**
+   * Reads a YAML OpenAPI specification from {@code in} using the supplied {@code parser}. The
+   * stream is fully consumed and closed before this method returns.
+   *
+   * @throws NullPointerException if {@code in} or {@code parser} is {@code null}
+   * @throws UncheckedIOException if the stream cannot be read
+   */
+  public static Spec fromYaml(InputStream in, Function<byte[], Map<String, Object>> parser) {
+    Objects.requireNonNull(parser, "parser");
+    return from(parser.apply(readAll(in)));
+  }
+
+  private static byte[] readAll(InputStream in) {
+    Objects.requireNonNull(in, "in");
+    try (in) {
+      return in.readAllBytes();
+    } catch (IOException e) {
+      throw new UncheckedIOException("Failed to read OpenAPI spec from stream", e);
+    }
+  }
+
+  private static Map<String, Object> parseJsonWithGson(byte[] bytes) {
+    String text = new String(bytes, StandardCharsets.UTF_8);
+    Class<?> gsonClass = loadOptional(GSON_CLASS, "Json", "Gson");
     try {
       Object gson = gsonClass.getDeclaredConstructor().newInstance();
       Method fromJson = gsonClass.getMethod("fromJson", String.class, Class.class);
@@ -102,8 +187,9 @@ public record Spec(
     }
   }
 
-  private static Map<String, Object> parseYaml(String text) {
-    Class<?> yamlClass = loadOptional(SNAKEYAML_CLASS, "YAML", "SnakeYAML");
+  private static Map<String, Object> parseYamlWithSnakeYaml(byte[] bytes) {
+    String text = new String(bytes, StandardCharsets.UTF_8);
+    Class<?> yamlClass = loadOptional(SNAKEYAML_CLASS, "Yaml", "SnakeYAML");
     try {
       Object yaml = yamlClass.getDeclaredConstructor().newInstance();
       Method load = yamlClass.getMethod("load", String.class);
@@ -120,14 +206,15 @@ public record Spec(
       return Class.forName(className, false, Spec.class.getClassLoader());
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(
-          "Spec.fromPath requires "
-              + libName
-              + " on the classpath for "
+          "Loading "
               + format
-              + " specs. Add a "
+              + " OpenAPI specs requires "
               + libName
-              + " dependency, or parse the file yourself and call"
-              + " Spec.from(Map<String, Object>) instead.",
+              + " on the classpath. Add a "
+              + libName
+              + " dependency, or supply your own parser via Spec.from"
+              + format
+              + "(InputStream, Function) / Spec.from(Map<String, Object>) instead.",
           e);
     }
   }
