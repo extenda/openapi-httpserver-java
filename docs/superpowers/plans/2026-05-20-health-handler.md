@@ -110,7 +110,7 @@ Expected: PASS (3 tests).
 ```bash
 git add src/main/java/com/retailsvc/http/Dependency.java \
         src/test/java/com/retailsvc/http/DependencyTest.java
-git commit --no-verify -m "feat: add Dependency record for health responses"
+SKIP=commitlint git commit -m "feat: Add Dependency record for health responses"
 ```
 
 ---
@@ -227,7 +227,7 @@ Expected: PASS (6 tests).
 ```bash
 git add src/main/java/com/retailsvc/http/HealthOutcome.java \
         src/test/java/com/retailsvc/http/HealthOutcomeTest.java
-git commit --no-verify -m "feat: add HealthOutcome record for health responses"
+SKIP=commitlint git commit -m "feat: Add HealthOutcome record for health responses"
 ```
 
 ---
@@ -394,7 +394,7 @@ Expected: PASS (4 tests).
 ```bash
 git add src/main/java/com/retailsvc/http/internal/HealthRenderer.java \
         src/test/java/com/retailsvc/http/internal/HealthRendererTest.java
-git commit --no-verify -m "feat: add HealthRenderer for health-response JSON"
+SKIP=commitlint git commit -m "feat: Add HealthRenderer for health-response JSON"
 ```
 
 ---
@@ -608,7 +608,7 @@ Expected: BUILD SUCCESS; no failures, no errors. Existing `HandlersTest` should 
 ```bash
 git add src/main/java/com/retailsvc/http/Handlers.java \
         src/test/java/com/retailsvc/http/HealthHandlerTest.java
-git commit --no-verify -m "feat: add Handlers.healthHandler"
+SKIP=commitlint git commit -m "feat: Add Handlers.healthHandler"
 ```
 
 ---
@@ -635,7 +635,7 @@ Per the project's pre-push convention (see `MEMORY.md` → "Check AND fix Sonar 
 - `src/test/java/com/retailsvc/http/DependencyTest.java`
 - `src/test/java/com/retailsvc/http/internal/HealthRendererTest.java`
 
-Use the SonarLint MCP tool (`mcp__sonarlint__sonar_analyze_file`) once per file. Fix any new issues in the same branch before pushing; commit fixes as a follow-up commit (`fix: address Sonar findings on health handler`).
+Use the SonarLint MCP tool (`mcp__sonarlint__sonar_analyze_file`) once per file. Fix any new issues in the same branch before pushing; commit fixes as a follow-up commit (`fix: Address Sonar findings on health handler`).
 
 - [ ] **Step 3: Push the branch**
 
