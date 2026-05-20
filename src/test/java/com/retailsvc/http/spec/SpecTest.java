@@ -34,6 +34,18 @@ class SpecTest {
   }
 
   @Test
+  void basePathDefaultsToRootWhenServerUrlHasNoPath() {
+    Map<String, Object> raw =
+        Map.of(
+            "openapi", "3.1.0",
+            "info", Map.of("title", "x", "version", "1"),
+            "servers", List.of(Map.of("url", "http://127.0.0.1:4444")),
+            "paths", Map.of());
+    Spec spec = Spec.from(raw);
+    assertThat(spec.basePath()).isEqualTo("/");
+  }
+
+  @Test
   void parsesPathsWithMethods() {
     Map<String, Object> raw =
         Map.of(

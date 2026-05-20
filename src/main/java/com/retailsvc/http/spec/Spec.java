@@ -245,7 +245,8 @@ public record Spec(
     if (servers.isEmpty()) {
       throw new IllegalStateException("no servers declared");
     }
-    return Optional.ofNullable(URI.create(servers.getFirst().url()).getPath()).orElse("");
+    String path = URI.create(servers.getFirst().url()).getPath();
+    return (path == null || path.isEmpty()) ? "/" : path;
   }
 
   private static <T> Map<String, T> indexByRef(Map<String, T> components, String prefix) {
