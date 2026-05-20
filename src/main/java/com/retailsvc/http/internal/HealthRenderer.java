@@ -9,10 +9,13 @@ import java.util.List;
  */
 public final class HealthRenderer {
 
+  /** Initial StringBuilder capacity sized for an outcome with one dependency (the common case). */
+  private static final int INITIAL_CAPACITY = 64;
+
   private HealthRenderer() {}
 
   public static String renderJson(boolean up, List<Dependency> dependencies) {
-    StringBuilder sb = new StringBuilder(64);
+    StringBuilder sb = new StringBuilder(INITIAL_CAPACITY);
     sb.append("{\"outcome\":\"").append(label(up)).append("\",\"dependencies\":[");
     for (int i = 0; i < dependencies.size(); i++) {
       if (i > 0) {
