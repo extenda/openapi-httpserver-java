@@ -60,7 +60,8 @@ public class OpenApiServer implements AutoCloseable {
       ExceptionHandler exceptionHandler,
       Map<String, RequestHandler> extras,
       Map<String, SchemeValidator> securityValidators,
-      boolean externalAuth) {}
+      boolean externalAuth,
+      List<AfterResponseHook> afterHooks) {}
 
   OpenApiServer(
       Spec spec,
@@ -178,6 +179,7 @@ public class OpenApiServer implements AutoCloseable {
     private Map<String, RequestHandler> handlers;
     private final List<ResponseDecorator> decorators = new ArrayList<>();
     private final List<RequestInterceptor> interceptors = new ArrayList<>();
+    private final List<AfterResponseHook> afterHooks = new ArrayList<>();
     private ExceptionHandler exceptionHandler;
     private int port = DEFAULT_PORT;
     private InetAddress bindAddress;
@@ -225,6 +227,17 @@ public class OpenApiServer implements AutoCloseable {
      */
     public Builder interceptor(RequestInterceptor interceptor) {
       interceptors.add(requireNonNull(interceptor, "interceptor must not be null"));
+      return this;
+    }
+
+    /**
+     * Registers an {@link AfterResponseHook} invoked after each response is sent. Hooks run on the
+     * request thread inside the library's request scope, in registration order, with all exceptions
+     * swallowed. Hooks fire only when a {@link Request} was successfully built — pre-request
+     * failures (404, 405, 400 validation) do not fire hooks.
+     */
+    public Builder afterResponseHook(AfterResponseHook hook) {
+      afterHooks.add(requireNonNull(hook, "hook must not be null"));
       return this;
     }
 
@@ -332,7 +345,8 @@ public class OpenApiServer implements AutoCloseable {
               effectiveExceptionHandler,
               extras,
               Map.copyOf(securityValidators),
-              externalAuth);
+              externalAuth,
+              List.copyOf(afterHooks));
       return new OpenApiServer(
           spec, resolved, handlerConfig, port, bindAddress, shutdownTimeoutSeconds);
     }
