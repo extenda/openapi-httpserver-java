@@ -133,6 +133,32 @@ The library ships an internal `GsonJsonMapper` that is auto-registered for `appl
 - For `request.asPojo(MyDto.class)`, delegates to Gson — the target type's fields determine the Java types (`int`, `long`, `Instant`, etc.).
 - Round-trips JSR-310 types (`Instant`, `OffsetDateTime`, `ZonedDateTime`, `LocalDateTime`, `LocalDate`, `LocalTime`) as their ISO-8601 string form.
 
+To customize Gson, wire `GsonTypeMapper` explicitly. The no-arg form uses the same JSR-310-aware default as auto-registration; pass a `Gson` to fully control serialization:
+
+```java
+var server = OpenApiServer.builder()
+    .spec(spec)
+    .jsonMapper(new GsonTypeMapper(myGson))
+    .handlers(handlers)
+    .build();
+```
+
+To extend the library default (instead of building a `Gson` from scratch), unwrap it via `gsonBuilder()`:
+
+```java
+Gson custom =
+    new GsonTypeMapper()
+        .gsonBuilder()
+        .registerTypeAdapter(Money.class, new MoneyAdapter())
+        .create();
+
+var server = OpenApiServer.builder()
+    .spec(spec)
+    .jsonMapper(new GsonTypeMapper(custom))
+    .handlers(handlers)
+    .build();
+```
+
 For Jackson, the library ships two adapters that wrap an `ObjectMapper` you configure (modules, naming strategy, JSR-310, date formats — all your call). Pick the one that matches your Jackson major:
 
 ```java
