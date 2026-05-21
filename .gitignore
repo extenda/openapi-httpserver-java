@@ -40,3 +40,7 @@ build/
 
 ### Performance recordings ###
 perf/
+
+### ZAP scan artefacts ###
+gen.conf
+zap-report.html
