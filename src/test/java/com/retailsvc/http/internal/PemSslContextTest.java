@@ -21,7 +21,7 @@ class PemSslContextTest {
   private static final Path WEAK_RSA_KEY = Path.of("src/test/resources/tls/weak-rsa-key.pem");
 
   @Test
-  void loadsRsaPemPair() throws Exception {
+  void loadsRsaPemPair() {
     SSLContext context = PemSslContext.load(RSA_CERT, RSA_KEY);
 
     assertThat(context).isNotNull();
@@ -30,7 +30,7 @@ class PemSslContextTest {
   }
 
   @Test
-  void loadsEcPemPair() throws Exception {
+  void loadsEcPemPair() {
     SSLContext context = PemSslContext.load(EC_CERT, EC_KEY);
 
     assertThat(context).isNotNull();
@@ -88,7 +88,7 @@ class PemSslContextTest {
   }
 
   @Test
-  void acceptsEcKeyAtMinimumStrength() throws Exception {
+  void acceptsEcKeyAtMinimumStrength() {
     // P-256 (256 bits) is exactly at the floor — must pass.
     SSLContext ctx = PemSslContext.load(EC_CERT, EC_KEY);
     assertThat(ctx).isNotNull();

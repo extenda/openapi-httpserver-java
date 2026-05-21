@@ -25,6 +25,10 @@ import javax.net.ssl.SSLContext;
 /** Loads a {@link SSLContext} from a PEM certificate chain and PEM PKCS#8 private key. */
 public final class PemSslContext {
 
+  private static final int MIN_RSA_KEY_BITS = 2048;
+  private static final int MIN_EC_KEY_BITS = 256;
+  private static final byte[] SIGNATURE_PROBE = {1, 2, 3, 4, 5, 6, 7, 8};
+
   private PemSslContext() {}
 
   public static SSLContext load(Path certChainPem, Path privateKeyPem) {
@@ -46,19 +50,7 @@ public final class PemSslContext {
   // JEP 524 swap point: replace this body with PEMDecoder when the JDK PEM API lands.
   private static Certificate[] decodeCertificateChain(byte[] pem, Path source) {
     try {
-      CertificateFactory factory = CertificateFactory.getInstance("X.509");
-      Collection<? extends Certificate> certs;
-      try {
-        certs = factory.generateCertificates(new ByteArrayInputStream(pem));
-      } catch (CertificateException e) {
-        // JDK X509Factory throws "No certificate data found" for input with no
-        // BEGIN CERTIFICATE block. Treat that as an empty chain rather than a parse error.
-        if (e.getMessage() != null && e.getMessage().contains("No certificate data found")) {
-          throw new IllegalStateException(
-              "No certificates found in TLS certificate chain: " + source);
-        }
-        throw e;
-      }
+      Collection<? extends Certificate> certs = parseCertificates(pem, source);
       Certificate[] chain = certs.toArray(new Certificate[0]);
       if (chain.length == 0) {
         throw new IllegalStateException(
@@ -67,6 +59,22 @@ public final class PemSslContext {
       return chain;
     } catch (GeneralSecurityException e) {
       throw new IllegalStateException("Failed to parse TLS certificate chain from " + source, e);
+    }
+  }
+
+  private static Collection<? extends Certificate> parseCertificates(byte[] pem, Path source)
+      throws GeneralSecurityException {
+    CertificateFactory factory = CertificateFactory.getInstance("X.509");
+    try {
+      return factory.generateCertificates(new ByteArrayInputStream(pem));
+    } catch (CertificateException e) {
+      // JDK X509Factory throws "No certificate data found" for input with no
+      // BEGIN CERTIFICATE block. Treat that as an empty chain rather than a parse error.
+      if (e.getMessage() != null && e.getMessage().contains("No certificate data found")) {
+        throw new IllegalStateException(
+            "No certificates found in TLS certificate chain: " + source, e);
+      }
+      throw e;
     }
   }
 
@@ -99,10 +107,15 @@ public final class PemSslContext {
       try {
         return KeyFactory.getInstance("EC").generatePrivate(spec);
       } catch (InvalidKeySpecException ecFail) {
-        throw new IllegalStateException(
-            "Unsupported TLS private key algorithm in " + source, ecFail);
+        IllegalStateException failure =
+            new IllegalStateException("Unsupported TLS private key algorithm in " + source, ecFail);
+        failure.addSuppressed(rsaFail);
+        throw failure;
       } catch (GeneralSecurityException e) {
-        throw new IllegalStateException("Failed to parse TLS private key from " + source, e);
+        IllegalStateException failure =
+            new IllegalStateException("Failed to parse TLS private key from " + source, e);
+        failure.addSuppressed(rsaFail);
+        throw failure;
       }
     } catch (GeneralSecurityException e) {
       throw new IllegalStateException("Failed to parse TLS private key from " + source, e);
@@ -111,7 +124,7 @@ public final class PemSslContext {
 
   private static SSLContext buildSslContext(Certificate[] chain, PrivateKey key) {
     verifyKeyMatchesCert(key, chain[0]);
-    requireMinimumStrength(key, chain[0]);
+    requireMinimumStrength(chain[0]);
     try {
       KeyStore ks = KeyStore.getInstance("PKCS12");
       ks.load(null, null);
@@ -126,21 +139,29 @@ public final class PemSslContext {
     }
   }
 
-  private static void requireMinimumStrength(PrivateKey key, Certificate cert) {
+  private static void requireMinimumStrength(Certificate cert) {
     PublicKey publicKey = cert.getPublicKey();
     switch (publicKey) {
       case RSAPublicKey rsa -> {
         int bits = rsa.getModulus().bitLength();
-        if (bits < 2048) {
+        if (bits < MIN_RSA_KEY_BITS) {
           throw new IllegalStateException(
-              "TLS RSA key below minimum strength: " + bits + " bits (require >= 2048)");
+              "TLS RSA key below minimum strength: "
+                  + bits
+                  + " bits (require >= "
+                  + MIN_RSA_KEY_BITS
+                  + ")");
         }
       }
       case ECPublicKey ec -> {
         int bits = ec.getParams().getCurve().getField().getFieldSize();
-        if (bits < 256) {
+        if (bits < MIN_EC_KEY_BITS) {
           throw new IllegalStateException(
-              "TLS EC key below minimum strength: " + bits + " bits (require >= 256)");
+              "TLS EC key below minimum strength: "
+                  + bits
+                  + " bits (require >= "
+                  + MIN_EC_KEY_BITS
+                  + ")");
         }
       }
       default ->
@@ -158,12 +179,11 @@ public final class PemSslContext {
               throw new IllegalStateException(
                   "Unsupported TLS private key algorithm: " + key.getAlgorithm());
         };
-    byte[] probe = {1, 2, 3, 4, 5, 6, 7, 8};
     byte[] signature;
     try {
       Signature signer = Signature.getInstance(algorithm);
       signer.initSign(key);
-      signer.update(probe);
+      signer.update(SIGNATURE_PROBE);
       signature = signer.sign();
     } catch (GeneralSecurityException e) {
       throw new IllegalStateException("TLS certificate and private key do not match", e);
@@ -171,7 +191,7 @@ public final class PemSslContext {
     try {
       Signature verifier = Signature.getInstance(algorithm);
       verifier.initVerify(cert.getPublicKey());
-      verifier.update(probe);
+      verifier.update(SIGNATURE_PROBE);
       if (!verifier.verify(signature)) {
         throw new IllegalStateException("TLS certificate and private key do not match");
       }
