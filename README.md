@@ -364,6 +364,24 @@ OpenApiServer.builder()
     .build();
 ```
 
+#### Built-in: browser security headers
+
+`Handlers.securityHeadersDecorator()` adds two browser-hardening headers to every response —
+`X-Content-Type-Options: nosniff` and `Cross-Origin-Resource-Policy: same-origin`. Handler-supplied
+values for either header are preserved, so individual responses can opt out by setting the header
+explicitly.
+
+``` java
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .responseDecorator(Handlers.securityHeadersDecorator())
+    .build();
+```
+
+Decorators run on the dispatch path only — error responses produced by `ExceptionFilter` (e.g.
+the default 500) bypass them.
+
 ### Request interceptors
 
 `Builder.interceptor(...)` registers a `RequestInterceptor` that wraps every handler invocation.
