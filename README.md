@@ -352,6 +352,25 @@ using JDK APIs only.
 Both RSA and EC (P-256) private keys are accepted; the algorithm is detected
 automatically.
 
+**Deployment.** Don't bake `privkey.pem` into your container image — you
+lose rotation and leak the key into image layers and registries. Mount the
+two PEM files at runtime from a secret manager:
+
+- **Kubernetes:** [cert-manager](https://cert-manager.io) writes the
+  certificate and key into a `Secret`; mount it as a volume at the path you
+  pass to `.https(...)`. Renewal is automatic; restart the pod (e.g. via a
+  rolling deploy keyed off the Secret's revision) to pick up the new cert.
+- **GCP:** Store both files in Secret Manager and project them with the
+  [Secret Manager CSI driver](https://cloud.google.com/secret-manager/docs/access-control)
+  or a Workload Identity-bound init container that writes the files to an
+  `emptyDir` shared with the app container.
+- **AWS:** [Secrets Manager](https://docs.aws.amazon.com/secretsmanager/) via
+  the [AWS Secrets and Configuration Provider](https://github.com/aws/secrets-store-csi-driver-provider-aws)
+  for the CSI driver follows the same pattern.
+
+Whatever the source: mount the volume read-only, give `privkey.pem` mode
+`0400` (owner-read only), and ensure the JVM process owns or can read it.
+
 When `.https(...)` is set, the default port changes from `8080` to `8443`.
 `port(int)` still overrides explicitly:
 
