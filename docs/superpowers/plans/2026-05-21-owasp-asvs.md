@@ -211,13 +211,13 @@ SKIP=commitlint git commit -m "chore: Add OWASP ASVS 5.0 L2 self-assessment for 
 
 - Create: `.github/scripts/asvs-gate.sh` (executable, mode 0755)
 
-- [ ] **Step 1: Ensure the scripts directory exists**
+- [x] **Step 1: Ensure the scripts directory exists**
 
 ```bash
 mkdir -p .github/scripts
 ```
 
-- [ ] **Step 2: Write the gate script**
+- [x] **Step 2: Write the gate script**
 
 Write `.github/scripts/asvs-gate.sh`:
 
@@ -303,13 +303,13 @@ echo "ASVS gate: TLS-relevant changes re-affirmed in $CHECKLIST."
 exit 0
 ```
 
-- [ ] **Step 3: Make the script executable**
+- [x] **Step 3: Make the script executable**
 
 ```bash
 chmod 0755 .github/scripts/asvs-gate.sh
 ```
 
-- [ ] **Step 4: Smoke-test the script against the current branch**
+- [x] **Step 4: Smoke-test the script against the current branch**
 
 The branch will have modified `TlsHttpsConfigurator`-related paths (Task 1 created the new internal file → matches the path-glob predicate), and Task 2 already added an audit-log line. So the gate must say "re-affirmed".
 
@@ -325,7 +325,7 @@ ASVS gate: TLS-relevant changes re-affirmed in docs/security/owasp-asvs.md.
 
 (Exit code 0.)
 
-- [ ] **Step 5: Smoke-test the failure paths via temporary commits**
+- [x] **Step 5: Smoke-test the failure paths via temporary commits**
 
 The gate compares `BASE_SHA..HEAD_SHA`, so we exercise the negative branches by stacking one or two throwaway commits on the current branch and pointing `BASE_SHA` at the right ancestor. Throwaway commits use `-c core.hooksPath=/dev/null` to bypass pre-commit (they never leave the local repo).
 
@@ -367,7 +367,7 @@ Expected: the script prints "$CHECKLIST was updated but no new audit-log line wa
 
 If either scenario unexpectedly passes the gate (exit 0), the script's logic has a hole — STOP and debug before continuing.
 
-- [ ] **Step 6: Commit the script**
+- [x] **Step 6: Commit the script**
 
 ```bash
 git add .github/scripts/asvs-gate.sh
