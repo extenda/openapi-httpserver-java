@@ -1,5 +1,6 @@
 package com.retailsvc.http;
 
+import static com.retailsvc.http.ServerBaseTest.stubAllHandlers;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
@@ -31,6 +32,8 @@ class AfterResponseHookIT {
   private static final String OK_PATH = "/api/v1/data";
   private static final String NOT_FOUND_PATH = "/api/v1/does-not-exist";
 
+  private static final Spec SPEC = loadSpec();
+
   private static Spec loadSpec() {
     Gson gson = new Gson();
     try (InputStream in = AfterResponseHookIT.class.getResourceAsStream("/openapi.json")) {
@@ -45,7 +48,7 @@ class AfterResponseHookIT {
 
   private static OpenApiServer.Builder baseBuilder() {
     return OpenApiServer.builder()
-        .spec(loadSpec())
+        .spec(SPEC)
         .port(0)
         .securityValidator("apiKeyAuth", (req, cred) -> Optional.empty())
         .securityValidator("bearerAuth", (req, cred) -> Optional.empty())
@@ -64,7 +67,9 @@ class AfterResponseHookIT {
 
     try (OpenApiServer server =
         baseBuilder()
-            .handlers(Map.of(OK_OPERATION_ID, req -> Response.status(HTTP_NO_CONTENT)))
+            .handlers(
+                stubAllHandlers(
+                    SPEC, Map.of(OK_OPERATION_ID, req -> Response.status(HTTP_NO_CONTENT))))
             .afterResponseHook(
                 (req, resp) -> {
                   capturedRequest.set(req);
@@ -96,21 +101,23 @@ class AfterResponseHookIT {
     try (OpenApiServer server =
         baseBuilder()
             .handlers(
-                Map.of(
-                    OK_OPERATION_ID,
-                    req -> {
-                      req.afterResponse(
-                          () -> {
-                            log.add("first");
-                            latch.countDown();
-                          });
-                      req.afterResponse(
-                          () -> {
-                            log.add("second");
-                            latch.countDown();
-                          });
-                      return Response.status(HTTP_NO_CONTENT);
-                    }))
+                stubAllHandlers(
+                    SPEC,
+                    Map.of(
+                        OK_OPERATION_ID,
+                        req -> {
+                          req.afterResponse(
+                              () -> {
+                                log.add("first");
+                                latch.countDown();
+                              });
+                          req.afterResponse(
+                              () -> {
+                                log.add("second");
+                                latch.countDown();
+                              });
+                          return Response.status(HTTP_NO_CONTENT);
+                        })))
             .build()) {
 
       HttpClient.newHttpClient()
@@ -130,7 +137,9 @@ class AfterResponseHookIT {
 
     try (OpenApiServer server =
         baseBuilder()
-            .handlers(Map.of(OK_OPERATION_ID, req -> Response.status(HTTP_NO_CONTENT)))
+            .handlers(
+                stubAllHandlers(
+                    SPEC, Map.of(OK_OPERATION_ID, req -> Response.status(HTTP_NO_CONTENT))))
             .afterResponseHook(
                 (req, resp) -> {
                   throw new RuntimeException("boom");
@@ -162,11 +171,13 @@ class AfterResponseHookIT {
     try (OpenApiServer server =
         baseBuilder()
             .handlers(
-                Map.of(
-                    OK_OPERATION_ID,
-                    req -> {
-                      throw new RuntimeException("kapow");
-                    }))
+                stubAllHandlers(
+                    SPEC,
+                    Map.of(
+                        OK_OPERATION_ID,
+                        req -> {
+                          throw new RuntimeException("kapow");
+                        })))
             .afterResponseHook(
                 (req, resp) -> {
                   capturedResponse.set(resp);
@@ -194,7 +205,9 @@ class AfterResponseHookIT {
 
     try (OpenApiServer server =
         baseBuilder()
-            .handlers(Map.of(OK_OPERATION_ID, req -> Response.status(HTTP_NO_CONTENT)))
+            .handlers(
+                stubAllHandlers(
+                    SPEC, Map.of(OK_OPERATION_ID, req -> Response.status(HTTP_NO_CONTENT))))
             .afterResponseHook((req, resp) -> log.add("fired"))
             .build()) {
 
@@ -219,12 +232,14 @@ class AfterResponseHookIT {
     try (OpenApiServer server =
         baseBuilder()
             .handlers(
-                Map.of(
-                    OK_OPERATION_ID,
-                    req -> {
-                      handlerThread.set(Thread.currentThread());
-                      return Response.status(HTTP_NO_CONTENT);
-                    }))
+                stubAllHandlers(
+                    SPEC,
+                    Map.of(
+                        OK_OPERATION_ID,
+                        req -> {
+                          handlerThread.set(Thread.currentThread());
+                          return Response.status(HTTP_NO_CONTENT);
+                        })))
             .afterResponseHook(
                 (req, resp) -> {
                   hookScopedRequest.set(DispatchHandler.CURRENT.get());
@@ -242,35 +257,6 @@ class AfterResponseHookIT {
       assertThat(hookScopedRequest.get()).isNotNull();
       assertThat(hookScopedRequest.get().operationId()).isEqualTo(OK_OPERATION_ID);
       assertThat(hookThread.get()).isSameAs(handlerThread.get());
-    }
-  }
-
-  @Test
-  void hookFiresWhenHandlerIsMissing() throws Exception {
-    CountDownLatch latch = new CountDownLatch(1);
-    AtomicReference<Response> capturedResponse = new AtomicReference<>();
-
-    try (OpenApiServer server =
-        baseBuilder()
-            .handlers(Map.of()) // no handler registered for OK_OPERATION_ID
-            .afterResponseHook(
-                (req, resp) -> {
-                  capturedResponse.set(resp);
-                  latch.countDown();
-                })
-            .build()) {
-
-      HttpResponse<Void> resp =
-          HttpClient.newHttpClient()
-              .send(
-                  HttpRequest.newBuilder(uri(server, OK_PATH)).GET().build(),
-                  BodyHandlers.discarding());
-
-      assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
-      assertThat(resp.statusCode()).isEqualTo(HTTP_INTERNAL_ERROR);
-      assertThat(capturedResponse.get()).isNotNull();
-      assertThat(capturedResponse.get().status()).isEqualTo(HTTP_INTERNAL_ERROR);
-      assertThat(capturedResponse.get().body()).isNull();
     }
   }
 }

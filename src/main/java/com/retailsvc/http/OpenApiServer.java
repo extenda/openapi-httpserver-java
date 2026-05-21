@@ -33,6 +33,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -339,6 +340,7 @@ public class OpenApiServer implements AutoCloseable {
       if (!externalAuth) {
         validateSecurityWiring(spec, securityValidators);
       }
+      validateHandlerWiring(spec, handlers);
       Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
       ExceptionHandler effectiveExceptionHandler =
           exceptionHandler != null ? exceptionHandler : Handlers.defaultExceptionHandler();
@@ -354,6 +356,25 @@ public class OpenApiServer implements AutoCloseable {
               List.copyOf(afterHooks));
       return new OpenApiServer(
           spec, resolved, handlerConfig, port, bindAddress, shutdownTimeoutSeconds);
+    }
+
+    private static void validateHandlerWiring(Spec spec, Map<String, RequestHandler> handlers) {
+      Set<String> specOps = new TreeSet<>();
+      for (Operation op : spec.operations()) {
+        specOps.add(op.operationId());
+      }
+      Set<String> missing = new TreeSet<>(specOps);
+      missing.removeAll(handlers.keySet());
+      if (!missing.isEmpty()) {
+        throw new IllegalStateException(
+            "no handler registered for spec operationId(s): " + missing);
+      }
+      Set<String> unknown = new TreeSet<>(handlers.keySet());
+      unknown.removeAll(specOps);
+      if (!unknown.isEmpty()) {
+        throw new IllegalStateException(
+            "handler registered for unknown operationId(s) not in spec: " + unknown);
+      }
     }
 
     private static void validateSecurityWiring(Spec spec, Map<String, SchemeValidator> validators) {

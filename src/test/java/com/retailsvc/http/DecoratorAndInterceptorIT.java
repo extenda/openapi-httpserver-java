@@ -23,7 +23,7 @@ class DecoratorAndInterceptorIT extends ServerBaseTest {
     server =
         newBuilder()
             .spec(spec)
-            .handlers(Map.of("get-data", ok, "post-data", ok))
+            .handlers(stubAllHandlers(Map.of("get-data", ok, "post-data", ok)))
             .responseDecorator((req, resp) -> resp.withHeader("X-Correlation-Id", "decorator-cid"))
             .responseDecorator((req, resp) -> resp.withHeader("X-Op", req.operationId()))
             .port(0)
@@ -42,7 +42,7 @@ class DecoratorAndInterceptorIT extends ServerBaseTest {
     server =
         newBuilder()
             .spec(spec)
-            .handlers(Map.of("get-data", ok, "post-data", ok))
+            .handlers(stubAllHandlers(Map.of("get-data", ok, "post-data", ok)))
             .responseDecorator((req, resp) -> resp.withHeader("X-Op", "decorator-wins"))
             .port(0)
             .build();
@@ -58,7 +58,7 @@ class DecoratorAndInterceptorIT extends ServerBaseTest {
     server =
         newBuilder()
             .spec(spec)
-            .handlers(Map.of("get-data", echoTenant, "post-data", echoTenant))
+            .handlers(stubAllHandlers(Map.of("get-data", echoTenant, "post-data", echoTenant)))
             .interceptor((request, next) -> ScopedValue.where(TENANT, "acme").call(next::proceed))
             .port(0)
             .build();
@@ -77,7 +77,7 @@ class DecoratorAndInterceptorIT extends ServerBaseTest {
     server =
         newBuilder()
             .spec(spec)
-            .handlers(Map.of("get-data", ok, "post-data", ok))
+            .handlers(stubAllHandlers(Map.of("get-data", ok, "post-data", ok)))
             .interceptor(
                 (request, next) -> {
                   trace.add("outer-before");

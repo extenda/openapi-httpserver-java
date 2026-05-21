@@ -30,7 +30,7 @@ Request flow when `OpenApiServer` boots (`src/main/java/com/retailsvc/http/OpenA
 3. Three filters run in order on every request:
     - `ExceptionFilter` — wraps the chain; delegates uncaught exceptions to the user-supplied `ExceptionHandler` (default in `Handlers`).
     - `RequestPreparationFilter` — reads the raw request body, stashes it as an exchange attribute, runs OpenAPI parameter + body validation via `DefaultValidator`, and stores the resolved `operationId` on the exchange.
-    - `DispatchHandler` — looks up the `HttpHandler` registered for that `operationId` in the user-supplied map and invokes it. Missing handler → `MissingOperationHandlerException`.
+    - `DispatchHandler` — looks up the `HttpHandler` registered for that `operationId` in the user-supplied map and invokes it. Handler coverage is verified at boot, so the lookup never returns `null`.
 
 Key abstractions:
 

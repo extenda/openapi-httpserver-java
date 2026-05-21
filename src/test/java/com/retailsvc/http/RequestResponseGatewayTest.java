@@ -22,7 +22,7 @@ class RequestResponseGatewayTest extends ServerBaseTest {
     server =
         newBuilder()
             .spec(spec)
-            .handlers(Map.of("get-data", echo, "post-data", echo))
+            .handlers(stubAllHandlers(Map.of("get-data", echo, "post-data", echo)))
             .port(0)
             .build();
     HttpClient client =
@@ -47,7 +47,11 @@ class RequestResponseGatewayTest extends ServerBaseTest {
   void respondEmptyUses204Style() throws Exception {
     RequestHandler ok = req -> Response.status(HTTP_NO_CONTENT);
     server =
-        newBuilder().spec(spec).handlers(Map.of("get-data", ok, "post-data", ok)).port(0).build();
+        newBuilder()
+            .spec(spec)
+            .handlers(stubAllHandlers(Map.of("get-data", ok, "post-data", ok)))
+            .port(0)
+            .build();
     var resp =
         HttpClient.newHttpClient()
             .send(
@@ -76,7 +80,7 @@ class RequestResponseGatewayTest extends ServerBaseTest {
     server =
         newBuilder()
             .spec(spec)
-            .handlers(Map.of("get-data", streamer, "post-data", streamer))
+            .handlers(stubAllHandlers(Map.of("get-data", streamer, "post-data", streamer)))
             .port(0)
             .build();
     var resp =

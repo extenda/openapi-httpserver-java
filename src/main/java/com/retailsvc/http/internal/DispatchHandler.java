@@ -1,6 +1,5 @@
 package com.retailsvc.http.internal;
 
-import com.retailsvc.http.MissingOperationHandlerException;
 import com.retailsvc.http.Request;
 import com.retailsvc.http.RequestHandler;
 import com.retailsvc.http.RequestInterceptor;
@@ -37,9 +36,6 @@ public final class DispatchHandler implements HttpHandler {
   public void handle(HttpExchange exchange) throws IOException {
     Request request = CURRENT.get();
     RequestHandler handler = handlers.get(request.operationId());
-    if (handler == null) {
-      throw new MissingOperationHandlerException(request.operationId());
-    }
     Response response = invoke(0, request, handler);
     for (ResponseDecorator decorator : decorators) {
       response = decorator.decorate(request, response);

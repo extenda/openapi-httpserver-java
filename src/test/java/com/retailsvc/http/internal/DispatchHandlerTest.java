@@ -2,11 +2,9 @@ package com.retailsvc.http.internal;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.retailsvc.http.MissingOperationHandlerException;
 import com.retailsvc.http.Request;
 import com.retailsvc.http.RequestHandler;
 import com.retailsvc.http.Response;
@@ -53,21 +51,5 @@ class DispatchHandlerTest {
         });
 
     assertThat(called.get()).isTrue();
-  }
-
-  @Test
-  void throwsWhenHandlerMissing() {
-    DispatchHandler d = dispatcher(Map.of());
-    HttpExchange ex = stubExchange();
-
-    assertThatThrownBy(
-            () ->
-                withRequest(
-                    "ghost",
-                    () -> {
-                      d.handle(ex);
-                      return null;
-                    }))
-        .isInstanceOf(MissingOperationHandlerException.class);
   }
 }

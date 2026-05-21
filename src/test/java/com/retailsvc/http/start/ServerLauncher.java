@@ -37,6 +37,15 @@ public class ServerLauncher {
     handlers.put("query-params", new ParamHandler());
     handlers.put("path-params", new ParamHandler());
     handlers.put("path-params-multi", new ParamHandler());
+    handlers.put("post-shape", req -> Response.status(200));
+    handlers.put("post-filter", req -> Response.status(200));
+    handlers.put("post-blocked", req -> Response.status(200));
+    handlers.put("format-email", req -> Response.status(200));
+    handlers.put("format-int32", req -> Response.status(200));
+    handlers.put("format-byte", req -> Response.status(200));
+    handlers.put("post-gate", req -> Response.status(200));
+    handlers.put("form-echo", req -> Response.status(200));
+    handlers.put("text-echo", req -> Response.status(200));
     handlers.put("secureApiKey", req -> Response.status(200));
     handlers.put("secureBearer", req -> Response.status(200));
     handlers.put("secureBasic", req -> Response.status(200));
