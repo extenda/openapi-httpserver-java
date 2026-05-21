@@ -414,7 +414,7 @@ SKIP=commitlint git commit -m "feat: Support EC private keys in PemSslContext"
 
 The error messages are already produced by Task 2/3's implementation. This task just asserts them.
 
-- [ ] **Step 1: Add the failing missing-file test**
+- [x] **Step 1: Add the failing missing-file test**
 
 Append to `PemSslContextTest`:
 
@@ -467,7 +467,7 @@ Add the import at the top of the file:
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 ```
 
-- [ ] **Step 2: Run, confirm all five pass**
+- [x] **Step 2: Run, confirm all five pass**
 
 ```bash
 mvn test -Dtest=PemSslContextTest
@@ -477,7 +477,7 @@ Expected: 7 tests pass (2 happy + 5 negative).
 
 If the mismatched-key test fails because the key parsed cleanly but the cert→key binding wasn't detected, that's a real bug in `buildSslContext` — `KeyManagerFactory.init` is what surfaces the mismatch, and it does. Verify by reading the actual message: it should contain "do not match" via the chained cause. If `KeyManagerFactory` accepts the pair, the test will fail; do NOT relax the assertion — debug instead.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/test/java/com/retailsvc/http/internal/PemSslContextTest.java

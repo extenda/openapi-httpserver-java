@@ -8,6 +8,7 @@ import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.KeyStore;
 import java.security.PrivateKey;
+import java.security.Signature;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.spec.InvalidKeySpecException;
@@ -79,6 +80,7 @@ public final class PemSslContext {
   }
 
   private static SSLContext buildSslContext(Certificate[] chain, PrivateKey key) {
+    verifyKeyMatchesCert(key, chain[0]);
     try {
       KeyStore ks = KeyStore.getInstance("PKCS12");
       ks.load(null, null);
@@ -89,6 +91,37 @@ public final class PemSslContext {
       ctx.init(kmf.getKeyManagers(), null, null);
       return ctx;
     } catch (GeneralSecurityException | IOException e) {
+      throw new IllegalStateException("TLS certificate and private key do not match", e);
+    }
+  }
+
+  private static void verifyKeyMatchesCert(PrivateKey key, Certificate cert) {
+    String algorithm =
+        switch (key.getAlgorithm()) {
+          case "RSA" -> "SHA256withRSA";
+          case "EC" -> "SHA256withECDSA";
+          default ->
+              throw new IllegalStateException(
+                  "Unsupported TLS private key algorithm: " + key.getAlgorithm());
+        };
+    byte[] probe = {1, 2, 3, 4, 5, 6, 7, 8};
+    byte[] signature;
+    try {
+      Signature signer = Signature.getInstance(algorithm);
+      signer.initSign(key);
+      signer.update(probe);
+      signature = signer.sign();
+    } catch (GeneralSecurityException e) {
+      throw new IllegalStateException("TLS certificate and private key do not match", e);
+    }
+    try {
+      Signature verifier = Signature.getInstance(algorithm);
+      verifier.initVerify(cert.getPublicKey());
+      verifier.update(probe);
+      if (!verifier.verify(signature)) {
+        throw new IllegalStateException("TLS certificate and private key do not match");
+      }
+    } catch (GeneralSecurityException e) {
       throw new IllegalStateException("TLS certificate and private key do not match", e);
     }
   }
