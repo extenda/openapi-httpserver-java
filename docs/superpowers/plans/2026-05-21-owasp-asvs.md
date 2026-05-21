@@ -438,7 +438,7 @@ SKIP=commitlint git commit -m "ci: Wire ASVS gate workflow on PRs targeting mast
 
 - Modify: `README.md` (insert a badge in the existing badge block at lines 3–7)
 
-- [ ] **Step 1: Insert the badge**
+- [x] **Step 1: Insert the badge**
 
 Open `README.md`. Find the existing badge block:
 
@@ -458,7 +458,7 @@ Immediately after the `WorkFlow` badge line (line 7), insert one new line:
 
 The badge block becomes six badges total. The link uses a relative path so it works on GitHub web, raw clones, and IDE preview.
 
-- [ ] **Step 2: Verify the badge renders**
+- [x] **Step 2: Verify the badge renders**
 
 ```bash
 grep -n "OWASP_ASVS_5.0-Level_2_V12" README.md
@@ -466,7 +466,7 @@ grep -n "OWASP_ASVS_5.0-Level_2_V12" README.md
 
 Expected: one match at line 8.
 
-- [ ] **Step 3: Run pre-commit on the modified README**
+- [x] **Step 3: Run pre-commit on the modified README**
 
 ```bash
 pre-commit run --files README.md
@@ -474,7 +474,7 @@ pre-commit run --files README.md
 
 Expected: all hooks pass (editorconfig, trailing whitespace, end-of-file).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md
