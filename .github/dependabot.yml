@@ -1,14 +1,6 @@
 version: 2
-registries:
-  nexus-releases:
-    type: maven-repository
-    url: https://repo.extendaretail.com/repository/maven-releases/
-    username: ${{ secrets.NEXUS_MAVEN_USERNAME }}
-    password: ${{ secrets.NEXUS_MAVEN_PASSWORD }}
 updates:
   - package-ecosystem: maven
-    registries:
-      - nexus-releases
     directory: '/'
     schedule:
       interval: weekly
