@@ -166,7 +166,7 @@ SKIP=commitlint git commit -m "test: Add TLS PEM fixtures for HTTPS support"
 - Create: `src/main/java/com/retailsvc/http/internal/PemSslContext.java`
 - Create: `src/test/java/com/retailsvc/http/internal/PemSslContextTest.java`
 
-- [ ] **Step 1: Write the failing RSA happy-path test**
+- [x] **Step 1: Write the failing RSA happy-path test**
 
 Write `src/test/java/com/retailsvc/http/internal/PemSslContextTest.java`:
 
@@ -195,7 +195,7 @@ class PemSslContextTest {
 }
 ```
 
-- [ ] **Step 2: Run the test, confirm it fails**
+- [x] **Step 2: Run the test, confirm it fails**
 
 ```bash
 mvn test -Dtest=PemSslContextTest
@@ -203,7 +203,7 @@ mvn test -Dtest=PemSslContextTest
 
 Expected: compilation failure — `PemSslContext` does not exist.
 
-- [ ] **Step 3: Create the minimal `PemSslContext`**
+- [x] **Step 3: Create the minimal `PemSslContext`**
 
 Write `src/main/java/com/retailsvc/http/internal/PemSslContext.java`:
 
@@ -298,7 +298,7 @@ public final class PemSslContext {
 }
 ```
 
-- [ ] **Step 4: Run the test, confirm it passes**
+- [x] **Step 4: Run the test, confirm it passes**
 
 ```bash
 mvn test -Dtest=PemSslContextTest
@@ -306,7 +306,7 @@ mvn test -Dtest=PemSslContextTest
 
 Expected: 1 test passes.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/internal/PemSslContext.java \
