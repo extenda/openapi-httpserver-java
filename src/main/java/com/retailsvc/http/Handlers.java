@@ -28,6 +28,32 @@ public final class Handlers {
 
   private Handlers() {}
 
+  /**
+   * Response decorator that adds two browser-hardening headers to every response:
+   *
+   * <ul>
+   *   <li>{@code X-Content-Type-Options: nosniff} — prevents MIME sniffing.
+   *   <li>{@code Cross-Origin-Resource-Policy: same-origin} — blocks cross-origin reads of the
+   *       response body, mitigating Spectre-class side-channel attacks.
+   * </ul>
+   *
+   * <p>Existing headers with the same names are preserved, so a handler that sets either header
+   * keeps its value. Wire it in with {@code
+   * OpenApiServer.builder().responseDecorator(Handlers.securityHeadersDecorator())}.
+   */
+  public static ResponseDecorator securityHeadersDecorator() {
+    return (request, response) -> {
+      Response decorated = response;
+      if (!response.headers().containsKey("X-Content-Type-Options")) {
+        decorated = decorated.withHeader("X-Content-Type-Options", "nosniff");
+      }
+      if (!response.headers().containsKey("Cross-Origin-Resource-Policy")) {
+        decorated = decorated.withHeader("Cross-Origin-Resource-Policy", "same-origin");
+      }
+      return decorated;
+    };
+  }
+
   public static ExceptionHandler defaultExceptionHandler() {
     return t ->
         switch (t) {
