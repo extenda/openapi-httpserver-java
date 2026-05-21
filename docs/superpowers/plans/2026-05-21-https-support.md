@@ -50,7 +50,7 @@
 
 These are deterministic test fixtures, not secrets. They're committed once and reused.
 
-- [ ] **Step 1: Ensure the fixture directory exists**
+- [x] **Step 1: Ensure the fixture directory exists**
 
 Run:
 
@@ -58,7 +58,7 @@ Run:
 mkdir -p src/test/resources/tls
 ```
 
-- [ ] **Step 2: Generate the RSA self-signed cert + PKCS#8 key**
+- [x] **Step 2: Generate the RSA self-signed cert + PKCS#8 key**
 
 Run from the repo root:
 
@@ -72,7 +72,7 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
 
 `-nodes` makes the key unencrypted. `openssl req` writes PKCS#8 (`-----BEGIN PRIVATE KEY-----`) by default on modern OpenSSL (1.1.1+). `subjectAltName` is required for Java's `HttpClient` to accept the cert without warning.
 
-- [ ] **Step 3: Verify the RSA key is PKCS#8 unencrypted**
+- [x] **Step 3: Verify the RSA key is PKCS#8 unencrypted**
 
 Run:
 
@@ -88,7 +88,7 @@ openssl pkcs8 -topk8 -nocrypt -in src/test/resources/tls/rsa-key.pem \
   && mv src/test/resources/tls/rsa-key.pem.tmp src/test/resources/tls/rsa-key.pem
 ```
 
-- [ ] **Step 4: Generate the EC (P-256) self-signed cert + PKCS#8 key**
+- [x] **Step 4: Generate the EC (P-256) self-signed cert + PKCS#8 key**
 
 Run:
 
@@ -100,7 +100,7 @@ openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 3650 
   -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 ```
 
-- [ ] **Step 5: Verify the EC key is PKCS#8 unencrypted**
+- [x] **Step 5: Verify the EC key is PKCS#8 unencrypted**
 
 Run:
 
@@ -116,7 +116,7 @@ openssl pkcs8 -topk8 -nocrypt -in src/test/resources/tls/ec-key.pem \
   && mv src/test/resources/tls/ec-key.pem.tmp src/test/resources/tls/ec-key.pem
 ```
 
-- [ ] **Step 6: Generate a second RSA key (does NOT match `rsa-cert.pem`)**
+- [x] **Step 6: Generate a second RSA key (does NOT match `rsa-cert.pem`)**
 
 Run:
 
@@ -127,7 +127,7 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
 
 This produces an unencrypted PKCS#8 key by default.
 
-- [ ] **Step 7: Create a deliberately-broken PEM file**
+- [x] **Step 7: Create a deliberately-broken PEM file**
 
 Write `src/test/resources/tls/garbage.pem` with this exact content:
 
@@ -137,7 +137,7 @@ this is not actually base64 encoded certificate data at all
 -----END CERTIFICATE-----
 ```
 
-- [ ] **Step 8: Sanity-check both happy-path fixtures**
+- [x] **Step 8: Sanity-check both happy-path fixtures**
 
 Run:
 
@@ -150,7 +150,7 @@ openssl pkey -in src/test/resources/tls/ec-key.pem  -noout -text 2>&1 | head -3
 
 Expected: subject `CN = localhost`, validity ~10 years, key text confirms RSA 2048 and EC P-256 respectively.
 
-- [ ] **Step 9: Commit the fixtures**
+- [x] **Step 9: Commit the fixtures**
 
 ```bash
 git add src/test/resources/tls/
