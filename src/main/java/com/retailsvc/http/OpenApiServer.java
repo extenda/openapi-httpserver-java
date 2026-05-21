@@ -9,6 +9,7 @@ import com.retailsvc.http.internal.ExceptionFilter;
 import com.retailsvc.http.internal.ExtraRouteAdapter;
 import com.retailsvc.http.internal.FormTypeMapper;
 import com.retailsvc.http.internal.NotFoundHandler;
+import com.retailsvc.http.internal.PemSslContext;
 import com.retailsvc.http.internal.RequestPreparationFilter;
 import com.retailsvc.http.internal.ResponseRenderer;
 import com.retailsvc.http.internal.Router;
@@ -22,9 +23,12 @@ import com.retailsvc.http.spec.security.SecurityScheme;
 import com.retailsvc.http.validate.DefaultValidator;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsServer;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -35,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import javax.net.ssl.SSLContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,6 +52,7 @@ public class OpenApiServer implements AutoCloseable {
 
   private static final Logger LOG = LoggerFactory.getLogger(OpenApiServer.class);
   private static final int DEFAULT_PORT = 8080;
+  private static final int DEFAULT_HTTPS_PORT = 8443;
   private static final String JSON = "application/json";
   private static final String GSON_CLASS = "com.google.gson.Gson";
 
@@ -70,7 +76,8 @@ public class OpenApiServer implements AutoCloseable {
       HandlerConfig handlerConfig,
       int port,
       InetAddress bindAddress,
-      int shutdownTimeoutSeconds)
+      int shutdownTimeoutSeconds,
+      SSLContext sslContext)
       throws IOException {
 
     requireNonNull(spec, "Spec must not be null");
@@ -89,7 +96,13 @@ public class OpenApiServer implements AutoCloseable {
         (bindAddress == null)
             ? new InetSocketAddress(port)
             : new InetSocketAddress(bindAddress, port);
-    this.httpServer = HttpServer.create(socketAddress, 0);
+    if (sslContext != null) {
+      HttpsServer https = HttpsServer.create(socketAddress, 0);
+      https.setHttpsConfigurator(new HttpsConfigurator(sslContext));
+      this.httpServer = https;
+    } else {
+      this.httpServer = HttpServer.create(socketAddress, 0);
+    }
     httpServer.setExecutor(newThreadPerTaskExecutor(ofVirtual().name("http-", 0).factory()));
 
     ResponseRenderer renderer = new ResponseRenderer(bodyMappers);
@@ -189,7 +202,9 @@ public class OpenApiServer implements AutoCloseable {
     private final List<RequestInterceptor> interceptors = new ArrayList<>();
     private final List<AfterResponseHook> afterHooks = new ArrayList<>();
     private ExceptionHandler exceptionHandler;
-    private int port = DEFAULT_PORT;
+    private Integer port;
+    private Path httpsCertChain;
+    private Path httpsPrivateKey;
     private InetAddress bindAddress;
     private int shutdownTimeoutSeconds = 0;
     private final LinkedHashMap<String, RequestHandler> extras = new LinkedHashMap<>();
@@ -279,8 +294,9 @@ public class OpenApiServer implements AutoCloseable {
     }
 
     /**
-     * Sets the TCP port to listen on. Defaults to {@value #DEFAULT_PORT} when not set. Use {@code
-     * 0} to bind on an ephemeral port (read it back via {@link OpenApiServer#listenPort()}).
+     * Sets the TCP port to listen on. Defaults to {@value #DEFAULT_PORT} for HTTP and {@value
+     * #DEFAULT_HTTPS_PORT} when {@link #https(Path, Path)} is set. Use {@code 0} to bind on an
+     * ephemeral port (read it back via {@link OpenApiServer#listenPort()}).
      */
     public Builder port(int port) {
       this.port = port;
@@ -294,6 +310,24 @@ public class OpenApiServer implements AutoCloseable {
      */
     public Builder bindAddress(InetAddress bindAddress) {
       this.bindAddress = bindAddress;
+      return this;
+    }
+
+    /**
+     * Enables HTTPS using the given PEM-encoded certificate chain and PKCS#8 private key. Both
+     * files must exist when {@link #build()} runs; failures surface as {@link
+     * IllegalStateException} with the offending path. The certificate file is a PEM concatenation
+     * of the server certificate followed by any intermediates (matches certbot's {@code
+     * fullchain.pem}). The private key is an unencrypted PKCS#8 PEM (matches certbot's {@code
+     * privkey.pem}); RSA and EC keys are both accepted.
+     *
+     * <p>When set, the default port changes from {@value #DEFAULT_PORT} to {@value
+     * #DEFAULT_HTTPS_PORT}; {@link #port(int)} still overrides.
+     */
+    public Builder https(Path certificateChainPem, Path privateKeyPem) {
+      this.httpsCertChain =
+          requireNonNull(certificateChainPem, "certificateChainPem must not be null");
+      this.httpsPrivateKey = requireNonNull(privateKeyPem, "privateKeyPem must not be null");
       return this;
     }
 
@@ -354,8 +388,18 @@ public class OpenApiServer implements AutoCloseable {
               Map.copyOf(securityValidators),
               externalAuth,
               List.copyOf(afterHooks));
+      int resolvedPort =
+          port != null ? port : (httpsCertChain != null ? DEFAULT_HTTPS_PORT : DEFAULT_PORT);
+      SSLContext sslContext =
+          httpsCertChain != null ? PemSslContext.load(httpsCertChain, httpsPrivateKey) : null;
       return new OpenApiServer(
-          spec, resolved, handlerConfig, port, bindAddress, shutdownTimeoutSeconds);
+          spec,
+          resolved,
+          handlerConfig,
+          resolvedPort,
+          bindAddress,
+          shutdownTimeoutSeconds,
+          sslContext);
     }
 
     private static void validateHandlerWiring(Spec spec, Map<String, RequestHandler> handlers) {

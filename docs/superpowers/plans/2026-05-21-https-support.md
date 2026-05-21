@@ -495,7 +495,7 @@ SKIP=commitlint git commit -m "test: Cover PemSslContext error paths"
 
 This task adds the public builder method, switches the constructor to create `HttpsServer` when HTTPS is configured, and proves it end-to-end with a real HTTPS round-trip.
 
-- [ ] **Step 1: Add an OpenAPI fixture for the HTTPS IT**
+- [x] **Step 1: Add an OpenAPI fixture for the HTTPS IT**
 
 Reuse the existing `src/test/resources/openapi.json` (or whichever spec the existing `OpenApiServerIT` uses). Confirm the spec path used by the existing IT:
 
@@ -505,7 +505,7 @@ grep -l "Spec.from\|fromPath\|fromJson\|fromYaml" src/test/java/com/retailsvc/ht
 
 Read the resolved test spec path and reuse it in the new IT.
 
-- [ ] **Step 2: Write the failing integration test**
+- [x] **Step 2: Write the failing integration test**
 
 Write `src/test/java/com/retailsvc/http/OpenApiServerHttpsIT.java`:
 
@@ -598,7 +598,7 @@ class OpenApiServerHttpsIT {
 
 NOTE: This IT assumes the test spec at `/openapi.json` declares an operationId `getThings` on `GET /things` with no required parameters, no required body, and no security. If the existing test spec uses different operationIds, adjust the `handler` map and the URI path to match an operation that returns a `Response.ok(...)` cleanly. Confirm by skimming `src/test/resources/openapi.json` before running.
 
-- [ ] **Step 3: Run, confirm it fails to compile**
+- [x] **Step 3: Run, confirm it fails to compile**
 
 ```bash
 mvn verify -Dit.test=OpenApiServerHttpsIT -DfailIfNoTests=false
@@ -606,7 +606,7 @@ mvn verify -Dit.test=OpenApiServerHttpsIT -DfailIfNoTests=false
 
 Expected: compilation failure — `OpenApiServer.Builder.https(Path, Path)` does not exist.
 
-- [ ] **Step 4: Add HTTPS fields and the public method on `Builder`**
+- [x] **Step 4: Add HTTPS fields and the public method on `Builder`**
 
 In `src/main/java/com/retailsvc/http/OpenApiServer.java`:
 
@@ -700,7 +700,7 @@ with:
           spec, resolved, handlerConfig, resolvedPort, bindAddress, shutdownTimeoutSeconds, sslContext);
 ```
 
-- [ ] **Step 5: Update the constructor to optionally build an `HttpsServer`**
+- [x] **Step 5: Update the constructor to optionally build an `HttpsServer`**
 
 In `OpenApiServer.java`, change the constructor signature from:
 
@@ -747,7 +747,7 @@ with:
     }
 ```
 
-- [ ] **Step 6: Run unit tests, confirm nothing regressed**
+- [x] **Step 6: Run unit tests, confirm nothing regressed**
 
 ```bash
 mvn test
@@ -755,7 +755,7 @@ mvn test
 
 Expected: every existing test still passes. The `Builder` change from `int port = DEFAULT_PORT` to `Integer port` plus default-resolution in `build()` is observationally identical to the old behaviour for HTTP callers.
 
-- [ ] **Step 7: Run the new HTTPS IT**
+- [x] **Step 7: Run the new HTTPS IT**
 
 ```bash
 mvn verify -Dit.test=OpenApiServerHttpsIT -DfailIfNoTests=false
@@ -763,7 +763,7 @@ mvn verify -Dit.test=OpenApiServerHttpsIT -DfailIfNoTests=false
 
 Expected: both `[rsa]` and `[ec]` parameterised cases pass.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/OpenApiServer.java \
