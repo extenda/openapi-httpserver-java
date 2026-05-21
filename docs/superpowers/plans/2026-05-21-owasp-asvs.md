@@ -382,7 +382,7 @@ SKIP=commitlint git commit -m "ci: Add ASVS re-affirmation gate script"
 
 - Create: `.github/workflows/asvs-gate.yml`
 
-- [ ] **Step 1: Write the workflow**
+- [x] **Step 1: Write the workflow**
 
 Write `.github/workflows/asvs-gate.yml`:
 
@@ -413,7 +413,7 @@ jobs:
         run: .github/scripts/asvs-gate.sh
 ```
 
-- [ ] **Step 2: Lint the workflow file**
+- [x] **Step 2: Lint the workflow file**
 
 The repo has pre-commit hooks including yamllint. Run them against the new file:
 
@@ -423,7 +423,7 @@ pre-commit run --files .github/workflows/asvs-gate.yml
 
 Expected: all hooks pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add .github/workflows/asvs-gate.yml
