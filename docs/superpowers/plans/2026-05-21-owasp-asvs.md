@@ -129,13 +129,13 @@ SKIP=commitlint git commit -m "refactor: Extract TlsHttpsConfigurator to interna
 
 The directory does not yet exist; this task creates it.
 
-- [ ] **Step 1: Create the directory**
+- [x] **Step 1: Create the directory**
 
 ```bash
 mkdir -p docs/security
 ```
 
-- [ ] **Step 2: Write the checklist file**
+- [x] **Step 2: Write the checklist file**
 
 Write `docs/security/owasp-asvs.md` with this exact content. Replace `<TASK-2-COMMIT-SHA>` in the audit-log line with the SHA of the commit you'll make in Step 4 — that means: commit once, copy the SHA, edit the file, amend the commit (allowed for this single bootstrapping case since the audit log must reference itself).
 
@@ -196,14 +196,14 @@ publicly-trusted issuance.
 - **2026-05-21** — Initial ASVS 5.0 Level 2 mapping for V12 controls (commit `<TASK-2-COMMIT-SHA>`). All listed controls accepted as Implemented / Delegated / N/A / Future as tabulated above.
 ````
 
-- [ ] **Step 3: Commit (placeholder SHA)**
+- [x] **Step 3: Commit (placeholder SHA)**
 
 ```bash
 git add docs/security/owasp-asvs.md
 SKIP=commitlint git commit -m "chore: Add OWASP ASVS 5.0 L2 self-assessment for V12"
 ```
 
-- [ ] **Step 4: Capture the SHA, edit, amend**
+- [x] **Step 4: Capture the SHA, edit, amend**
 
 ```bash
 SHA=$(git rev-parse HEAD)
