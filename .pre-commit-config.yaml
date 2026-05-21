@@ -7,23 +7,23 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
   - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.5.5
+    rev: v1.5.6
     hooks:
       - id: remove-crlf
       - id: remove-tabs
         args: [ --whitespaces-count=2 ]
   - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
-    rev: 3.4.0
+    rev: 3.6.1
     hooks:
       - id: editorconfig-checker
   - repo: https://github.com/extenda/pre-commit-hooks
-    rev: v0.14.0
+    rev: v0.15.0
     hooks:
       - id: google-java-formatter
       - id: commitlint
         stages: [commit-msg]
   - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.37.1
+    rev: v1.38.0
     hooks:
       - id: yamllint
         args: [ --strict, -c=.yamllint ]
