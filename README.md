@@ -20,6 +20,7 @@ endpoints declared in an OpenAPI 3.1.x specification. Handlers are pure function
 - [JSON mapping](#json-mapping)
 - [Body parsers and response writers](#body-parsers-and-response-writers)
 - [Server configuration](#server-configuration)
+  - [HTTPS](#https)
 - [Interceptors and response decorators](#interceptors-and-response-decorators)
 - [After-response hooks](#after-response-hooks)
 - [Security](#security)
@@ -325,6 +326,83 @@ OpenApiServer.builder()
     .bindAddress(InetAddress.getLoopbackAddress())
     .build();
 ```
+
+### HTTPS
+
+Point the builder at a PEM certificate chain and a PEM PKCS#8 private key:
+
+```java
+import java.nio.file.Path;
+
+var server = OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .https(
+        Path.of("/etc/letsencrypt/live/example.com/fullchain.pem"),
+        Path.of("/etc/letsencrypt/live/example.com/privkey.pem"))
+    .build();
+```
+
+certbot / Let's Encrypt write exactly these two files to
+`/etc/letsencrypt/live/<domain>/`: `fullchain.pem` (your certificate + the
+issuing intermediates, concatenated PEM) and `privkey.pem` (unencrypted PKCS#8).
+No conversion to PKCS12 / JKS is needed; the library parses the PEM directly
+using JDK APIs only.
+
+Both RSA and EC (P-256) private keys are accepted; the algorithm is detected
+automatically.
+
+**Deployment.** Don't bake `privkey.pem` into your container image — you
+lose rotation and leak the key into image layers and registries. Mount the
+two PEM files at runtime from a secret manager:
+
+- **Kubernetes:** [cert-manager](https://cert-manager.io) writes the
+  certificate and key into a `Secret`; mount it as a volume at the path you
+  pass to `.https(...)`. Renewal is automatic; restart the pod (e.g. via a
+  rolling deploy keyed off the Secret's revision) to pick up the new cert.
+- **GCP:** Store both files in Secret Manager and project them with the
+  [Secret Manager CSI driver](https://cloud.google.com/secret-manager/docs/access-control)
+  or a Workload Identity-bound init container that writes the files to an
+  `emptyDir` shared with the app container.
+- **AWS:** [Secrets Manager](https://docs.aws.amazon.com/secretsmanager/) via
+  the [AWS Secrets and Configuration Provider](https://github.com/aws/secrets-store-csi-driver-provider-aws)
+  for the CSI driver follows the same pattern.
+
+Whatever the source: mount the volume read-only, give `privkey.pem` mode
+`0400` (owner-read only), and ensure the JVM process owns or can read it.
+
+When `.https(...)` is set, the default port changes from `8080` to `8443`.
+`port(int)` still overrides explicitly:
+
+```java
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .https(certChain, privateKey)
+    .port(443)              // overrides the 8443 default
+    .build();
+```
+
+For local development without a real certificate, generate a self-signed pair
+with one openssl command:
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+  -keyout privkey.pem -out fullchain.pem \
+  -subj "/CN=localhost" \
+  -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+```
+
+Clients (browsers, `curl`, `HttpClient`) need to trust the resulting certificate
+explicitly — it isn't signed by a public CA.
+
+**Not in this release** (each can land later without breaking the API):
+
+- Encrypted / password-protected private keys
+- PKCS12 / JKS keystore inputs
+- Certificate hot-reload on renewal (restart the process after `certbot renew`)
+- TLS protocol / cipher overrides (JDK defaults apply: TLS 1.2 and 1.3)
+- Serving HTTP and HTTPS from one `OpenApiServer` instance
 
 ### Graceful shutdown
 
