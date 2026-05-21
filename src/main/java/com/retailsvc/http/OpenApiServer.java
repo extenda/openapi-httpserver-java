@@ -390,8 +390,7 @@ public class OpenApiServer implements AutoCloseable {
               Map.copyOf(securityValidators),
               externalAuth,
               List.copyOf(afterHooks));
-      int resolvedPort =
-          port != null ? port : (httpsCertChain != null ? DEFAULT_HTTPS_PORT : DEFAULT_PORT);
+      int resolvedPort = resolvePort();
       SSLContext sslContext =
           httpsCertChain != null ? PemSslContext.load(httpsCertChain, httpsPrivateKey) : null;
       return new OpenApiServer(
@@ -402,6 +401,13 @@ public class OpenApiServer implements AutoCloseable {
           bindAddress,
           shutdownTimeoutSeconds,
           sslContext);
+    }
+
+    private int resolvePort() {
+      if (port != null) {
+        return port;
+      }
+      return httpsCertChain != null ? DEFAULT_HTTPS_PORT : DEFAULT_PORT;
     }
 
     private static void validateHandlerWiring(Spec spec, Map<String, RequestHandler> handlers) {

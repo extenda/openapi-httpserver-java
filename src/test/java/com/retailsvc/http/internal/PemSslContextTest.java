@@ -17,6 +17,8 @@ class PemSslContextTest {
   private static final Path MISMATCHED_KEY = Path.of("src/test/resources/tls/mismatched-key.pem");
   private static final Path GARBAGE = Path.of("src/test/resources/tls/garbage.pem");
   private static final Path MISSING = Path.of("src/test/resources/tls/does-not-exist.pem");
+  private static final Path WEAK_RSA_CERT = Path.of("src/test/resources/tls/weak-rsa-cert.pem");
+  private static final Path WEAK_RSA_KEY = Path.of("src/test/resources/tls/weak-rsa-key.pem");
 
   @Test
   void loadsRsaPemPair() throws Exception {
@@ -90,5 +92,13 @@ class PemSslContextTest {
     // P-256 (256 bits) is exactly at the floor — must pass.
     SSLContext ctx = PemSslContext.load(EC_CERT, EC_KEY);
     assertThat(ctx).isNotNull();
+  }
+
+  @Test
+  void rejectsWeakRsaKey() {
+    assertThatThrownBy(() -> PemSslContext.load(WEAK_RSA_CERT, WEAK_RSA_KEY))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("TLS RSA key below minimum strength")
+        .hasMessageContaining("1024 bits");
   }
 }
