@@ -36,13 +36,18 @@ public final class PemSslContext {
     } catch (IOException e) {
       throw new IllegalStateException("Cannot read TLS certificate chain: " + path, e);
     }
+    return decodeCertificateChain(bytes, path);
+  }
+
+  // JEP 524 swap point: replace this body with PEMDecoder when the JDK PEM API lands.
+  private static Certificate[] decodeCertificateChain(byte[] pem, Path source) {
     try {
       CertificateFactory factory = CertificateFactory.getInstance("X.509");
       Collection<? extends Certificate> certs =
-          factory.generateCertificates(new ByteArrayInputStream(bytes));
+          factory.generateCertificates(new ByteArrayInputStream(pem));
       return certs.toArray(new Certificate[0]);
     } catch (GeneralSecurityException e) {
-      throw new IllegalStateException("Failed to parse TLS certificate chain from " + path, e);
+      throw new IllegalStateException("Failed to parse TLS certificate chain from " + source, e);
     }
   }
 
@@ -53,6 +58,11 @@ public final class PemSslContext {
     } catch (IOException e) {
       throw new IllegalStateException("Cannot read TLS private key: " + path, e);
     }
+    return decodePrivateKey(pem, path);
+  }
+
+  // JEP 524 swap point: replace this body with PEMDecoder when the JDK PEM API lands.
+  private static PrivateKey decodePrivateKey(String pem, Path source) {
     byte[] der;
     try {
       String base64 =
@@ -61,7 +71,7 @@ public final class PemSslContext {
               .replaceAll("\\s+", "");
       der = Base64.getDecoder().decode(base64);
     } catch (IllegalArgumentException e) {
-      throw new IllegalStateException("Failed to parse TLS private key from " + path, e);
+      throw new IllegalStateException("Failed to parse TLS private key from " + source, e);
     }
     PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(der);
     try {
@@ -70,12 +80,13 @@ public final class PemSslContext {
       try {
         return KeyFactory.getInstance("EC").generatePrivate(spec);
       } catch (InvalidKeySpecException ecFail) {
-        throw new IllegalStateException("Unsupported TLS private key algorithm in " + path, ecFail);
+        throw new IllegalStateException(
+            "Unsupported TLS private key algorithm in " + source, ecFail);
       } catch (GeneralSecurityException e) {
-        throw new IllegalStateException("Failed to parse TLS private key from " + path, e);
+        throw new IllegalStateException("Failed to parse TLS private key from " + source, e);
       }
     } catch (GeneralSecurityException e) {
-      throw new IllegalStateException("Failed to parse TLS private key from " + path, e);
+      throw new IllegalStateException("Failed to parse TLS private key from " + source, e);
     }
   }
 
