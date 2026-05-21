@@ -37,7 +37,7 @@
 - Create: `src/main/java/com/retailsvc/http/internal/TlsHttpsConfigurator.java`
 - Modify: `src/main/java/com/retailsvc/http/OpenApiServer.java` (delete nested class at lines 481–498, adjust imports, add new import)
 
-- [ ] **Step 1: Create the new file**
+- [x] **Step 1: Create the new file**
 
 Write `src/main/java/com/retailsvc/http/internal/TlsHttpsConfigurator.java`:
 
@@ -69,13 +69,13 @@ public final class TlsHttpsConfigurator extends HttpsConfigurator {
 }
 ```
 
-- [ ] **Step 2: Remove the nested class from `OpenApiServer.java`**
+- [x] **Step 2: Remove the nested class from `OpenApiServer.java`**
 
 In `src/main/java/com/retailsvc/http/OpenApiServer.java`:
 
 Delete the entire block that currently sits at lines 480–498 (the Javadoc comment plus the `private static final class TlsHttpsConfigurator` body, inclusive of its closing `}`). The final `}` on line 499 (closing the outer `OpenApiServer` class) stays.
 
-- [ ] **Step 3: Adjust imports in `OpenApiServer.java`**
+- [x] **Step 3: Adjust imports in `OpenApiServer.java`**
 
 Remove these two imports (currently at lines 27 and 44):
 
@@ -103,7 +103,7 @@ grep -n "HttpsConfigurator" src/main/java/com/retailsvc/http/OpenApiServer.java
 
 If the only remaining matches are inside the (deleted) line range, also delete the `HttpsConfigurator` import.
 
-- [ ] **Step 4: Run the full test suite**
+- [x] **Step 4: Run the full test suite**
 
 ```bash
 mvn clean verify
@@ -111,7 +111,7 @@ mvn clean verify
 
 Expected: BUILD SUCCESS. 432 unit tests pass, 55 integration tests pass — identical counts to the pre-refactor branch. `OpenApiServerHttpsIT#negotiatesTls13` still confirms TLS 1.3 negotiation.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/internal/TlsHttpsConfigurator.java \
