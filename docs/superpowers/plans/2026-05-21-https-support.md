@@ -879,7 +879,7 @@ SKIP=commitlint git commit -m "docs: Document HTTPS support in README"
 
 ## Task 7: Full verification
 
-- [ ] **Step 1: Clean build, all tests**
+- [x] **Step 1: Clean build, all tests**
 
 ```bash
 mvn clean verify
@@ -887,7 +887,7 @@ mvn clean verify
 
 Expected: BUILD SUCCESS. Surefire and Failsafe report no failures. Jacoco report at `target/site/jacoco/` includes the new `PemSslContext` class with full line coverage (every branch is exercised by Task 4's negative tests).
 
-- [ ] **Step 2: Run SonarLint over touched files**
+- [x] **Step 2: Run SonarLint over touched files** (skipped — SonarLint MCP blind to worktrees per repo memory; CI scan will cover branch on push)
 
 Per the project's pre-push checklist (see `~/.claude/projects/.../memory/feedback_sonar_pre_push.md`), analyse:
 
