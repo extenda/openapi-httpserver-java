@@ -123,8 +123,8 @@ public final class PemSslContext {
   }
 
   private static SSLContext buildSslContext(Certificate[] chain, PrivateKey key) {
-    verifyKeyMatchesCert(key, chain[0]);
     requireMinimumStrength(chain[0]);
+    verifyKeyMatchesCert(key, chain[0]);
     try {
       KeyStore ks = KeyStore.getInstance("PKCS12");
       ks.load(null, null);
@@ -171,14 +171,8 @@ public final class PemSslContext {
   }
 
   private static void verifyKeyMatchesCert(PrivateKey key, Certificate cert) {
-    String algorithm =
-        switch (key.getAlgorithm()) {
-          case "RSA" -> "SHA256withRSA";
-          case "EC" -> "SHA256withECDSA";
-          default ->
-              throw new IllegalStateException(
-                  "Unsupported TLS private key algorithm: " + key.getAlgorithm());
-        };
+    // decodePrivateKey only returns RSA or EC keys, so this switch is total without a default.
+    String algorithm = "RSA".equals(key.getAlgorithm()) ? "SHA256withRSA" : "SHA256withECDSA";
     byte[] signature;
     try {
       Signature signer = Signature.getInstance(algorithm);

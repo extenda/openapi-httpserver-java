@@ -19,6 +19,10 @@ class PemSslContextTest {
   private static final Path MISSING = Path.of("src/test/resources/tls/does-not-exist.pem");
   private static final Path WEAK_RSA_CERT = Path.of("src/test/resources/tls/weak-rsa-cert.pem");
   private static final Path WEAK_RSA_KEY = Path.of("src/test/resources/tls/weak-rsa-key.pem");
+  private static final Path WEAK_EC_CERT = Path.of("src/test/resources/tls/weak-ec-cert.pem");
+  private static final Path WEAK_EC_KEY = Path.of("src/test/resources/tls/weak-ec-key.pem");
+  private static final Path DSA_CERT = Path.of("src/test/resources/tls/dsa-cert.pem");
+  private static final Path DSA_KEY = Path.of("src/test/resources/tls/dsa-key.pem");
 
   @Test
   void loadsRsaPemPair() {
@@ -100,5 +104,27 @@ class PemSslContextTest {
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("TLS RSA key below minimum strength")
         .hasMessageContaining("1024 bits");
+  }
+
+  @Test
+  void rejectsWeakEcKey() {
+    assertThatThrownBy(() -> PemSslContext.load(WEAK_EC_CERT, WEAK_EC_KEY))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("TLS EC key below minimum strength")
+        .hasMessageContaining("192 bits");
+  }
+
+  @Test
+  void rejectsUnsupportedKeyAlgorithm() {
+    assertThatThrownBy(() -> PemSslContext.load(RSA_CERT, DSA_KEY))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Unsupported TLS private key algorithm");
+  }
+
+  @Test
+  void rejectsUnsupportedCertAlgorithm() {
+    assertThatThrownBy(() -> PemSslContext.load(DSA_CERT, RSA_KEY))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Unsupported TLS public key algorithm");
   }
 }
