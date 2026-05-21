@@ -779,7 +779,7 @@ SKIP=commitlint git commit -m "feat: Enable HTTPS via Builder.https(certChain, p
 
 - Modify: `README.md`
 
-- [ ] **Step 1: Add the table-of-contents entry**
+- [x] **Step 1: Add the table-of-contents entry**
 
 In the `## Table of contents` block, under `## Server configuration`, change:
 
@@ -796,7 +796,7 @@ to add a nested HTTPS link (mirroring the existing nesting style if present, oth
 
 Confirm the existing TOC's indentation style first by reading the top of `README.md`; match it.
 
-- [ ] **Step 2: Add the HTTPS subsection**
+- [x] **Step 2: Add the HTTPS subsection**
 
 In `README.md`, find the existing `### Graceful shutdown` heading inside `## Server configuration`. Immediately *before* it, insert:
 
@@ -860,7 +860,7 @@ explicitly — it isn't signed by a public CA.
 - Serving HTTP and HTTPS from one `OpenApiServer` instance
 ````
 
-- [ ] **Step 3: Verify the README renders the new section**
+- [x] **Step 3: Verify the README renders the new section**
 
 ```bash
 grep -n "^### HTTPS$" README.md
@@ -868,7 +868,7 @@ grep -n "^### HTTPS$" README.md
 
 Expected: one line, between the `### Bind address` and `### Graceful shutdown` headings inside `## Server configuration`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md

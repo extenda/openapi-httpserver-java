@@ -20,6 +20,7 @@ endpoints declared in an OpenAPI 3.1.x specification. Handlers are pure function
 - [JSON mapping](#json-mapping)
 - [Body parsers and response writers](#body-parsers-and-response-writers)
 - [Server configuration](#server-configuration)
+  - [HTTPS](#https)
 - [Interceptors and response decorators](#interceptors-and-response-decorators)
 - [After-response hooks](#after-response-hooks)
 - [Security](#security)
@@ -325,6 +326,64 @@ OpenApiServer.builder()
     .bindAddress(InetAddress.getLoopbackAddress())
     .build();
 ```
+
+### HTTPS
+
+Point the builder at a PEM certificate chain and a PEM PKCS#8 private key:
+
+```java
+import java.nio.file.Path;
+
+var server = OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .https(
+        Path.of("/etc/letsencrypt/live/example.com/fullchain.pem"),
+        Path.of("/etc/letsencrypt/live/example.com/privkey.pem"))
+    .build();
+```
+
+certbot / Let's Encrypt write exactly these two files to
+`/etc/letsencrypt/live/<domain>/`: `fullchain.pem` (your certificate + the
+issuing intermediates, concatenated PEM) and `privkey.pem` (unencrypted PKCS#8).
+No conversion to PKCS12 / JKS is needed; the library parses the PEM directly
+using JDK APIs only.
+
+Both RSA and EC (P-256) private keys are accepted; the algorithm is detected
+automatically.
+
+When `.https(...)` is set, the default port changes from `8080` to `8443`.
+`port(int)` still overrides explicitly:
+
+```java
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .https(certChain, privateKey)
+    .port(443)              // overrides the 8443 default
+    .build();
+```
+
+For local development without a real certificate, generate a self-signed pair
+with one openssl command:
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+  -keyout privkey.pem -out fullchain.pem \
+  -subj "/CN=localhost" \
+  -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+```
+
+Clients (browsers, `curl`, `HttpClient`) need to trust the resulting certificate
+explicitly — it isn't signed by a public CA.
+
+**Not in this release** (each can land later without breaking the API):
+
+- Encrypted / password-protected private keys
+- PKCS12 / JKS keystore inputs
+- Certificate hot-reload on renewal (restart the process after `certbot renew`)
+- TLS protocol / cipher overrides (JDK defaults apply: TLS 1.2 and 1.3)
+- Serving HTTP and HTTPS from one `OpenApiServer` instance
 
 ### Graceful shutdown
 
