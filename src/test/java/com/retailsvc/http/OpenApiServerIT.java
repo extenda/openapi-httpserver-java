@@ -379,27 +379,6 @@ class OpenApiServerIT extends ServerBaseTest {
         fail(e);
       }
     }
-
-    @Test
-    void getPathParamsShouldReturnInternalErrorOnMissingHandler() {
-      try (var server = newServer(Map.of("not-a-valid-operation-id", new EchoHandler()));
-          var client = httpClient()) {
-
-        var pathWithParams = path + "/1234567890/Justin/Case";
-        var request = newRequest(server, pathWithParams, "GET", noBody());
-
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-
-        assertThat(statusCode).isEqualTo(500);
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
-    }
   }
 
   @Nested

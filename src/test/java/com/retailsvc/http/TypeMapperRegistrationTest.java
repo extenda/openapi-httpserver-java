@@ -32,7 +32,7 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
     server =
         newBuilder()
             .spec(spec)
-            .handlers(Map.of("get-data", echo, "post-data", echo))
+            .handlers(stubAllHandlers(Map.of("get-data", echo, "post-data", echo)))
             .port(0)
             .build();
     HttpClient client =
@@ -73,7 +73,7 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
         newBuilder()
             .spec(spec)
             .bodyMapper("application/json", marker)
-            .handlers(Map.of("get-data", echo, "post-data", echo))
+            .handlers(stubAllHandlers(Map.of("get-data", echo, "post-data", echo)))
             .port(0)
             .build();
     HttpClient.newHttpClient()
@@ -109,7 +109,7 @@ class TypeMapperRegistrationTest extends ServerBaseTest {
         newBuilder()
             .spec(spec)
             .jsonMapper(marker)
-            .handlers(Map.of("get-data", echo, "post-data", echo))
+            .handlers(stubAllHandlers(Map.of("get-data", echo, "post-data", echo)))
             .port(0)
             .build();
     HttpClient.newHttpClient()

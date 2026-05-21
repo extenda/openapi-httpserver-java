@@ -137,11 +137,12 @@ class SecurityIT extends ServerBaseTest {
     assertThat(r.statusCode()).isEqualTo(200);
   }
 
-  private static Map<String, RequestHandler> defaultHandlers() {
-    return Map.of(
-        "secureApiKey", req -> Response.ok("{\"ok\":true}"),
-        "secureBearer", req -> Response.ok("{\"ok\":true}"),
-        "secureBasic", req -> Response.ok("{\"ok\":true}"),
-        "secureOpen", req -> Response.ok("{\"ok\":true}"));
+  private Map<String, RequestHandler> defaultHandlers() {
+    return stubAllHandlers(
+        Map.of(
+            "secureApiKey", req -> Response.ok("{\"ok\":true}"),
+            "secureBearer", req -> Response.ok("{\"ok\":true}"),
+            "secureBasic", req -> Response.ok("{\"ok\":true}"),
+            "secureOpen", req -> Response.ok("{\"ok\":true}")));
   }
 }

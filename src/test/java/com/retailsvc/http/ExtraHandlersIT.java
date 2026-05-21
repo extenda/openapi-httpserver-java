@@ -15,7 +15,7 @@ class ExtraHandlersIT extends ServerBaseTest {
     try (var s =
             newBuilder()
                 .spec(spec)
-                .handlers(Map.of())
+                .handlers(stubAllHandlers(Map.of()))
                 .port(0)
                 .extraRoute("/alive", Handlers.aliveHandler())
                 .build();
@@ -38,7 +38,7 @@ class ExtraHandlersIT extends ServerBaseTest {
     try (var s =
             newBuilder()
                 .spec(spec)
-                .handlers(Map.of())
+                .handlers(stubAllHandlers(Map.of()))
                 .port(0)
                 .extraRoute("/openapi.yaml", Handlers.resourceHandler("/openapi.yaml"))
                 .build();
@@ -63,7 +63,12 @@ class ExtraHandlersIT extends ServerBaseTest {
         req -> Response.of(200, "<h1>hi</h1>").withContentType("text/html; charset=UTF-8");
 
     try (var s =
-            newBuilder().spec(spec).handlers(Map.of()).port(0).extraRoute("/page", html).build();
+            newBuilder()
+                .spec(spec)
+                .handlers(stubAllHandlers(Map.of()))
+                .port(0)
+                .extraRoute("/page", html)
+                .build();
         var client = httpClient()) {
 
       var req =
@@ -88,7 +93,12 @@ class ExtraHandlersIT extends ServerBaseTest {
         };
 
     try (var s =
-            newBuilder().spec(spec).handlers(Map.of()).port(0).extraRoute("/boom", boom).build();
+            newBuilder()
+                .spec(spec)
+                .handlers(stubAllHandlers(Map.of()))
+                .port(0)
+                .extraRoute("/boom", boom)
+                .build();
         var client = httpClient()) {
 
       var req =

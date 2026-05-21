@@ -5,6 +5,7 @@ import static java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor;
 import static org.assertj.core.api.Assertions.fail;
 
 import com.google.gson.Gson;
+import com.retailsvc.http.spec.Operation;
 import com.retailsvc.http.spec.Spec;
 import java.io.InputStream;
 import java.net.URI;
@@ -52,16 +53,11 @@ public abstract class ServerBaseTest {
   }
 
   protected OpenApiServer newServer(Map<String, RequestHandler> handlers) {
-    Map<String, RequestHandler> all = new HashMap<>(handlers);
-    all.putIfAbsent("secureApiKey", req -> Response.status(200));
-    all.putIfAbsent("secureBearer", req -> Response.status(200));
-    all.putIfAbsent("secureBasic", req -> Response.status(200));
-    all.putIfAbsent("secureOpen", req -> Response.status(200));
     try {
       server =
           OpenApiServer.builder()
               .spec(spec)
-              .handlers(all)
+              .handlers(stubAllHandlers(handlers))
               .securityValidator("apiKeyAuth", (req, cred) -> Optional.empty())
               .securityValidator("bearerAuth", (req, cred) -> Optional.empty())
               .securityValidator("basicAuth", (req, cred) -> Optional.empty())
@@ -72,6 +68,30 @@ public abstract class ServerBaseTest {
       fail(e);
     }
     return null;
+  }
+
+  /**
+   * Returns a handler map covering every operationId declared in {@link #spec}, with the supplied
+   * {@code overrides} taking precedence. Tests that exercise only a subset of operations can
+   * register handlers for just those, and remaining spec operations get a stub returning 200 so the
+   * fail-fast boot validation in {@link OpenApiServer.Builder} stays satisfied.
+   */
+  protected Map<String, RequestHandler> stubAllHandlers(Map<String, RequestHandler> overrides) {
+    return stubAllHandlers(spec, overrides);
+  }
+
+  /**
+   * Static variant of {@link #stubAllHandlers(Map)} for tests that hold their own {@link Spec}
+   * instance and do not extend {@link ServerBaseTest} as a fixture.
+   */
+  static Map<String, RequestHandler> stubAllHandlers(
+      Spec spec, Map<String, RequestHandler> overrides) {
+    Map<String, RequestHandler> all = new HashMap<>();
+    for (Operation op : spec.operations()) {
+      all.put(op.operationId(), req -> Response.status(200));
+    }
+    all.putAll(overrides);
+    return all;
   }
 
   protected HttpRequest newRequest(
