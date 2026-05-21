@@ -323,7 +323,7 @@ SKIP=commitlint git commit -m "feat: Add PemSslContext for loading PEM cert + RS
 - Modify: `src/main/java/com/retailsvc/http/internal/PemSslContext.java`
 - Modify: `src/test/java/com/retailsvc/http/internal/PemSslContextTest.java`
 
-- [ ] **Step 1: Add the failing EC test**
+- [x] **Step 1: Add the failing EC test**
 
 Append to `PemSslContextTest`:
 
@@ -340,7 +340,7 @@ Append to `PemSslContextTest`:
   }
 ```
 
-- [ ] **Step 2: Run, confirm it fails**
+- [x] **Step 2: Run, confirm it fails**
 
 ```bash
 mvn test -Dtest=PemSslContextTest#loadsEcPemPair
@@ -348,7 +348,7 @@ mvn test -Dtest=PemSslContextTest#loadsEcPemPair
 
 Expected: FAIL — `InvalidKeySpecException` wrapped in `IllegalStateException` from RSA `KeyFactory` rejecting EC bytes.
 
-- [ ] **Step 3: Extend `readPrivateKey` with EC fallback**
+- [x] **Step 3: Extend `readPrivateKey` with EC fallback**
 
 In `PemSslContext.java`, replace the entire `readPrivateKey` method with:
 
@@ -388,7 +388,7 @@ In `PemSslContext.java`, replace the entire `readPrivateKey` method with:
   }
 ```
 
-- [ ] **Step 4: Run both happy-path tests**
+- [x] **Step 4: Run both happy-path tests**
 
 ```bash
 mvn test -Dtest=PemSslContextTest
@@ -396,7 +396,7 @@ mvn test -Dtest=PemSslContextTest
 
 Expected: 2 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/internal/PemSslContext.java \

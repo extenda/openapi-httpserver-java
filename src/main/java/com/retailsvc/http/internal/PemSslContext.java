@@ -66,7 +66,13 @@ public final class PemSslContext {
     try {
       return KeyFactory.getInstance("RSA").generatePrivate(spec);
     } catch (InvalidKeySpecException rsaFail) {
-      throw new IllegalStateException("Failed to parse TLS private key from " + path, rsaFail);
+      try {
+        return KeyFactory.getInstance("EC").generatePrivate(spec);
+      } catch (InvalidKeySpecException ecFail) {
+        throw new IllegalStateException("Unsupported TLS private key algorithm in " + path, ecFail);
+      } catch (GeneralSecurityException e) {
+        throw new IllegalStateException("Failed to parse TLS private key from " + path, e);
+      }
     } catch (GeneralSecurityException e) {
       throw new IllegalStateException("Failed to parse TLS private key from " + path, e);
     }
