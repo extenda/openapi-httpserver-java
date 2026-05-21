@@ -26,6 +26,7 @@ endpoints declared in an OpenAPI 3.1.x specification. Handlers are pure function
 - [Request body content types](#request-body-content-types)
 - [Error responses (RFC 7807)](#error-responses-rfc-7807)
 - [Extra (non-OpenAPI) handlers](#extra-non-openapi-handlers)
+  - [Health endpoint](#health-endpoint)
 - [Graceful shutdown](#graceful-shutdown)
 - [End-to-end example](#end-to-end-example)
 - [Local development](#local-development)
@@ -787,10 +788,60 @@ routes.
 Built-in helpers:
 
 - `Handlers.aliveHandler()` — 204 No Content on `GET`/`HEAD`, 405 otherwise.
+- `Handlers.healthHandler(Supplier<HealthOutcome>)` — readiness probe that aggregates dependency
+  statuses. See [Health endpoint](#health-endpoint) below.
 - `Handlers.resourceHandler(classpathResource)` / `Handlers.resourceHandler(Path)` — streams a
   classpath resource or filesystem file (content-type inferred from extension; the stream is
   opened and closed per request, and the handler owns its lifecycle). Throws
   `IllegalArgumentException` at construction if the resource or file is missing.
+
+### Health endpoint
+
+`Handlers.healthHandler(probe)` mounts a readiness endpoint that aggregates per-dependency
+statuses into a single response. The probe is invoked on every request, so it sees current
+backend state.
+
+``` java
+RequestHandler health = Handlers.healthHandler(() -> new HealthOutcome(List.of(
+    new Dependency("jdbc", dataSource.isReachable()),
+    new Dependency("kafka", kafkaClient.isConnected()))));
+
+var server = OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .extraRoute("/health", health)
+    .build();
+```
+
+Status code derives from the dependency list: `200 OK` when every dependency is up (vacuously
+true for an empty list), `503 Service Unavailable` otherwise. The wire shape is the same in both
+cases:
+
+``` json
+{
+  "outcome": "Up",
+  "dependencies": [
+    {"id": "jdbc",  "status": "Up"},
+    {"id": "kafka", "status": "Up"}
+  ]
+}
+```
+
+``` json
+{
+  "outcome": "Down",
+  "dependencies": [
+    {"id": "jdbc",  "status": "Up"},
+    {"id": "kafka", "status": "Down"}
+  ]
+}
+```
+
+The body is rendered by a built-in writer — no JSON library on the classpath is required. A
+probe that throws or returns `null` is logged at WARN and surfaces as a `Down` response with an
+empty dependency list; the exception never reaches the configured `ExceptionHandler`. `GET` and
+`HEAD` are accepted; other methods return `405 Method Not Allowed` with an `Allow: GET, HEAD`
+header.
 
 ## End-to-end example
 
