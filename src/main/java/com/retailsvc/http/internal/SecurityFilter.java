@@ -5,7 +5,6 @@ import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
 import com.retailsvc.http.Request;
 import com.retailsvc.http.SchemeValidator;
-import com.retailsvc.http.TypeMapper;
 import com.retailsvc.http.spec.Operation;
 import com.retailsvc.http.spec.security.SecurityRequirement;
 import com.retailsvc.http.spec.security.SecurityScheme;
@@ -19,7 +18,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 public final class SecurityFilter extends Filter {
@@ -29,21 +27,18 @@ public final class SecurityFilter extends Filter {
   private final List<SecurityRequirement> rootSecurity;
   private final Map<String, SchemeValidator> validators;
   private final boolean externalAuth;
-  private final TypeMapper jsonMapper;
 
   public SecurityFilter(
       Map<String, Operation> operationsById,
       Map<String, SecurityScheme> schemes,
       List<SecurityRequirement> rootSecurity,
       Map<String, SchemeValidator> validators,
-      boolean externalAuth,
-      TypeMapper jsonMapper) {
+      boolean externalAuth) {
     this.operationsById = Map.copyOf(operationsById);
     this.schemes = Map.copyOf(schemes);
     this.rootSecurity = List.copyOf(rootSecurity);
     this.validators = Map.copyOf(validators);
     this.externalAuth = externalAuth;
-    this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper must not be null");
   }
 
   @Override
@@ -125,7 +120,7 @@ public final class SecurityFilter extends Filter {
 
     ProblemDetail problemDetail =
         new ProblemDetail("about:blank", title, status, detail, null, null);
-    byte[] body = jsonMapper.writeTo(problemDetail);
+    byte[] body = ProblemDetailRenderer.renderJson(problemDetail);
     exchange.getResponseHeaders().add("Content-Type", "application/problem+json");
     if (!anyDenied) {
       LinkedHashSet<String> attempted = new LinkedHashSet<>();
