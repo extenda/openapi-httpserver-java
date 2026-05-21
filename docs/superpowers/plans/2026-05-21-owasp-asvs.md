@@ -485,7 +485,7 @@ SKIP=commitlint git commit -m "docs: Add OWASP ASVS badge to README"
 
 ## Task 6: End-to-end verification
 
-- [ ] **Step 1: Full build still green**
+- [x] **Step 1: Full build still green**
 
 ```bash
 mvn clean verify
@@ -493,7 +493,7 @@ mvn clean verify
 
 Expected: BUILD SUCCESS. 432 unit tests, 55 integration tests, zero failures. The refactor in Task 1 is the only code change; identical counts to the base branch.
 
-- [ ] **Step 2: Final gate self-check**
+- [x] **Step 2: Final gate self-check**
 
 ```bash
 BASE_SHA=$(git merge-base origin/master HEAD) HEAD_SHA=HEAD .github/scripts/asvs-gate.sh
@@ -501,7 +501,7 @@ BASE_SHA=$(git merge-base origin/master HEAD) HEAD_SHA=HEAD .github/scripts/asvs
 
 Expected: `ASVS gate: TLS-relevant changes re-affirmed in docs/security/owasp-asvs.md.` (exit 0). This proves the branch passes its own gate when targeted at master.
 
-- [ ] **Step 3: Commit log sanity check**
+- [x] **Step 3: Commit log sanity check**
 
 ```bash
 git log --oneline master..HEAD
@@ -519,7 +519,7 @@ Expected: five commits in order
 
 Plus the spec commit (`c658d1a docs: Design spec for OWASP ASVS V12 self-assessment and CI gate`) and the plan commit you'll create when you commit this plan file.
 
-- [ ] **Step 4: Push the branch**
+- [x] **Step 4: Push the branch**
 
 ```bash
 git push -u origin chore/owasp-asvs-v9
