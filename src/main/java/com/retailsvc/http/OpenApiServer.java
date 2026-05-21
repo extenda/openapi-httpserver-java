@@ -24,6 +24,7 @@ import com.retailsvc.http.validate.DefaultValidator;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsParameters;
 import com.sun.net.httpserver.HttpsServer;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -40,6 +41,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -98,7 +100,7 @@ public class OpenApiServer implements AutoCloseable {
             : new InetSocketAddress(bindAddress, port);
     if (sslContext != null) {
       HttpsServer https = HttpsServer.create(socketAddress, 0);
-      https.setHttpsConfigurator(new HttpsConfigurator(sslContext));
+      https.setHttpsConfigurator(new TlsHttpsConfigurator(sslContext));
       this.httpServer = https;
     } else {
       this.httpServer = HttpServer.create(socketAddress, 0);
@@ -473,6 +475,25 @@ public class OpenApiServer implements AutoCloseable {
         return null;
       }
       return new GsonJsonMapper();
+    }
+  }
+
+  /**
+   * Pins HTTPS to TLS 1.2 and 1.3 only, regardless of operator-level {@code java.security}
+   * overrides, and explicitly leaves client-cert auth off (no mTLS in v1).
+   */
+  private static final class TlsHttpsConfigurator extends HttpsConfigurator {
+    TlsHttpsConfigurator(SSLContext context) {
+      super(context);
+    }
+
+    @Override
+    public void configure(HttpsParameters params) {
+      SSLParameters sslParams = getSSLContext().getDefaultSSLParameters();
+      sslParams.setProtocols(new String[] {"TLSv1.3", "TLSv1.2"});
+      sslParams.setNeedClientAuth(false);
+      sslParams.setWantClientAuth(false);
+      params.setSSLParameters(sslParams);
     }
   }
 }

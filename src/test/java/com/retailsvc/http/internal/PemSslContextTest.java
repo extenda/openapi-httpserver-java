@@ -3,6 +3,7 @@ package com.retailsvc.http.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import javax.net.ssl.SSLContext;
 import org.junit.jupiter.api.Test;
@@ -69,5 +70,25 @@ class PemSslContextTest {
     assertThatThrownBy(() -> PemSslContext.load(RSA_CERT, MISMATCHED_KEY))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("do not match");
+  }
+
+  @Test
+  void rejectsEmptyCertificateChain() throws Exception {
+    Path emptyCert = Files.createTempFile("empty-chain", ".pem");
+    Files.writeString(emptyCert, "# no certificates here\n");
+    try {
+      assertThatThrownBy(() -> PemSslContext.load(emptyCert, RSA_KEY))
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("No certificates found in TLS certificate chain");
+    } finally {
+      Files.deleteIfExists(emptyCert);
+    }
+  }
+
+  @Test
+  void acceptsEcKeyAtMinimumStrength() throws Exception {
+    // P-256 (256 bits) is exactly at the floor — must pass.
+    SSLContext ctx = PemSslContext.load(EC_CERT, EC_KEY);
+    assertThat(ctx).isNotNull();
   }
 }
