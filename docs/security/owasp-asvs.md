@@ -51,4 +51,4 @@ publicly-trusted issuance.
 
 ## Audit log
 
-- **2026-05-21** — Initial ASVS 5.0 Level 2 mapping for V12 controls (commit `912d410dd0cac911f4ae794d7497c17fac076bab`). All listed controls accepted as Implemented / Delegated / N/A / Future as tabulated above.
+- **2026-05-21** — Initial ASVS 5.0 Level 2 mapping for V12 controls. All listed controls accepted as Implemented / Delegated / N/A / Future as tabulated above.

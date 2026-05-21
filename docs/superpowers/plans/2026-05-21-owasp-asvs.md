@@ -137,7 +137,7 @@ mkdir -p docs/security
 
 - [x] **Step 2: Write the checklist file**
 
-Write `docs/security/owasp-asvs.md` with this exact content. Replace `<TASK-2-COMMIT-SHA>` in the audit-log line with the SHA of the commit you'll make in Step 4 — that means: commit once, copy the SHA, edit the file, amend the commit (allowed for this single bootstrapping case since the audit log must reference itself).
+Write `docs/security/owasp-asvs.md` with this exact content. The audit-log line is dated 2026-05-21 with a description — no commit SHA, because a commit can't reference its own SHA (amending to insert the SHA would change the SHA again).
 
 ````markdown
 # OWASP ASVS 5.0 Level 2 — self-assessment
@@ -193,35 +193,15 @@ publicly-trusted issuance.
 
 ## Audit log
 
-- **2026-05-21** — Initial ASVS 5.0 Level 2 mapping for V12 controls (commit `<TASK-2-COMMIT-SHA>`). All listed controls accepted as Implemented / Delegated / N/A / Future as tabulated above.
+- **2026-05-21** — Initial ASVS 5.0 Level 2 mapping for V12 controls. All listed controls accepted as Implemented / Delegated / N/A / Future as tabulated above.
 ````
 
-- [x] **Step 3: Commit (placeholder SHA)**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/security/owasp-asvs.md
 SKIP=commitlint git commit -m "chore: Add OWASP ASVS 5.0 L2 self-assessment for V12"
 ```
-
-- [x] **Step 4: Capture the SHA, edit, amend**
-
-```bash
-SHA=$(git rev-parse HEAD)
-sed -i.bak "s/<TASK-2-COMMIT-SHA>/${SHA}/" docs/security/owasp-asvs.md
-rm docs/security/owasp-asvs.md.bak
-git add docs/security/owasp-asvs.md
-SKIP=commitlint git commit --amend --no-edit
-```
-
-The amend rewrites the just-created commit so its referenced SHA matches the commit itself. Verify:
-
-```bash
-grep "$(git rev-parse HEAD)" docs/security/owasp-asvs.md
-```
-
-Expected: one match in the audit-log line.
-
-(BSD `sed` on macOS needs the `-i.bak` form; the `rm` cleans up the backup file `sed` writes alongside.)
 
 ---
 
