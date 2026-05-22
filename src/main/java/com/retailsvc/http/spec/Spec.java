@@ -11,8 +11,6 @@ import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -55,42 +53,39 @@ public record Spec(
   private static final String SNAKEYAML_CLASS = "org.yaml.snakeyaml.Yaml";
 
   /**
-   * Reads an OpenAPI specification from {@code path}. Picks the parser by file extension:
+   * Loads an OpenAPI specification from a classpath resource. Picks the parser by file extension:
    *
    * <ul>
    *   <li>{@code .json} → Gson must be on the classpath.
    *   <li>{@code .yaml} or {@code .yml} → SnakeYAML must be on the classpath.
    * </ul>
    *
-   * <p>Both Gson and SnakeYAML are optional dependencies of this library. If the parser for the
-   * file's extension is not present, throws {@link IllegalStateException} — register your own
-   * parser and call {@link #from(Map)} instead.
+   * <p>{@code resource} is resolved via {@link Class#getResourceAsStream(String)}: a leading {@code
+   * /} is absolute (JAR root), otherwise it is package-relative to {@code loader}. Use {@code
+   * "/openapi.yaml"} for a spec packaged at the root of {@code src/main/resources/}.
    *
-   * @throws UncheckedIOException if the file cannot be read
-   * @throws IllegalStateException if the required parser is not on the classpath, or if the file
-   *     has an unrecognised extension
+   * @throws NullPointerException if {@code loader} or {@code resource} is {@code null}
+   * @throws IllegalArgumentException if the resource is not found on the classpath
+   * @throws IllegalStateException if the file has an unrecognised extension, or the required parser
+   *     is not on the classpath
    */
-  public static Spec fromPath(Path path) {
-    byte[] bytes;
-    try {
-      bytes = Files.readAllBytes(path);
-    } catch (IOException e) {
-      throw new UncheckedIOException("Failed to read OpenAPI spec from " + path, e);
-    }
-    String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-    Map<String, Object> raw;
-    if (name.endsWith(".json")) {
-      raw = parseJsonWithGson(bytes);
-    } else if (name.endsWith(".yaml") || name.endsWith(".yml")) {
-      raw = parseYamlWithSnakeYaml(bytes);
-    } else {
+  public static Spec fromClasspath(Class<?> loader, String resource) {
+    Objects.requireNonNull(loader, "loader");
+    Objects.requireNonNull(resource, "resource");
+    String name = resource.toLowerCase(Locale.ROOT);
+    boolean isJson = name.endsWith(".json");
+    boolean isYaml = name.endsWith(".yaml") || name.endsWith(".yml");
+    if (!isJson && !isYaml) {
       throw new IllegalStateException(
           "Unrecognised OpenAPI spec extension for "
-              + path
-              + " — expected .json, .yaml, or .yml. Parse the file yourself and call"
-              + " Spec.from(Map<String, Object>) instead.");
+              + resource
+              + " — expected .json, .yaml, or .yml.");
     }
-    return from(raw);
+    InputStream in = loader.getResourceAsStream(resource);
+    if (in == null) {
+      throw new IllegalArgumentException("classpath resource not found: " + resource);
+    }
+    return isJson ? fromJson(in) : fromYaml(in);
   }
 
   /**
