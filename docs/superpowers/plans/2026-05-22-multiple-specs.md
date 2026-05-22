@@ -535,7 +535,7 @@ git commit -m "feat: Add addSpec() builder method for multi-spec servers"
 **Files:**
 - Modify: `src/test/java/com/retailsvc/http/MultiSpecServerTest.java`
 
-- [ ] **Step 1: Add the test**
+- [x] **Step 1: Add the test**
 
 ```java
 @Test
@@ -569,12 +569,12 @@ void identicalOperationIdsAcrossBindingsDispatchIndependently() throws Exception
 }
 ```
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run: `mvn -q test -Dtest=MultiSpecServerTest#identicalOperationIdsAcrossBindingsDispatchIndependently`
 Expected: PASS (no production change needed — `Map<String, RequestHandler>` per binding already gives us this).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/test/java/com/retailsvc/http/MultiSpecServerTest.java
@@ -588,7 +588,7 @@ git commit -m "test: Verify identical operationIds across bindings dispatch inde
 **Files:**
 - Modify: `src/test/java/com/retailsvc/http/MultiSpecServerTest.java`
 
-- [ ] **Step 1: Add the test**
+- [x] **Step 1: Add the test**
 
 ```java
 @Test
@@ -612,12 +612,12 @@ void rejectsTwoBindingsWithSameBasePath() {
 }
 ```
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run: `mvn -q test -Dtest=MultiSpecServerTest#rejectsTwoBindingsWithSameBasePath`
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/test/java/com/retailsvc/http/MultiSpecServerTest.java
@@ -631,7 +631,7 @@ git commit -m "test: Reject two bindings on the same basePath"
 **Files:**
 - Modify: `src/test/java/com/retailsvc/http/MultiSpecServerTest.java`
 
-- [ ] **Step 1: Add the test**
+- [x] **Step 1: Add the test**
 
 This test confirms that when a spec references a security scheme, the corresponding `SchemeValidator` must be supplied in *that binding's* validator map — not somewhere else. It uses the existing fixture which (per repo convention) declares at least one secured operation.
 
@@ -657,12 +657,12 @@ void missingValidatorOnOneBindingFailsIndependently() {
 }
 ```
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run: `mvn -q test -Dtest=MultiSpecServerTest#missingValidatorOnOneBindingFailsIndependently`
 Expected: PASS (the assumption skips if the fixture is unsecured; otherwise the wiring check fires).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/test/java/com/retailsvc/http/MultiSpecServerTest.java
@@ -676,7 +676,7 @@ git commit -m "test: Per-binding security validator wiring is enforced"
 **Files:**
 - Modify: `src/test/java/com/retailsvc/http/MultiSpecServerTest.java`
 
-- [ ] **Step 1: Add the test**
+- [x] **Step 1: Add the test**
 
 ```java
 @Test
@@ -700,12 +700,12 @@ void rejectsMixingLegacySpecMethodsWithAddSpec() {
 }
 ```
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run: `mvn -q test -Dtest=MultiSpecServerTest#rejectsMixingLegacySpecMethodsWithAddSpec`
 Expected: PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/test/java/com/retailsvc/http/MultiSpecServerTest.java
@@ -721,7 +721,7 @@ git commit -m "test: Reject mixing legacy spec() with addSpec()"
 
 This runs under `mvn verify` (Failsafe) and exercises real HTTP traffic.
 
-- [ ] **Step 1: Write the IT**
+- [x] **Step 1: Write the IT**
 
 ```java
 package com.retailsvc.http;
@@ -780,12 +780,12 @@ class MultiSpecServerIT {
 }
 ```
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run: `mvn -q verify`
 Expected: BUILD SUCCESS. The IT runs under Failsafe (matches `*IT.java`).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/test/java/com/retailsvc/http/MultiSpecServerIT.java
@@ -799,16 +799,16 @@ git commit -m "test: Integration test for multi-spec server under real HttpServe
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Find the existing single-spec example and add a multi-spec section beneath it**
+- [x] **Step 1: Find the existing single-spec example and add a multi-spec section beneath it**
 
 Use Read to locate the current "Quick start" or builder example in `README.md`, then add a "Multiple specs" subsection containing the example from §4 of the design doc (the `v1Spec` / `v2Spec` `addSpec` example). Keep the wording aligned with the design doc — the public contract is that each call is one binding and namespaces are per-spec.
 
-- [ ] **Step 2: Run pre-commit**
+- [x] **Step 2: Run pre-commit**
 
 Run: `pre-commit run --files README.md`
 Expected: PASS (editorconfig, trailing whitespace, end-of-file).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md
