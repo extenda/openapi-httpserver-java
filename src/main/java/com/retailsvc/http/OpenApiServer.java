@@ -81,71 +81,113 @@ public class OpenApiServer implements AutoCloseable {
       throw new IllegalStateException("at least one spec binding is required");
     }
     requireNonNull(bodyMappers, "bodyMappers must not be null");
-    ExceptionHandler exceptionHandler = handlerConfig.exceptionHandler();
 
     long t0 = System.currentTimeMillis();
+    ExceptionHandler exceptionHandler = handlerConfig.exceptionHandler();
 
     InetSocketAddress socketAddress =
         (bindAddress == null)
             ? new InetSocketAddress(port)
             : new InetSocketAddress(bindAddress, port);
-    if (sslContext != null) {
-      HttpsServer https = HttpsServer.create(socketAddress, 0);
-      https.setHttpsConfigurator(new TlsHttpsConfigurator(sslContext));
-      this.httpServer = https;
-    } else {
-      this.httpServer = HttpServer.create(socketAddress, 0);
-    }
+    this.httpServer = createHttpServer(socketAddress, sslContext);
     httpServer.setExecutor(newThreadPerTaskExecutor(ofVirtual().name("http-", 0).factory()));
 
     ResponseRenderer renderer = new ResponseRenderer(bodyMappers);
+    boolean anyBindingAtRoot =
+        wireBindings(httpServer, bindings, bodyMappers, handlerConfig, exceptionHandler, renderer);
+    wireExtras(httpServer, anyBindingAtRoot, handlerConfig.extras(), exceptionHandler, renderer);
 
+    httpServer.start();
+    this.shutdownTimeoutSeconds = shutdownTimeoutSeconds;
+    logStartup(t0);
+  }
+
+  private static HttpServer createHttpServer(InetSocketAddress addr, SSLContext sslContext)
+      throws IOException {
+    if (sslContext != null) {
+      HttpsServer https = HttpsServer.create(addr, 0);
+      https.setHttpsConfigurator(new TlsHttpsConfigurator(sslContext));
+      return https;
+    }
+    return HttpServer.create(addr, 0);
+  }
+
+  @SuppressWarnings("java:S107")
+  private static boolean wireBindings(
+      HttpServer httpServer,
+      List<SpecBinding> bindings,
+      Map<String, TypeMapper> bodyMappers,
+      HandlerConfig handlerConfig,
+      ExceptionHandler exceptionHandler,
+      ResponseRenderer renderer) {
     boolean anyBindingAtRoot = false;
     for (SpecBinding binding : bindings) {
       String basePath = Optional.ofNullable(binding.spec().basePath()).orElse("/");
       anyBindingAtRoot |= "/".equals(basePath);
-      Map<String, Operation> operationsById =
-          binding.spec().operations().stream()
-              .collect(Collectors.toUnmodifiableMap(Operation::operationId, op -> op));
-      HttpContext ctx = httpServer.createContext(basePath);
-      ctx.getFilters()
-          .add(
-              new RequestPreparationFilter(
-                  binding.spec(),
-                  binding.router(),
-                  binding.validator(),
-                  bodyMappers,
-                  exceptionHandler,
-                  renderer,
-                  handlerConfig.afterHooks()));
-      ctx.getFilters()
-          .add(
-              new SecurityFilter(
-                  operationsById,
-                  binding.spec().securitySchemes(),
-                  binding.spec().security(),
-                  binding.securityValidators(),
-                  handlerConfig.externalAuth()));
-      ctx.setHandler(
-          new DispatchHandler(
-              binding.handlers(),
-              handlerConfig.interceptors(),
-              handlerConfig.decorators(),
-              renderer));
+      wireBinding(
+          httpServer, basePath, binding, bodyMappers, handlerConfig, exceptionHandler, renderer);
     }
+    return anyBindingAtRoot;
+  }
 
-    if (!anyBindingAtRoot) {
-      ExtrasRouter extrasRouter = new ExtrasRouter(handlerConfig.extras(), renderer);
-      HttpContext extrasCtx = httpServer.createContext("/", extrasRouter);
-      extrasCtx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
-    } else if (!handlerConfig.extras().isEmpty()) {
-      throw new IllegalStateException(
-          "extras cannot be registered when a binding owns basePath '/'");
+  @SuppressWarnings("java:S107")
+  private static void wireBinding(
+      HttpServer httpServer,
+      String basePath,
+      SpecBinding binding,
+      Map<String, TypeMapper> bodyMappers,
+      HandlerConfig handlerConfig,
+      ExceptionHandler exceptionHandler,
+      ResponseRenderer renderer) {
+    Map<String, Operation> operationsById =
+        binding.spec().operations().stream()
+            .collect(Collectors.toUnmodifiableMap(Operation::operationId, op -> op));
+    HttpContext ctx = httpServer.createContext(basePath);
+    ctx.getFilters()
+        .add(
+            new RequestPreparationFilter(
+                binding.spec(),
+                binding.router(),
+                binding.validator(),
+                bodyMappers,
+                exceptionHandler,
+                renderer,
+                handlerConfig.afterHooks()));
+    ctx.getFilters()
+        .add(
+            new SecurityFilter(
+                operationsById,
+                binding.spec().securitySchemes(),
+                binding.spec().security(),
+                binding.securityValidators(),
+                handlerConfig.externalAuth()));
+    ctx.setHandler(
+        new DispatchHandler(
+            binding.handlers(),
+            handlerConfig.interceptors(),
+            handlerConfig.decorators(),
+            renderer));
+  }
+
+  private static void wireExtras(
+      HttpServer httpServer,
+      boolean anyBindingAtRoot,
+      Map<String, RequestHandler> extras,
+      ExceptionHandler exceptionHandler,
+      ResponseRenderer renderer) {
+    if (anyBindingAtRoot) {
+      if (!extras.isEmpty()) {
+        throw new IllegalStateException(
+            "extras cannot be registered when a binding owns basePath '/'");
+      }
+      return;
     }
-    httpServer.start();
+    ExtrasRouter extrasRouter = new ExtrasRouter(extras, renderer);
+    HttpContext extrasCtx = httpServer.createContext("/", extrasRouter);
+    extrasCtx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
+  }
 
-    this.shutdownTimeoutSeconds = shutdownTimeoutSeconds;
-
+  private void logStartup(long t0) {
     String host = httpServer.getAddress().getHostString();
     String displayHost = host.contains(":") ? "[" + host + "]" : host;
     LOG.info(
@@ -384,54 +426,10 @@ public class OpenApiServer implements AutoCloseable {
     }
 
     public OpenApiServer build() throws IOException {
-      boolean usedLegacy = spec != null || handlers != null || !securityValidators.isEmpty();
-      boolean usedAddSpec = !bindings.isEmpty();
-      if (usedLegacy && usedAddSpec) {
-        throw new IllegalStateException(
-            "use either spec()/handler()/securityValidator() or addSpec(), not both");
-      }
-      List<SpecBinding> effectiveBindings;
-      if (usedAddSpec) {
-        effectiveBindings = List.copyOf(bindings);
-      } else {
-        requireNonNull(spec, "Spec must not be null");
-        requireNonNull(handlers, "handlers must not be null");
-        effectiveBindings = List.of(SpecBinding.of(spec, handlers, securityValidators));
-      }
-
-      for (SpecBinding b : effectiveBindings) {
-        if (!externalAuth) {
-          validateSecurityWiring(b.spec(), b.securityValidators());
-        }
-        validateHandlerWiring(b.spec(), b.handlers());
-      }
-
-      Map<String, String> seenBasePaths = new LinkedHashMap<>();
-      for (SpecBinding b : effectiveBindings) {
-        String bp = Optional.ofNullable(b.spec().basePath()).orElse("/");
-        String existingTitle = seenBasePaths.putIfAbsent(bp, b.spec().info().title());
-        if (existingTitle != null) {
-          throw new IllegalStateException(
-              "duplicate basePath '"
-                  + bp
-                  + "' across specs: '"
-                  + existingTitle
-                  + "' and '"
-                  + b.spec().info().title()
-                  + "'");
-        }
-      }
-
-      for (String path : extras.keySet()) {
-        if (seenBasePaths.containsKey(path)) {
-          throw new IllegalStateException(
-              "extra handler path '"
-                  + path
-                  + "' conflicts with basePath of spec '"
-                  + seenBasePaths.get(path)
-                  + "'");
-        }
-      }
+      List<SpecBinding> effectiveBindings = resolveBindings();
+      validateBindings(effectiveBindings);
+      Map<String, String> seenBasePaths = rejectDuplicateBasePaths(effectiveBindings);
+      rejectExtrasOnBasePath(seenBasePaths);
 
       Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
       ExceptionHandler effectiveExceptionHandler =
@@ -455,6 +453,62 @@ public class OpenApiServer implements AutoCloseable {
           bindAddress,
           shutdownTimeoutSeconds,
           sslContext);
+    }
+
+    private List<SpecBinding> resolveBindings() {
+      boolean usedLegacy = spec != null || handlers != null || !securityValidators.isEmpty();
+      boolean usedAddSpec = !bindings.isEmpty();
+      if (usedLegacy && usedAddSpec) {
+        throw new IllegalStateException(
+            "use either spec()/handler()/securityValidator() or addSpec(), not both");
+      }
+      if (usedAddSpec) {
+        return List.copyOf(bindings);
+      }
+      requireNonNull(spec, "Spec must not be null");
+      requireNonNull(handlers, "handlers must not be null");
+      return List.of(SpecBinding.of(spec, handlers, securityValidators));
+    }
+
+    private void validateBindings(List<SpecBinding> effectiveBindings) {
+      for (SpecBinding b : effectiveBindings) {
+        if (!externalAuth) {
+          validateSecurityWiring(b.spec(), b.securityValidators());
+        }
+        validateHandlerWiring(b.spec(), b.handlers());
+      }
+    }
+
+    private static Map<String, String> rejectDuplicateBasePaths(List<SpecBinding> bindings) {
+      Map<String, String> seenBasePaths = new LinkedHashMap<>();
+      for (SpecBinding b : bindings) {
+        String bp = Optional.ofNullable(b.spec().basePath()).orElse("/");
+        String existingTitle = seenBasePaths.putIfAbsent(bp, b.spec().info().title());
+        if (existingTitle != null) {
+          throw new IllegalStateException(
+              "duplicate basePath '"
+                  + bp
+                  + "' across specs: '"
+                  + existingTitle
+                  + "' and '"
+                  + b.spec().info().title()
+                  + "'");
+        }
+      }
+      return seenBasePaths;
+    }
+
+    private void rejectExtrasOnBasePath(Map<String, String> seenBasePaths) {
+      for (String path : extras.keySet()) {
+        if (seenBasePaths.containsKey(path)) {
+          throw new IllegalStateException(
+              "extra handler path '"
+                  + path
+                  + "' conflicts with basePath of spec '"
+                  + seenBasePaths.get(path)
+                  + "'");
+        }
+      }
     }
 
     private int resolvePort() {
