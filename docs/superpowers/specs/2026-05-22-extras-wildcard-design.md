@@ -21,7 +21,11 @@ just for them.
 Two wildcards, usable anywhere in a path (not just trailing):
 
 - `*` — matches exactly one path segment, i.e. one or more characters with no `/`.
-- `**` — matches zero or more characters, may cross `/` boundaries.
+- `**` — matches any number of characters including `/`. At a trailing
+  position (`/files/**`) it may match zero or more characters and so also
+  matches the bare prefix path (`/files/`). Between two literal segments
+  (`/schemas/**/openapi.yaml`) it must match at least one full intermediate
+  segment — the surrounding slashes still need real content between them.
 
 Patterns containing neither `*` nor `**` are treated as exact paths (current
 behaviour, no semantic change).
