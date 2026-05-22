@@ -99,4 +99,28 @@ class DispatchHandlerTest {
 
     assertThat(rendered.get().headers()).containsEntry("X-Correlation-Id", "cid-123");
   }
+
+  @Test
+  void interceptorObservesDecoratedResponse() throws Exception {
+    RequestHandler ok = req -> Response.status(HTTP_OK);
+    AtomicReference<Response> seen = new AtomicReference<>();
+    RequestInterceptor capture =
+        (request, next) -> {
+          Response r = next.proceed();
+          seen.set(r);
+          return r;
+        };
+    ResponseDecorator stamp = (req, resp) -> resp.withHeader("X-Stamped", "yes");
+
+    HttpExchange ex = stubExchange();
+    withRequest(
+        "get-x",
+        () -> {
+          dispatcher(Map.of("get-x", ok), List.of(capture), List.of(stamp)).handle(ex);
+          return null;
+        });
+
+    assertThat(seen.get()).isNotNull();
+    assertThat(seen.get().headers()).containsEntry("X-Stamped", "yes");
+  }
 }
