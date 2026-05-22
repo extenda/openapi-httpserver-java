@@ -37,16 +37,17 @@ public final class DispatchHandler implements HttpHandler {
     Request request = CURRENT.get();
     RequestHandler handler = handlers.get(request.operationId());
     Response response = invoke(0, request, handler);
-    for (ResponseDecorator decorator : decorators) {
-      response = decorator.decorate(request, response);
-    }
     exchange.setAttribute(RESPONSE_ATTR, response);
     renderer.render(exchange, response);
   }
 
   private Response invoke(int idx, Request request, RequestHandler handler) {
     if (idx == interceptors.size()) {
-      return handler.handle(request);
+      Response response = handler.handle(request);
+      for (ResponseDecorator decorator : decorators) {
+        response = decorator.decorate(request, response);
+      }
+      return response;
     }
     return interceptors.get(idx).around(request, () -> invoke(idx + 1, request, handler));
   }

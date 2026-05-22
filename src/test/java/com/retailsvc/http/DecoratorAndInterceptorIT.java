@@ -67,6 +67,24 @@ class DecoratorAndInterceptorIT extends ServerBaseTest {
   }
 
   @Test
+  void decoratorReadsInterceptorBoundScopedValue() throws Exception {
+    RequestHandler ok = req -> Response.text(HTTP_OK, "ok");
+    server =
+        newBuilder()
+            .spec(spec)
+            .handlers(stubAllHandlers(Map.of("get-data", ok, "post-data", ok)))
+            .interceptor((request, next) -> ScopedValue.where(TENANT, "acme").call(next::proceed))
+            .responseDecorator((req, resp) -> resp.withHeader("X-Tenant-Id", TENANT.get()))
+            .port(0)
+            .build();
+
+    var resp = call("/api/v1/data");
+
+    assertThat(resp.statusCode()).isEqualTo(HTTP_OK);
+    assertThat(resp.headers().firstValue("X-Tenant-Id")).contains("acme");
+  }
+
+  @Test
   void interceptorsRunInRegistrationOrder() throws Exception {
     List<String> trace = new CopyOnWriteArrayList<>();
     RequestHandler ok =
