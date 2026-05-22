@@ -905,6 +905,25 @@ Built-in helpers:
   opened and closed per request, and the handler owns its lifecycle). Throws
   `IllegalArgumentException` at construction if the resource or file is missing.
 
+### Wildcards in extra routes
+
+Extra routes accept two wildcard tokens (these are *not* part of OpenAPI;
+they apply only to extras, which are outside the spec):
+
+- `*` — matches exactly one path segment (no `/`).
+- `**` — matches zero or more characters, may cross `/` boundaries.
+
+Both must appear as whole segments (`/files/*`, `/files/**`,
+`/schemas/**/openapi.yaml`). Mixed-segment patterns like `prefix-*.json`
+are rejected at boot.
+
+The matched portion is not exposed to the handler. If you map a wildcard
+extra to a filesystem location, canonicalise via `Path.toRealPath()` and
+assert `resolved.startsWith(baseReal)` to prevent escape — the router
+blocks `.`, `..`, encoded `%2e`/`%2f`/`%5c`/`%00`, control characters and
+malformed encoding with a 400, but cannot police what the handler does
+with the matched path.
+
 ### Health endpoint
 
 `Handlers.healthHandler(probe)` mounts a readiness endpoint that aggregates per-dependency
