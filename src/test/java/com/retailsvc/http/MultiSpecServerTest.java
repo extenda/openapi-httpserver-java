@@ -91,14 +91,14 @@ class MultiSpecServerTest {
     Map<String, RequestHandler> handlersA = handlersFor(a, req -> Response.ok(Map.of()));
     Map<String, RequestHandler> handlersB = handlersFor(b, req -> Response.ok(Map.of()));
 
-    assertThatThrownBy(
-            () ->
-                OpenApiServer.builder()
-                    .port(0)
-                    .addSpec(a, handlersA)
-                    .addSpec(b, handlersB)
-                    .useExternalAuthentication()
-                    .build())
+    OpenApiServer.Builder builder =
+        OpenApiServer.builder()
+            .port(0)
+            .addSpec(a, handlersA)
+            .addSpec(b, handlersB)
+            .useExternalAuthentication();
+
+    assertThatThrownBy(builder::build)
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("duplicate basePath")
         .hasMessageContaining("/api/v1");
@@ -112,8 +112,9 @@ class MultiSpecServerTest {
 
     Map<String, RequestHandler> handlers = handlersFor(v1, req -> Response.ok(Map.of()));
 
-    assertThatThrownBy(
-            () -> OpenApiServer.builder().port(0).addSpec(v1, handlers, Map.of()).build())
+    OpenApiServer.Builder builder = OpenApiServer.builder().port(0).addSpec(v1, handlers, Map.of());
+
+    assertThatThrownBy(builder::build)
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("no SchemeValidator registered for security scheme");
   }
@@ -125,15 +126,15 @@ class MultiSpecServerTest {
     Map<String, RequestHandler> handlersA = handlersFor(a, req -> Response.ok(Map.of()));
     Map<String, RequestHandler> handlersB = handlersFor(b, req -> Response.ok(Map.of()));
 
-    assertThatThrownBy(
-            () ->
-                OpenApiServer.builder()
-                    .port(0)
-                    .spec(a)
-                    .handlers(handlersA)
-                    .addSpec(b, handlersB)
-                    .useExternalAuthentication()
-                    .build())
+    OpenApiServer.Builder builder =
+        OpenApiServer.builder()
+            .port(0)
+            .spec(a)
+            .handlers(handlersA)
+            .addSpec(b, handlersB)
+            .useExternalAuthentication();
+
+    assertThatThrownBy(builder::build)
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("use either spec()/handler()/securityValidator() or addSpec()");
   }
