@@ -32,7 +32,7 @@ class ExtraRouteAdapterTest {
 
     Map<String, TypeMapper> mappers = Map.of("application/json", new GsonTypeMapper());
     ResponseRenderer renderer = new ResponseRenderer(mappers);
-    ExtraRouteAdapter adapter = new ExtraRouteAdapter(handler, renderer);
+    ExtraRouteAdapter adapter = new ExtraRouteAdapter("/alive", handler, renderer);
 
     HttpExchange ex = mock(HttpExchange.class);
     Headers reqHeaders = new Headers();
