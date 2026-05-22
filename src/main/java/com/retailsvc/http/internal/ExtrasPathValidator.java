@@ -13,6 +13,18 @@ public final class ExtrasPathValidator {
 
   public static String validateAndDecode(URI uri) {
     String raw = uri.getRawPath();
+    validateRaw(raw);
+
+    String decoded = uri.getPath();
+    if (decoded == null) {
+      throw new BadRequestException("missing path");
+    }
+    rejectControlChars(decoded, "decoded path contains control character");
+    validateSegments(decoded);
+    return decoded;
+  }
+
+  private static void validateRaw(String raw) {
     if (raw == null) {
       throw new BadRequestException("missing path");
     }
@@ -22,25 +34,19 @@ public final class ExtrasPathValidator {
     if (raw.indexOf('\\') >= 0) {
       throw new BadRequestException("path contains backslash");
     }
-    for (int i = 0; i < raw.length(); i++) {
-      char c = raw.charAt(i);
+    rejectControlChars(raw, "path contains control character");
+  }
+
+  private static void rejectControlChars(String s, String message) {
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
       if (c < 0x20 || c == 0x7f) {
-        throw new BadRequestException("path contains control character");
+        throw new BadRequestException(message);
       }
     }
+  }
 
-    String decoded = uri.getPath();
-    if (decoded == null) {
-      throw new BadRequestException("missing path");
-    }
-
-    for (int i = 0; i < decoded.length(); i++) {
-      char c = decoded.charAt(i);
-      if (c < 0x20 || c == 0x7f) {
-        throw new BadRequestException("decoded path contains control character");
-      }
-    }
-
+  private static void validateSegments(String decoded) {
     String[] segments = decoded.substring(decoded.startsWith("/") ? 1 : 0).split("/", -1);
     for (int i = 0; i < segments.length; i++) {
       String s = segments[i];
@@ -51,7 +57,5 @@ public final class ExtrasPathValidator {
         throw new BadRequestException("path traversal segment");
       }
     }
-
-    return decoded;
   }
 }

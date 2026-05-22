@@ -24,39 +24,39 @@ public final class PathPattern {
     String prev = null;
     for (int i = 0; i < segments.length; i++) {
       String seg = segments[i];
-      if (seg.isEmpty()
-          && !(i == segments.length - 1 && segments.length > 1 && raw.endsWith("/"))) {
-        throw new IllegalArgumentException("empty segment in path: " + raw);
-      }
-      if (seg.contains("*") && !seg.equals("*") && !seg.equals("**")) {
-        throw new IllegalArgumentException(
-            "'*' and '**' must be a whole segment, not " + seg + " in " + raw);
-      }
-      if ("**".equals(seg) && "**".equals(prev)) {
-        throw new IllegalArgumentException("adjacent '**' segments in " + raw);
-      }
+      validateSegment(seg, prev, i, segments.length, raw);
       boolean trailing = i == segments.length - 1;
-      switch (seg) {
-        case "*" -> {
-          rx.append("/[^/]+");
-          hasWildcard = true;
-        }
-        case "**" -> {
-          if (trailing) {
-            // Slash is required; anything (including empty string) may follow it.
-            rx.append("/.*");
-          } else {
-            // At least one character and a slash must appear before the next segment.
-            rx.append("/.+");
-          }
-          hasWildcard = true;
-        }
-        default -> rx.append("/").append(Pattern.quote(seg));
-      }
+      hasWildcard |= appendSegment(rx, seg, trailing);
       prev = seg;
     }
     rx.append("$");
     return new PathPattern(raw, Pattern.compile(rx.toString()), hasWildcard);
+  }
+
+  private static void validateSegment(String seg, String prev, int i, int total, String raw) {
+    boolean trailingEmptyAllowed = i == total - 1 && total > 1 && raw.endsWith("/");
+    if (seg.isEmpty() && !trailingEmptyAllowed) {
+      throw new IllegalArgumentException("empty segment in path: " + raw);
+    }
+    if (seg.contains("*") && !seg.equals("*") && !seg.equals("**")) {
+      throw new IllegalArgumentException(
+          "'*' and '**' must be a whole segment, not " + seg + " in " + raw);
+    }
+    if ("**".equals(seg) && "**".equals(prev)) {
+      throw new IllegalArgumentException("adjacent '**' segments in " + raw);
+    }
+  }
+
+  private static boolean appendSegment(StringBuilder rx, String seg, boolean trailing) {
+    switch (seg) {
+      case "*" -> rx.append("/[^/]+");
+      case "**" -> rx.append(trailing ? "/.*" : "/.+");
+      default -> {
+        rx.append("/").append(Pattern.quote(seg));
+        return false;
+      }
+    }
+    return true;
   }
 
   public boolean hasWildcard() {

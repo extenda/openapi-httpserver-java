@@ -107,12 +107,8 @@ class ExtrasWildcardIT extends ServerBaseTest {
       assertThat(get(client, s, "/files/%2fetc").statusCode()).isEqualTo(HTTP_BAD_REQUEST);
       // %5c is a backslash — reject encoded backslashes
       assertThat(get(client, s, "/files/x%5cy").statusCode()).isEqualTo(HTTP_BAD_REQUEST);
-      // %00 is a null byte — java.net.URI rejects raw NUL in the path; defense at the
-      // router is still valid for clients that bypass URI parsing, but we cannot express
-      // this vector via java.net.http.HttpClient (URI.create throws before the wire).
-      // assertThat(get(client, s, "/files/x%00").statusCode()).isEqualTo(HTTP_BAD_REQUEST);
-      // %0a is a line-feed — same reason as %00: JDK URI rejects it pre-wire.
-      // assertThat(get(client, s, "/files/x%0ay").statusCode()).isEqualTo(HTTP_BAD_REQUEST);
+      // %00 (NUL) and %0a (LF) cannot be tested here: java.net.URI rejects them before
+      // they reach the wire. Router-level defence is exercised by ExtrasPathValidatorTest.
       assertThat(get(client, s, "/files//x").statusCode()).isEqualTo(HTTP_BAD_REQUEST);
       assertThat(get(client, s, "/files/.").statusCode()).isEqualTo(HTTP_BAD_REQUEST);
       assertThat(get(client, s, "/files/./x").statusCode()).isEqualTo(HTTP_BAD_REQUEST);
