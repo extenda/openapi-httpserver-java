@@ -67,7 +67,7 @@ public class OpenApiServer implements AutoCloseable {
       List<AfterResponseHook> afterHooks) {}
 
   OpenApiServer(
-      java.util.List<SpecBinding> bindings,
+      List<SpecBinding> bindings,
       Map<String, TypeMapper> bodyMappers,
       HandlerConfig handlerConfig,
       int port,
@@ -390,7 +390,7 @@ public class OpenApiServer implements AutoCloseable {
       SSLContext sslContext =
           httpsCertChain != null ? PemSslContext.load(httpsCertChain, httpsPrivateKey) : null;
       return new OpenApiServer(
-          java.util.List.of(binding),
+          List.of(binding),
           resolved,
           handlerConfig,
           resolvedPort,
