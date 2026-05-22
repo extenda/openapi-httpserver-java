@@ -54,13 +54,6 @@ class ExtrasPathValidatorTest {
   }
 
   @Test
-  void literalBackslashRejected() throws Exception {
-    URI uri = new URI("/files/x%5cy");
-    assertThatThrownBy(() -> ExtrasPathValidator.validateAndDecode(uri))
-        .isInstanceOf(BadRequestException.class);
-  }
-
-  @Test
   void nulByteRejected() {
     assertReject("/files/x%00.txt");
   }

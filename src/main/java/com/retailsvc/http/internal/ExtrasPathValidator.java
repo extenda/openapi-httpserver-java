@@ -2,8 +2,6 @@ package com.retailsvc.http.internal;
 
 import com.retailsvc.http.BadRequestException;
 import java.net.URI;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 
 public final class ExtrasPathValidator {
@@ -31,11 +29,9 @@ public final class ExtrasPathValidator {
       }
     }
 
-    String decoded;
-    try {
-      decoded = URLDecoder.decode(raw, StandardCharsets.UTF_8);
-    } catch (IllegalArgumentException e) {
-      throw new BadRequestException("malformed percent-encoding");
+    String decoded = uri.getPath();
+    if (decoded == null) {
+      throw new BadRequestException("missing path");
     }
 
     for (int i = 0; i < decoded.length(); i++) {
