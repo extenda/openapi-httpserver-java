@@ -2,6 +2,7 @@ package com.retailsvc.http;
 
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -80,7 +81,7 @@ class ExtrasWildcardIT extends ServerBaseTest {
                 .build();
         var client = httpClient()) {
 
-      assertThat(get(client, s, "/alive").statusCode()).isEqualTo(204);
+      assertThat(get(client, s, "/alive").statusCode()).isEqualTo(HTTP_NO_CONTENT);
       assertThat(get(client, s, "/alive232").statusCode()).isEqualTo(HTTP_NOT_FOUND);
     }
   }
@@ -114,6 +115,7 @@ class ExtrasWildcardIT extends ServerBaseTest {
       // assertThat(get(client, s, "/files/x%0ay").statusCode()).isEqualTo(HTTP_BAD_REQUEST);
       assertThat(get(client, s, "/files//x").statusCode()).isEqualTo(HTTP_BAD_REQUEST);
       assertThat(get(client, s, "/files/.").statusCode()).isEqualTo(HTTP_BAD_REQUEST);
+      assertThat(get(client, s, "/files/./x").statusCode()).isEqualTo(HTTP_BAD_REQUEST);
     }
   }
 
