@@ -8,6 +8,9 @@ package com.retailsvc.http;
  * <p>Because decorators run <em>after</em> the handler, decorator-supplied headers override
  * handler-supplied ones on conflict. If you need the opposite semantics, use {@link
  * Response#withHeaders(java.util.Map)} inside the handler instead.
+ *
+ * <p>Decorators run inside the {@link RequestInterceptor} chain, so any {@link ScopedValue}
+ * bindings established by interceptors are visible here.
  */
 @FunctionalInterface
 public interface ResponseDecorator {
