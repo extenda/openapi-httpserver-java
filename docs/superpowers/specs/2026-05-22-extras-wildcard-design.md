@@ -91,11 +91,32 @@ Validation at boot:
   extra matches.
 - The basePath context registration is unchanged.
 
+## Path-traversal protection
+
+Before any matching, the router validates the decoded request path
+(`HttpExchange.getRequestURI().getPath()`, which is already
+percent-decoded by the JDK) against these rules:
+
+- No segment equals `.` or `..`.
+- No empty segment (no `//` in the path).
+- No NUL byte (U+0000) anywhere in the path.
+
+A violation throws `BadRequestException` and the `ExceptionFilter` renders
+the standard problem+json 400. The check runs once per request inside the
+`ExtrasRouter`, before exact-or-wildcard dispatch, so even handlers that
+chose to read the URI cannot see a traversal-laden path.
+
+The same validation does NOT run inside the basePath spec context — spec
+paths are matched against an explicit template set, so a `..` segment
+simply fails the exact/template match and yields a normal 404. Adding the
+400 check there is out of scope (mentioned for clarity, not implemented).
+
 ## Error handling
 
-Unchanged. Misses inside the router throw `NotFoundException`, which the
-`ExceptionFilter` (still in front of the router) renders as the standard
-problem+json 404.
+Unchanged for normal misses: a request that passes validation but matches
+no extra throws `NotFoundException`, rendered by the `ExceptionFilter` as
+problem+json 404. Traversal violations throw `BadRequestException` → 400
+(see above).
 
 ## Testing
 
@@ -117,6 +138,8 @@ Tests added under `src/test/java/com/retailsvc/http/`:
   - `/schemas/**/openapi.yaml` serves the spec at various depths
   - exact extras still work (regression for `ExactUrlMatchingIT` scenarios)
   - basePath spec routes still take precedence over extras
+  - path-traversal: `/files/../etc/passwd`, `/files/%2e%2e/etc/passwd`,
+    `/files/.`, `/files//x` all return 400
 
 ## Out of scope
 
