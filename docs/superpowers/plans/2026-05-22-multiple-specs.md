@@ -47,7 +47,7 @@ Each phase ends green (compile + tests pass) and is committable on its own.
 **Files:**
 - Create: `src/main/java/com/retailsvc/http/internal/SpecBinding.java`
 
-- [ ] **Step 1: Write `SpecBinding`**
+- [x] **Step 1: Write `SpecBinding`**
 
 ```java
 package com.retailsvc.http.internal;
@@ -90,12 +90,12 @@ public record SpecBinding(
 }
 ```
 
-- [ ] **Step 2: Verify compilation**
+- [x] **Step 2: Verify compilation**
 
 Run: `mvn -q test-compile`
 Expected: BUILD SUCCESS (the record isn't used yet).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/internal/SpecBinding.java
