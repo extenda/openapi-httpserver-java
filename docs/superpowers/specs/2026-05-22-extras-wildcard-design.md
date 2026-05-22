@@ -93,23 +93,68 @@ Validation at boot:
 
 ## Path-traversal protection
 
-Before any matching, the router validates the decoded request path
-(`HttpExchange.getRequestURI().getPath()`, which is already
-percent-decoded by the JDK) against these rules:
+Before any matching, the router validates both the raw URI and the decoded
+request path. The raw check catches encoded traversal tricks; the decoded
+check catches literal traversal segments. Either failure throws
+`BadRequestException` and the `ExceptionFilter` renders problem+json 400.
 
-- No segment equals `.` or `..`.
-- No empty segment (no `//` in the path).
-- No NUL byte (U+0000) anywhere in the path.
+### Raw URI rules (`HttpExchange.getRequestURI().getRawPath()`)
 
-A violation throws `BadRequestException` and the `ExceptionFilter` renders
-the standard problem+json 400. The check runs once per request inside the
-`ExtrasRouter`, before exact-or-wildcard dispatch, so even handlers that
-chose to read the URI cannot see a traversal-laden path.
+Reject the request if the raw path contains any of the following — these
+have no legitimate use in our routes and are common encoding tricks:
+
+- `%2e` or `%2E` (encoded `.`) — also defeats double-encoding (`%252e…`,
+  which decodes once to `%2e…` and would otherwise sneak past the
+  decoded-segment check).
+- `%2f` or `%2F` (encoded `/`).
+- `%5c` or `%5C` (encoded backslash).
+- `%00` (encoded NUL — truncation attacks).
+- A literal backslash `\` (some libraries treat it as a separator).
+- Any control char in U+0000–U+001F or U+007F.
+
+### Decoded path rules (`HttpExchange.getRequestURI().getPath()`)
+
+After the JDK's single-pass percent-decoding, split on `/` and reject if:
+
+- Any segment equals `.` or `..`.
+- Any segment is empty (`//` anywhere in the path).
+- The decoded path contains NUL (U+0000) or any other control char
+  (U+0001–U+001F, U+007F).
+- Decoding raises `URISyntaxException` or `IllegalArgumentException`
+  (malformed / overlong encoding) — caught and rethrown as
+  `BadRequestException`.
+
+### Order
+
+1. Apply raw-URI rules to `getRawPath()`.
+2. Decode via `getPath()`; if decoding fails, 400.
+3. Apply decoded-path rules.
+4. Only then run exact-or-wildcard dispatch.
+
+This runs once per request inside `ExtrasRouter`, before any handler is
+consulted, so even handlers that choose to read the URI cannot see a
+traversal-laden path.
+
+### Handler responsibility
+
+The router stops traversal at the URI layer; it cannot police what a
+handler does with the matched-but-not-exposed path. Any future handler
+that maps a request portion to a filesystem location MUST also:
+
+- Resolve the target against a fixed base directory.
+- Canonicalise via `Path.toRealPath()` and assert
+  `resolved.startsWith(baseReal)`.
+- Refuse symlinks that escape the base.
+
+This document does not add such a handler, but the rule is recorded here
+so it survives the next time someone adds one.
+
+### Out of scope (deliberate)
 
 The same validation does NOT run inside the basePath spec context — spec
 paths are matched against an explicit template set, so a `..` segment
 simply fails the exact/template match and yields a normal 404. Adding the
-400 check there is out of scope (mentioned for clarity, not implemented).
+400 check there is mentioned for clarity but not implemented.
 
 ## Error handling
 
@@ -138,8 +183,15 @@ Tests added under `src/test/java/com/retailsvc/http/`:
   - `/schemas/**/openapi.yaml` serves the spec at various depths
   - exact extras still work (regression for `ExactUrlMatchingIT` scenarios)
   - basePath spec routes still take precedence over extras
-  - path-traversal: `/files/../etc/passwd`, `/files/%2e%2e/etc/passwd`,
-    `/files/.`, `/files//x` all return 400
+  - path-traversal — all return 400:
+    - decoded: `/files/../etc/passwd`, `/files/./x`, `/files//x`
+    - single-encoded: `/files/%2e%2e/etc/passwd`, `/files/%2E/x`
+    - double-encoded: `/files/%252e%252e/etc/passwd`
+    - encoded slash: `/files/%2fetc/passwd`
+    - backslash: `/files/..\etc\passwd` (literal and `%5c`)
+    - NUL truncation: `/files/x%00.txt`
+    - control char: `/files/x%0a/y`
+    - malformed encoding: `/files/%zz`
 
 ## Out of scope
 
