@@ -6,9 +6,8 @@ import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 import com.retailsvc.http.internal.DispatchHandler;
 import com.retailsvc.http.internal.ExceptionFilter;
-import com.retailsvc.http.internal.ExtraRouteAdapter;
+import com.retailsvc.http.internal.ExtrasRouter;
 import com.retailsvc.http.internal.FormTypeMapper;
-import com.retailsvc.http.internal.NotFoundHandler;
 import com.retailsvc.http.internal.PemSslContext;
 import com.retailsvc.http.internal.RequestPreparationFilter;
 import com.retailsvc.http.internal.ResponseRenderer;
@@ -134,14 +133,12 @@ public class OpenApiServer implements AutoCloseable {
             handlerConfig.decorators(),
             renderer));
 
-    for (Map.Entry<String, RequestHandler> e : handlerConfig.extras().entrySet()) {
-      HttpContext extraCtx = httpServer.createContext(e.getKey());
-      extraCtx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
-      extraCtx.setHandler(new ExtraRouteAdapter(e.getKey(), e.getValue(), renderer));
-    }
-
     if (!"/".equals(basePath)) {
-      httpServer.createContext("/", new NotFoundHandler());
+      ExtrasRouter extrasRouter = new ExtrasRouter(handlerConfig.extras(), renderer);
+      HttpContext extrasCtx = httpServer.createContext("/", extrasRouter);
+      extrasCtx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
+    } else if (!handlerConfig.extras().isEmpty()) {
+      throw new IllegalStateException("extras cannot be registered when basePath is '/'");
     }
     httpServer.start();
 
