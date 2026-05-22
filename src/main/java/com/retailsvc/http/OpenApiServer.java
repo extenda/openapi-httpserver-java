@@ -384,7 +384,7 @@ public class OpenApiServer implements AutoCloseable {
     }
 
     public OpenApiServer build() throws IOException {
-      boolean usedLegacy = spec != null || handlers != null;
+      boolean usedLegacy = spec != null || handlers != null || !securityValidators.isEmpty();
       boolean usedAddSpec = !bindings.isEmpty();
       if (usedLegacy && usedAddSpec) {
         throw new IllegalStateException(
@@ -425,7 +425,11 @@ public class OpenApiServer implements AutoCloseable {
       for (String path : extras.keySet()) {
         if (seenBasePaths.containsKey(path)) {
           throw new IllegalStateException(
-              "extra handler path " + path + " conflicts with spec basePath " + path);
+              "extra handler path '"
+                  + path
+                  + "' conflicts with basePath of spec '"
+                  + seenBasePaths.get(path)
+                  + "'");
         }
       }
 

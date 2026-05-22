@@ -32,8 +32,12 @@ class MultiSpecServerTest {
             .build()) {
 
       int port = server.listenPort();
-      assertThat(get("http://localhost:" + port + "/api/v1/data").statusCode()).isEqualTo(HTTP_OK);
-      assertThat(get("http://localhost:" + port + "/api/v2/data").statusCode()).isEqualTo(HTTP_OK);
+      HttpResponse<String> v1Resp = get("http://localhost:" + port + "/api/v1/data");
+      HttpResponse<String> v2Resp = get("http://localhost:" + port + "/api/v2/data");
+      assertThat(v1Resp.statusCode()).isEqualTo(HTTP_OK);
+      assertThat(v1Resp.body()).contains("v1");
+      assertThat(v2Resp.statusCode()).isEqualTo(HTTP_OK);
+      assertThat(v2Resp.body()).contains("v2");
     }
   }
 
