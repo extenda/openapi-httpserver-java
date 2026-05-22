@@ -34,14 +34,16 @@ class SpecFromClasspathTest {
 
   @Test
   void rejectsMissingResource() {
-    assertThatThrownBy(() -> Spec.fromClasspath(getClass(), "/does-not-exist.yaml"))
+    Class<?> loader = getClass();
+    assertThatThrownBy(() -> Spec.fromClasspath(loader, "/does-not-exist.yaml"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("classpath resource not found");
   }
 
   @Test
   void rejectsUnknownExtension() {
-    assertThatThrownBy(() -> Spec.fromClasspath(getClass(), "/openapi.txt"))
+    Class<?> loader = getClass();
+    assertThatThrownBy(() -> Spec.fromClasspath(loader, "/openapi.txt"))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Unrecognised OpenAPI spec extension");
   }
