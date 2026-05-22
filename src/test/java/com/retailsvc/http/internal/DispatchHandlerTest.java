@@ -133,7 +133,7 @@ class DispatchHandlerTest {
         (request, next) -> {
           try {
             return next.proceed();
-          } catch (RuntimeException e) {
+          } catch (RuntimeException _) {
             caught.set(true);
             return Response.status(HTTP_INTERNAL_ERROR);
           }
