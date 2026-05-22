@@ -296,100 +296,23 @@ git commit -m "refactor: Drive OpenApiServer from a list of SpecBinding"
 
 This avoids adding any new `openapi*.json|yaml` files — per project memory, fixtures are minimised. The helper reads the existing `/openapi.json`, deep-clones the parsed `Map`, and lets a caller override `servers[0].url`.
 
-- [ ] **Step 1: Write the helper**
+- [x] **Step 1: Write the helper**
 
-```java
-package com.retailsvc.http.support;
+Created with proper imports (no inline FQNs per `feedback_no_inline_fqn.md`) and deep-clone logic.
 
-import com.retailsvc.http.spec.Spec;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+- [x] **Step 2: Verify it compiles**
 
-/**
- * Test-only helper: loads {@code /openapi.json} from the classpath, deep-clones the parsed map,
- * and re-points {@code servers[0].url} so callers can derive multiple {@link Spec} instances from
- * a single fixture file.
- */
-public final class SpecFixtures {
+Ran: `mvn -q test-compile`
+Result: BUILD SUCCESS. Compiled class at `target/test-classes/com/retailsvc/http/support/SpecFixtures.class`.
 
-  private SpecFixtures() {}
+- [x] **Step 3: Commit**
 
-  /** Loads the test spec and rewrites {@code servers[0].url} to {@code newServerUrl}. */
-  public static Spec specAt(String newServerUrl) {
-    Map<String, Object> raw = readBaseSpec();
-    @SuppressWarnings("unchecked")
-    List<Map<String, Object>> servers = (List<Map<String, Object>>) raw.get("servers");
-    if (servers == null || servers.isEmpty()) {
-      throw new IllegalStateException("test spec has no servers entry");
-    }
-    servers.get(0).put("url", newServerUrl);
-    return Spec.from(raw);
-  }
-
-  private static Map<String, Object> readBaseSpec() {
-    try (InputStream in = SpecFixtures.class.getResourceAsStream("/openapi.json")) {
-      if (in == null) {
-        throw new IllegalStateException("/openapi.json not found on test classpath");
-      }
-      Spec.from(parse(in));
-      // We re-parse separately because Spec.from consumes the map; cheap.
-      return parse(SpecFixtures.class.getResourceAsStream("/openapi.json"));
-    } catch (java.io.IOException e) {
-      throw new java.io.UncheckedIOException(e);
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Map<String, Object> parse(InputStream in) {
-    com.google.gson.Gson gson = new com.google.gson.Gson();
-    try (java.io.Reader reader = new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8)) {
-      Map<String, Object> root = gson.fromJson(reader, Map.class);
-      return deepClone(root);
-    } catch (java.io.IOException e) {
-      throw new java.io.UncheckedIOException(e);
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Map<String, Object> deepClone(Map<String, Object> in) {
-    Map<String, Object> out = new LinkedHashMap<>(in.size());
-    for (var e : in.entrySet()) {
-      out.put(e.getKey(), cloneValue(e.getValue()));
-    }
-    return out;
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Object cloneValue(Object v) {
-    if (v instanceof Map<?, ?> m) {
-      return deepClone((Map<String, Object>) m);
-    }
-    if (v instanceof List<?> l) {
-      List<Object> out = new ArrayList<>(l.size());
-      for (Object item : l) {
-        out.add(cloneValue(item));
-      }
-      return out;
-    }
-    return v;
-  }
-}
 ```
-
-- [ ] **Step 2: Verify it compiles**
-
-Run: `mvn -q test-compile`
-Expected: BUILD SUCCESS.
-
-- [ ] **Step 3: Commit**
-
-```bash
 git add src/test/java/com/retailsvc/http/support/SpecFixtures.java
 git commit -m "test: Add SpecFixtures helper to derive multiple specs from one fixture"
 ```
+
+Committed as: `abe2369` (Google Java Formatter reformatted javadoc wrapping; pre-commit hooks passed).
 
 ---
 
