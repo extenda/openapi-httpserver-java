@@ -1,5 +1,6 @@
 package com.retailsvc.http.internal;
 
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -122,5 +123,34 @@ class DispatchHandlerTest {
 
     assertThat(seen.get()).isNotNull();
     assertThat(seen.get().headers()).containsEntry("X-Stamped", "yes");
+  }
+
+  @Test
+  void interceptorCanCatchDecoratorFailure() throws Exception {
+    RequestHandler ok = req -> Response.status(HTTP_OK);
+    AtomicBoolean caught = new AtomicBoolean(false);
+    RequestInterceptor catcher =
+        (request, next) -> {
+          try {
+            return next.proceed();
+          } catch (RuntimeException e) {
+            caught.set(true);
+            return Response.status(HTTP_INTERNAL_ERROR);
+          }
+        };
+    ResponseDecorator boom =
+        (req, resp) -> {
+          throw new IllegalStateException("boom");
+        };
+
+    HttpExchange ex = stubExchange();
+    withRequest(
+        "get-x",
+        () -> {
+          dispatcher(Map.of("get-x", ok), List.of(catcher), List.of(boom)).handle(ex);
+          return null;
+        });
+
+    assertThat(caught.get()).isTrue();
   }
 }
