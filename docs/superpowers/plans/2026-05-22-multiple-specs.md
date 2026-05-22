@@ -111,7 +111,7 @@ git commit -m "refactor: Add SpecBinding record for per-spec server state"
 
 The goal here is purely structural: the constructor stops taking a `Spec` and instead takes `List<SpecBinding>`. The Builder still produces a list of size 1. No public API change yet.
 
-- [ ] **Step 1: Update `OpenApiServer` constructor signature and body**
+- [x] **Step 1: Update `OpenApiServer` constructor signature and body**
 
 Replace the constructor (currently lines 73–157) with a version that loops over bindings:
 
@@ -207,7 +207,7 @@ OpenApiServer(
 }
 ```
 
-- [ ] **Step 2: Drop the now-unused `handlers` field from `HandlerConfig`**
+- [x] **Step 2: Drop the now-unused `handlers` field from `HandlerConfig`**
 
 In `OpenApiServer.java`, change the `HandlerConfig` record to remove `handlers` (it's per-binding now):
 
@@ -223,7 +223,7 @@ record HandlerConfig(
 
 Also drop the per-binding `securityValidators` from `HandlerConfig` (they live on each `SpecBinding` now). Update every callsite of `HandlerConfig` accordingly.
 
-- [ ] **Step 3: Update `Builder.build()` to construct one binding and pass `List.of(binding)`**
+- [x] **Step 3: Update `Builder.build()` to construct one binding and pass `List.of(binding)`**
 
 In `Builder.build()` (currently lines 364–402), replace the construction of `HandlerConfig` and the call to `new OpenApiServer(...)` with:
 
@@ -268,17 +268,17 @@ public OpenApiServer build() throws IOException {
 }
 ```
 
-- [ ] **Step 4: Run the full unit test suite**
+- [x] **Step 4: Run the full unit test suite**
 
 Run: `mvn -q test`
 Expected: BUILD SUCCESS. All 440 existing tests pass with no edits. (If anything fails, it's a refactoring mistake — fix before moving on.)
 
-- [ ] **Step 5: Run the integration test suite**
+- [x] **Step 5: Run the integration test suite**
 
 Run: `mvn -q verify -DskipITs=false`
 Expected: BUILD SUCCESS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/OpenApiServer.java

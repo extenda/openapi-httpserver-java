@@ -11,8 +11,8 @@ import com.retailsvc.http.internal.FormTypeMapper;
 import com.retailsvc.http.internal.PemSslContext;
 import com.retailsvc.http.internal.RequestPreparationFilter;
 import com.retailsvc.http.internal.ResponseRenderer;
-import com.retailsvc.http.internal.Router;
 import com.retailsvc.http.internal.SecurityFilter;
+import com.retailsvc.http.internal.SpecBinding;
 import com.retailsvc.http.internal.TextTypeMapper;
 import com.retailsvc.http.internal.TlsHttpsConfigurator;
 import com.retailsvc.http.internal.gson.GsonJsonMapper;
@@ -20,7 +20,6 @@ import com.retailsvc.http.spec.Operation;
 import com.retailsvc.http.spec.Spec;
 import com.retailsvc.http.spec.security.SecurityRequirement;
 import com.retailsvc.http.spec.security.SecurityScheme;
-import com.retailsvc.http.validate.DefaultValidator;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsServer;
@@ -60,17 +59,15 @@ public class OpenApiServer implements AutoCloseable {
 
   /** Internal grouping of handler-related configuration to keep the constructor signature small. */
   record HandlerConfig(
-      Map<String, RequestHandler> handlers,
       List<RequestInterceptor> interceptors,
       List<ResponseDecorator> decorators,
       ExceptionHandler exceptionHandler,
       Map<String, RequestHandler> extras,
-      Map<String, SchemeValidator> securityValidators,
       boolean externalAuth,
       List<AfterResponseHook> afterHooks) {}
 
   OpenApiServer(
-      Spec spec,
+      java.util.List<SpecBinding> bindings,
       Map<String, TypeMapper> bodyMappers,
       HandlerConfig handlerConfig,
       int port,
@@ -79,17 +76,14 @@ public class OpenApiServer implements AutoCloseable {
       SSLContext sslContext)
       throws IOException {
 
-    requireNonNull(spec, "Spec must not be null");
+    requireNonNull(bindings, "bindings must not be null");
+    if (bindings.isEmpty()) {
+      throw new IllegalStateException("at least one spec binding is required");
+    }
     requireNonNull(bodyMappers, "bodyMappers must not be null");
-    requireNonNull(handlerConfig.handlers(), "handlers must not be null");
     ExceptionHandler exceptionHandler = handlerConfig.exceptionHandler();
 
     long t0 = System.currentTimeMillis();
-    Router router = new Router(spec.operations());
-    Map<String, Operation> operationsById =
-        spec.operations().stream()
-            .collect(Collectors.toUnmodifiableMap(Operation::operationId, op -> op));
-    DefaultValidator validator = new DefaultValidator(spec::resolveSchema);
 
     InetSocketAddress socketAddress =
         (bindAddress == null)
@@ -106,39 +100,47 @@ public class OpenApiServer implements AutoCloseable {
 
     ResponseRenderer renderer = new ResponseRenderer(bodyMappers);
 
-    String basePath = Optional.ofNullable(spec.basePath()).orElse("/");
-    HttpContext ctx = httpServer.createContext(basePath);
-    ctx.getFilters()
-        .add(
-            new RequestPreparationFilter(
-                spec,
-                router,
-                validator,
-                bodyMappers,
-                exceptionHandler,
-                renderer,
-                handlerConfig.afterHooks()));
-    ctx.getFilters()
-        .add(
-            new SecurityFilter(
-                operationsById,
-                spec.securitySchemes(),
-                spec.security(),
-                handlerConfig.securityValidators(),
-                handlerConfig.externalAuth()));
-    ctx.setHandler(
-        new DispatchHandler(
-            handlerConfig.handlers(),
-            handlerConfig.interceptors(),
-            handlerConfig.decorators(),
-            renderer));
+    boolean anyBindingAtRoot = false;
+    for (SpecBinding binding : bindings) {
+      String basePath = Optional.ofNullable(binding.spec().basePath()).orElse("/");
+      anyBindingAtRoot |= "/".equals(basePath);
+      Map<String, Operation> operationsById =
+          binding.spec().operations().stream()
+              .collect(Collectors.toUnmodifiableMap(Operation::operationId, op -> op));
+      HttpContext ctx = httpServer.createContext(basePath);
+      ctx.getFilters()
+          .add(
+              new RequestPreparationFilter(
+                  binding.spec(),
+                  binding.router(),
+                  binding.validator(),
+                  bodyMappers,
+                  exceptionHandler,
+                  renderer,
+                  handlerConfig.afterHooks()));
+      ctx.getFilters()
+          .add(
+              new SecurityFilter(
+                  operationsById,
+                  binding.spec().securitySchemes(),
+                  binding.spec().security(),
+                  binding.securityValidators(),
+                  handlerConfig.externalAuth()));
+      ctx.setHandler(
+          new DispatchHandler(
+              binding.handlers(),
+              handlerConfig.interceptors(),
+              handlerConfig.decorators(),
+              renderer));
+    }
 
-    if (!"/".equals(basePath)) {
+    if (!anyBindingAtRoot) {
       ExtrasRouter extrasRouter = new ExtrasRouter(handlerConfig.extras(), renderer);
       HttpContext extrasCtx = httpServer.createContext("/", extrasRouter);
       extrasCtx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
     } else if (!handlerConfig.extras().isEmpty()) {
-      throw new IllegalStateException("extras cannot be registered when basePath is '/'");
+      throw new IllegalStateException(
+          "extras cannot be registered when a binding owns basePath '/'");
     }
     httpServer.start();
 
@@ -377,19 +379,18 @@ public class OpenApiServer implements AutoCloseable {
           exceptionHandler != null ? exceptionHandler : Handlers.defaultExceptionHandler();
       HandlerConfig handlerConfig =
           new HandlerConfig(
-              handlers,
               interceptors,
               decorators,
               effectiveExceptionHandler,
               extras,
-              Map.copyOf(securityValidators),
               externalAuth,
               List.copyOf(afterHooks));
+      SpecBinding binding = SpecBinding.of(spec, handlers, securityValidators);
       int resolvedPort = resolvePort();
       SSLContext sslContext =
           httpsCertChain != null ? PemSslContext.load(httpsCertChain, httpsPrivateKey) : null;
       return new OpenApiServer(
-          spec,
+          java.util.List.of(binding),
           resolved,
           handlerConfig,
           resolvedPort,
