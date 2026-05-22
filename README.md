@@ -144,8 +144,8 @@ Handlers are registered in a `Map<String, RequestHandler>` keyed by OpenAPI `ope
 ``` java
 public class YourServerLauncher {
   public static void main(String[] args) throws Exception {
-    // Gson is on the classpath, so we can load the spec in one line.
-    Spec spec = Spec.fromPath(Path.of("openapi.json"));
+    // openapi.json lives in src/main/resources/, so it ships at the JAR root.
+    Spec spec = Spec.fromClasspath(YourServerLauncher.class, "/openapi.json");
 
     Map<String, RequestHandler> handlers = new HashMap<>();
     handlers.put("get-data", getDataHandler);
@@ -162,22 +162,35 @@ public class YourServerLauncher {
 
 ## Spec loading
 
-`Spec.fromPath(Path)` picks the parser by file extension: `.json` is parsed by Gson, `.yaml` /
-`.yml` by SnakeYAML. Both are optional dependencies — the same Gson that powers the built-in JSON
+`Spec.fromClasspath(Class<?>, String)` is the recommended way to load a spec packaged with your
+application. It picks the parser by file extension: `.json` is parsed by Gson, `.yaml` / `.yml`
+by SnakeYAML. Both are optional dependencies — the same Gson that powers the built-in JSON
 `TypeMapper`, and the same SnakeYAML you'd add explicitly to parse YAML. If the required parser
-isn't on the classpath the call fails with `IllegalStateException`; parse the file yourself and
-use `Spec.from(Map<String, Object>)` instead. Any other extension is rejected.
+isn't on the classpath the call fails with `IllegalStateException`; parse the resource yourself
+and use `Spec.from(Map<String, Object>)` instead. Any other extension is rejected.
 
-To load a spec from the classpath (including from inside a JAR) use the `InputStream` overloads:
+``` java
+// Spec at src/main/resources/openapi.json → JAR root → absolute path.
+Spec spec = Spec.fromClasspath(YourServerLauncher.class, "/openapi.json");
+```
+
+**Mind the leading slash.** `fromClasspath` resolves the resource via
+`Class.getResourceAsStream`, which is package-relative *unless* the name starts with `/`. So
+`"/openapi.yaml"` means "JAR root" (typical for `src/main/resources/openapi.yaml`), while
+`"openapi.yaml"` means "next to `YourServerLauncher.class`" — i.e. the file must live under
+`src/main/resources/<your/package>/openapi.yaml`. Easy to miss; if you get
+`IllegalArgumentException: classpath resource not found`, the slash is the first thing to check.
+
+If you already have the bytes or are loading from somewhere other than the classpath, the
+`InputStream` overloads work too — both close the stream before returning:
 
 ``` java
 Spec spec;
-try (InputStream in = YourServerLauncher.class.getResourceAsStream("/openapi.json")) {
-  spec = Spec.fromJson(in);   // Gson on the classpath
+try (InputStream in = Files.newInputStream(Path.of("openapi.json"))) {
+  spec = Spec.fromJson(in);   // or Spec.fromYaml(in)
 }
 ```
 
-The matching `Spec.fromYaml(InputStream)` uses SnakeYAML. Both close the stream before returning.
 If you can't (or don't want to) depend on Gson, supply your own JSON parser:
 
 ``` java
@@ -965,7 +978,7 @@ public final class App {
   static final ScopedValue<String> CORRELATION_ID = ScopedValue.newInstance();
 
   public static void main(String[] args) throws Exception {
-    Spec spec = Spec.fromPath(Path.of("openapi.yaml"));         // SnakeYAML parses the spec
+    Spec spec = Spec.fromClasspath(App.class, "/openapi.yaml"); // SnakeYAML parses the spec
 
     RequestHandler getPromotion = req -> {
       String id = req.pathParam("id");
@@ -998,8 +1011,8 @@ What the example demonstrates:
 
 - **Gson is the default JSON serializer.** No explicit `bodyMapper(...)` call — the library
   auto-registers `GsonJsonMapper` for request and response JSON because Gson is on the classpath.
-- **SnakeYAML parses the spec.** `Spec.fromPath(...)` picks the parser by file extension; `.yaml`
-  here means SnakeYAML, and Gson would handle `.json` the same way.
+- **SnakeYAML parses the spec.** `Spec.fromClasspath(...)` picks the parser by file extension;
+  `.yaml` here means SnakeYAML, and Gson would handle `.json` the same way.
 - **One interceptor sets cross-cutting context.** `ScopedValue.where(...).call(next::proceed)`
   runs the handler (and any inner interceptors and decorators) inside the binding, so
   `TENANT.get()` and `CORRELATION_ID.get()` work anywhere they're called.
