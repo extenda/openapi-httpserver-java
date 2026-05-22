@@ -209,6 +209,7 @@ public class OpenApiServer implements AutoCloseable {
     private final LinkedHashMap<String, RequestHandler> extras = new LinkedHashMap<>();
     private final Map<String, SchemeValidator> securityValidators = new LinkedHashMap<>();
     private boolean externalAuth = false;
+    private final List<SpecBinding> bindings = new ArrayList<>();
 
     private Builder() {}
 
@@ -287,6 +288,28 @@ public class OpenApiServer implements AutoCloseable {
       return this;
     }
 
+    /**
+     * Registers an OpenAPI {@link Spec} with the handlers and security validators that serve it.
+     * May be called more than once; each binding becomes its own {@link
+     * com.sun.net.httpserver.HttpContext} at the spec's {@code basePath}. {@code operationId}s and
+     * security-scheme names only need to be unique within a single spec.
+     */
+    public Builder addSpec(
+        Spec spec,
+        Map<String, RequestHandler> handlers,
+        Map<String, SchemeValidator> securityValidators) {
+      requireNonNull(spec, "spec must not be null");
+      requireNonNull(handlers, "handlers must not be null");
+      requireNonNull(securityValidators, "securityValidators must not be null");
+      bindings.add(SpecBinding.of(spec, handlers, securityValidators));
+      return this;
+    }
+
+    /** Convenience overload for specs that declare no security schemes. */
+    public Builder addSpec(Spec spec, Map<String, RequestHandler> handlers) {
+      return addSpec(spec, handlers, Map.of());
+    }
+
     public Builder exceptionHandler(ExceptionHandler exceptionHandler) {
       this.exceptionHandler = exceptionHandler;
       return this;
@@ -361,19 +384,51 @@ public class OpenApiServer implements AutoCloseable {
     }
 
     public OpenApiServer build() throws IOException {
-      requireNonNull(spec, "Spec must not be null");
-      requireNonNull(handlers, "handlers must not be null");
-      String basePath = Optional.ofNullable(spec.basePath()).orElse("/");
-      for (String path : extras.keySet()) {
-        if (path.equals(basePath)) {
+      boolean usedLegacy = spec != null || handlers != null;
+      boolean usedAddSpec = !bindings.isEmpty();
+      if (usedLegacy && usedAddSpec) {
+        throw new IllegalStateException(
+            "use either spec()/handler()/securityValidator() or addSpec(), not both");
+      }
+      List<SpecBinding> effectiveBindings;
+      if (usedAddSpec) {
+        effectiveBindings = List.copyOf(bindings);
+      } else {
+        requireNonNull(spec, "Spec must not be null");
+        requireNonNull(handlers, "handlers must not be null");
+        effectiveBindings = List.of(SpecBinding.of(spec, handlers, securityValidators));
+      }
+
+      for (SpecBinding b : effectiveBindings) {
+        if (!externalAuth) {
+          validateSecurityWiring(b.spec(), b.securityValidators());
+        }
+        validateHandlerWiring(b.spec(), b.handlers());
+      }
+
+      Map<String, String> seenBasePaths = new LinkedHashMap<>();
+      for (SpecBinding b : effectiveBindings) {
+        String bp = Optional.ofNullable(b.spec().basePath()).orElse("/");
+        String existingTitle = seenBasePaths.putIfAbsent(bp, b.spec().info().title());
+        if (existingTitle != null) {
           throw new IllegalStateException(
-              "extra handler path " + path + " conflicts with spec basePath " + basePath);
+              "duplicate basePath '"
+                  + bp
+                  + "' across specs: '"
+                  + existingTitle
+                  + "' and '"
+                  + b.spec().info().title()
+                  + "'");
         }
       }
-      if (!externalAuth) {
-        validateSecurityWiring(spec, securityValidators);
+
+      for (String path : extras.keySet()) {
+        if (seenBasePaths.containsKey(path)) {
+          throw new IllegalStateException(
+              "extra handler path " + path + " conflicts with spec basePath " + path);
+        }
       }
-      validateHandlerWiring(spec, handlers);
+
       Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
       ExceptionHandler effectiveExceptionHandler =
           exceptionHandler != null ? exceptionHandler : Handlers.defaultExceptionHandler();
@@ -385,12 +440,11 @@ public class OpenApiServer implements AutoCloseable {
               extras,
               externalAuth,
               List.copyOf(afterHooks));
-      SpecBinding binding = SpecBinding.of(spec, handlers, securityValidators);
       int resolvedPort = resolvePort();
       SSLContext sslContext =
           httpsCertChain != null ? PemSslContext.load(httpsCertChain, httpsPrivateKey) : null;
       return new OpenApiServer(
-          List.of(binding),
+          effectiveBindings,
           resolved,
           handlerConfig,
           resolvedPort,

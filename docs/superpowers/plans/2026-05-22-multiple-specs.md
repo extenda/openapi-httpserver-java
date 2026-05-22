@@ -321,7 +321,7 @@ Committed as: `abe2369` (Google Java Formatter reformatted javadoc wrapping; pre
 **Files:**
 - Create: `src/test/java/com/retailsvc/http/MultiSpecServerTest.java`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```java
 package com.retailsvc.http;
@@ -383,12 +383,12 @@ class MultiSpecServerTest {
 
 Note: the test uses `useExternalAuthentication()` to side-step per-spec validator wiring — the security branch is covered separately in Task 8. It uses the existing `/ping` operation from `openapi.json` (which is GET-only and unsecured per the fixture). If the fixture's `/ping` requires auth, switch to the first GET-only unsecured operation in the spec — discoverable by inspecting `src/test/resources/openapi.json`.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `mvn -q test -Dtest=MultiSpecServerTest#servesTwoBindingsOnDistinctBasePaths`
 Expected: COMPILE FAILURE — `addSpec` does not yet exist on `Builder`.
 
-- [ ] **Step 3: Do NOT commit yet** — proceed to Task 5 to make it pass.
+- [x] **Step 3: Do NOT commit yet** — proceed to Task 5 to make it pass.
 
 ---
 
@@ -397,7 +397,7 @@ Expected: COMPILE FAILURE — `addSpec` does not yet exist on `Builder`.
 **Files:**
 - Modify: `src/main/java/com/retailsvc/http/OpenApiServer.java`
 
-- [ ] **Step 1: Add bindings list and `addSpec` methods to `Builder`**
+- [x] **Step 1: Add bindings list and `addSpec` methods to `Builder`**
 
 Inside `Builder`, alongside the existing fields, add:
 
@@ -427,7 +427,7 @@ public Builder addSpec(Spec spec, Map<String, RequestHandler> handlers) {
 }
 ```
 
-- [ ] **Step 2: Update `build()` to consume bindings**
+- [x] **Step 2: Update `build()` to consume bindings**
 
 Replace the `build()` method body so it either:
 - uses the explicit `bindings` list when `addSpec()` was called, OR
@@ -510,17 +510,17 @@ public OpenApiServer build() throws IOException {
 }
 ```
 
-- [ ] **Step 3: Run the new test**
+- [x] **Step 3: Run the new test**
 
 Run: `mvn -q test -Dtest=MultiSpecServerTest#servesTwoBindingsOnDistinctBasePaths`
 Expected: PASS.
 
-- [ ] **Step 4: Run the full suite to confirm nothing regressed**
+- [x] **Step 4: Run the full suite to confirm nothing regressed**
 
 Run: `mvn -q test`
 Expected: BUILD SUCCESS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/main/java/com/retailsvc/http/OpenApiServer.java \
