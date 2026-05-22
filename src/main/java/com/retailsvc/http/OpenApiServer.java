@@ -137,7 +137,7 @@ public class OpenApiServer implements AutoCloseable {
     for (Map.Entry<String, RequestHandler> e : handlerConfig.extras().entrySet()) {
       HttpContext extraCtx = httpServer.createContext(e.getKey());
       extraCtx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
-      extraCtx.setHandler(new ExtraRouteAdapter(e.getValue(), renderer));
+      extraCtx.setHandler(new ExtraRouteAdapter(e.getKey(), e.getValue(), renderer));
     }
 
     if (!"/".equals(basePath)) {
