@@ -577,7 +577,9 @@ OpenApiServer.builder()
 
 Decorators run inside the interceptor's `ScopedValue` binding (the decorator transforms the
 `Response` returned by `next.proceed()`, which is still on the call stack), so
-`CORRELATION_ID.get()` / `TENANT_ID.get()` see the bound values.
+`CORRELATION_ID.get()` / `TENANT_ID.get()` see the bound values. If a decorator throws, the
+exception propagates through any wrapping interceptors before reaching the `ExceptionFilter`, so
+interceptors that catch around `next.proceed()` will observe decorator failures.
 
 A handler in this setup is just business logic:
 
