@@ -56,7 +56,6 @@ public final class SpecFixtures {
     }
   }
 
-  @SuppressWarnings("unchecked")
   private static Map<String, Object> deepClone(Map<String, Object> in) {
     Map<String, Object> out = new LinkedHashMap<>(in.size());
     for (var e : in.entrySet()) {
