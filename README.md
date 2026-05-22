@@ -17,6 +17,7 @@ endpoints declared in an OpenAPI 3.1.x specification. Handlers are pure function
 - [Highlights](#highlights)
 - [Maven artifact](#maven-artifact)
 - [Quick start](#quick-start)
+  - [Multiple specs](#multiple-specs)
 - [Spec loading](#spec-loading)
 - [JSON mapping](#json-mapping)
 - [Body parsers and response writers](#body-parsers-and-response-writers)
@@ -159,6 +160,46 @@ public class YourServerLauncher {
   }
 }
 ```
+
+### Multiple specs
+
+A single server instance can host more than one OpenAPI spec — useful for running a v1/v2 API
+side-by-side, or a public and an internal admin surface in the same process. Each `addSpec()` call
+registers one spec and its handlers as an independent binding. The JDK `HttpServer` routes
+incoming requests to the binding whose `basePath` (the path component of `servers[0].url`) best
+matches the request URI.
+
+`operationId`s and security-scheme names only need to be unique _within_ a single spec — two
+specs can each declare a `getCustomer` operation without conflict.
+
+``` java
+OpenApiServer server = OpenApiServer.builder()
+    .port(8080)
+    .addSpec(v1Spec, Map.of(
+        "getCustomer", new V1GetCustomer(),
+        "listCustomers", new V1ListCustomers()))
+    .addSpec(v2Spec, Map.of(
+        "getCustomer", new V2GetCustomer(),
+        "listCustomers", new V2ListCustomers(),
+        "createCustomer", new V2CreateCustomer()))
+    .build();
+```
+
+Each spec that declares `securitySchemes` gets its own validator map via the three-argument
+overload:
+
+``` java
+OpenApiServer.builder()
+    .port(8080)
+    .addSpec(v1Spec, v1Handlers, Map.of(
+        "bearerAuth", (req, cred) -> jwt.verify(((BearerCredential) cred).token())))
+    .addSpec(v2Spec, v2Handlers, Map.of(
+        "apiKeyAuth", (req, cred) -> apiKeyStore.lookup(((ApiKeyCredential) cred).value())))
+    .build();
+```
+
+Mixing `addSpec()` with the legacy `spec()`/`handlers()`/`securityValidator()` methods in the
+same builder call is rejected at build time with `IllegalStateException`.
 
 ## Spec loading
 
