@@ -152,5 +152,8 @@ class DispatchHandlerTest {
         });
 
     assertThat(caught.get()).isTrue();
+    Response rendered = (Response) ex.getAttribute(DispatchHandler.RESPONSE_ATTR);
+    assertThat(rendered).isNotNull();
+    assertThat(rendered.status()).isEqualTo(HTTP_INTERNAL_ERROR);
   }
 }
