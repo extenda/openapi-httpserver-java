@@ -34,6 +34,7 @@ public final class Handlers {
 
   private static final Logger LOG = LoggerFactory.getLogger(Handlers.class);
   private static final String ALLOW = "Allow";
+  private static final String GET_HEAD = "GET, HEAD";
 
   private Handlers() {}
 
@@ -251,7 +252,7 @@ public final class Handlers {
     return req ->
         switch (req.method()) {
           case GET, HEAD -> Response.empty();
-          default -> Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, "GET, HEAD");
+          default -> Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, GET_HEAD);
         };
   }
 
@@ -276,7 +277,7 @@ public final class Handlers {
     Objects.requireNonNull(probe, "probe");
     return req -> {
       if (req.method() != GET && req.method() != HEAD) {
-        return Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, "GET, HEAD");
+        return Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, GET_HEAD);
       }
       boolean up;
       List<Dependency> dependencies;
@@ -335,7 +336,7 @@ public final class Handlers {
               Response.status(HTTP_OK)
                   .withContentType(contentType)
                   .withHeader("Content-Length", String.valueOf(length));
-          default -> Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, "GET, HEAD");
+          default -> Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, GET_HEAD);
         };
   }
 }
