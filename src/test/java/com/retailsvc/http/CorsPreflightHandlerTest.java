@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.retailsvc.http.spec.HttpMethod;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,7 @@ class CorsPreflightHandlerTest {
   private static Request preflight(String origin, String requestMethod, String requestHeaders) {
     UnaryOperator<String> lookup =
         name ->
-            switch (name.toLowerCase(java.util.Locale.ROOT)) {
+            switch (name.toLowerCase(Locale.ROOT)) {
               case "origin" -> origin;
               case "access-control-request-method" -> requestMethod;
               case "access-control-request-headers" -> requestHeaders;
