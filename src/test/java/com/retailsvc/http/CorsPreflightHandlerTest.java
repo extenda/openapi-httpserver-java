@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.Test;
 
@@ -166,5 +167,49 @@ class CorsPreflightHandlerTest {
     Response resp = handler.handle(preflight("https://app.example.com", "BOGUS", "content-type"));
 
     assertThat(resp.status()).isEqualTo(HTTP_FORBIDDEN);
+  }
+
+  @Test
+  void corsPreflightHandlerMatchesHeadersCaseInsensitively() {
+    RequestHandler handler =
+        Handlers.corsPreflightHandler(
+            ORIGINS, METHODS, List.of("Content-Type", "Authorization"), false, null);
+
+    Response resp =
+        handler.handle(preflight("https://app.example.com", "POST", "CONTENT-TYPE, authorization"));
+
+    assertThat(resp.status()).isEqualTo(HTTP_NO_CONTENT);
+  }
+
+  @Test
+  void corsPreflightHandlerEchoesOriginAndIncludesVary() {
+    Predicate<String> anyExampleOrigin = o -> o.endsWith(".example.com");
+    RequestHandler handler =
+        Handlers.corsPreflightHandler(anyExampleOrigin, METHODS, HEADERS, false, null);
+
+    Response resp =
+        handler.handle(preflight("https://tenant-7.example.com", "POST", "content-type"));
+
+    assertThat(resp.status()).isEqualTo(HTTP_NO_CONTENT);
+    assertThat(resp.headers())
+        .containsEntry("Access-Control-Allow-Origin", "https://tenant-7.example.com")
+        .containsEntry("Vary", "Origin");
+  }
+
+  @Test
+  void corsPreflightHandlerListOverloadDelegatesToPredicateBehaviour() {
+    RequestHandler list =
+        Handlers.corsPreflightHandler(
+            List.of("https://a.example.com", "https://b.example.com"),
+            METHODS,
+            HEADERS,
+            false,
+            null);
+
+    Response allowed = list.handle(preflight("https://b.example.com", "POST", "content-type"));
+    Response denied = list.handle(preflight("https://c.example.com", "POST", "content-type"));
+
+    assertThat(allowed.status()).isEqualTo(HTTP_NO_CONTENT);
+    assertThat(denied.status()).isEqualTo(HTTP_FORBIDDEN);
   }
 }
