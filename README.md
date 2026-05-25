@@ -947,6 +947,8 @@ Built-in helpers:
   classpath resource or filesystem file (content-type inferred from extension; the stream is
   opened and closed per request, and the handler owns its lifecycle). Throws
   `IllegalArgumentException` at construction if the resource or file is missing.
+- `Handlers.corsPreflightHandler(...)` — answers CORS `OPTIONS` preflight requests against
+  caller-supplied allowlists. See [CORS preflight](#cors-preflight) below.
 
 ### Wildcards in extra routes
 
@@ -1014,6 +1016,31 @@ probe that throws or returns `null` is logged at WARN and surfaces as a `Down` r
 empty dependency list; the exception never reaches the configured `ExceptionHandler`. `GET` and
 `HEAD` are accepted; other methods return `405 Method Not Allowed` with an `Allow: GET, HEAD`
 header.
+
+### CORS preflight
+
+`Handlers.corsPreflightHandler(...)` answers `OPTIONS` preflight requests so browsers can
+perform cross-origin calls against the server. The handler is preflight-only — wire it on a
+wildcard `extraRoute` covering the routes you want to expose to browsers.
+
+``` java
+var server = OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .extraRoute("/api/**", Handlers.corsPreflightHandler(
+        List.of("https://app.example.com"),
+        List.of(GET, POST, PUT, DELETE),
+        List.of("content-type", "authorization"),
+        true,                     // Access-Control-Allow-Credentials
+        Duration.ofMinutes(10)))  // Access-Control-Max-Age
+    .build();
+```
+
+For dynamic origin policy (regex match, suffix match, tenant lookup) pass a `Predicate<String>`
+instead of a `List<String>`. Allowed-headers comparison is case-insensitive. Disallowed origins,
+methods, or headers return `403` with no CORS headers (the browser then blocks the request);
+non-`OPTIONS` requests return `405` with `Allow: OPTIONS`; preflights missing the `Origin` or
+`Access-Control-Request-Method` header return `400`.
 
 ## End-to-end example
 
