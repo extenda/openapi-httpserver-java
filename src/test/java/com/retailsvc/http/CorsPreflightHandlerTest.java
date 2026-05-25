@@ -5,8 +5,11 @@ import static com.retailsvc.http.spec.HttpMethod.GET;
 import static com.retailsvc.http.spec.HttpMethod.OPTIONS;
 import static com.retailsvc.http.spec.HttpMethod.POST;
 import static com.retailsvc.http.spec.HttpMethod.PUT;
+import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.retailsvc.http.spec.HttpMethod;
 import java.time.Duration;
@@ -95,5 +98,73 @@ class CorsPreflightHandlerTest {
 
     assertThat(resp.headers()).doesNotContainKey("Access-Control-Allow-Headers");
     assertThat(resp.status()).isEqualTo(HTTP_NO_CONTENT);
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsNonOptionsWith405AndAllowOptions() {
+    RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, null);
+
+    Response resp = handler.handle(bare(GET));
+
+    assertThat(resp.status()).isEqualTo(HTTP_BAD_METHOD);
+    assertThat(resp.headers()).containsEntry("Allow", "OPTIONS");
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsMissingOriginWith400() {
+    RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, null);
+
+    assertThatThrownBy(() -> handler.handle(preflight(null, "POST", "content-type")))
+        .isInstanceOf(BadRequestException.class)
+        .hasMessageContaining("Origin");
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsMissingRequestMethodWith400() {
+    RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, null);
+
+    assertThatThrownBy(
+            () -> handler.handle(preflight("https://app.example.com", null, "content-type")))
+        .isInstanceOf(BadRequestException.class)
+        .hasMessageContaining("Access-Control-Request-Method");
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsDisallowedOriginWith403() {
+    RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, null);
+
+    Response resp = handler.handle(preflight("https://evil.example.com", "POST", "content-type"));
+
+    assertThat(resp.status()).isEqualTo(HTTP_FORBIDDEN);
+    assertThat(resp.headers()).doesNotContainKey("Access-Control-Allow-Origin");
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsDisallowedMethodWith403() {
+    RequestHandler handler =
+        Handlers.corsPreflightHandler(ORIGINS, List.of(GET), HEADERS, false, null);
+
+    Response resp = handler.handle(preflight("https://app.example.com", "DELETE", "content-type"));
+
+    assertThat(resp.status()).isEqualTo(HTTP_FORBIDDEN);
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsDisallowedHeaderWith403() {
+    RequestHandler handler =
+        Handlers.corsPreflightHandler(ORIGINS, METHODS, List.of("content-type"), false, null);
+
+    Response resp = handler.handle(preflight("https://app.example.com", "POST", "x-secret"));
+
+    assertThat(resp.status()).isEqualTo(HTTP_FORBIDDEN);
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsUnknownMethodTokenWith403() {
+    RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, null);
+
+    Response resp = handler.handle(preflight("https://app.example.com", "BOGUS", "content-type"));
+
+    assertThat(resp.status()).isEqualTo(HTTP_FORBIDDEN);
   }
 }
