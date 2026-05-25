@@ -212,4 +212,63 @@ class CorsPreflightHandlerTest {
     assertThat(allowed.status()).isEqualTo(HTTP_NO_CONTENT);
     assertThat(denied.status()).isEqualTo(HTTP_FORBIDDEN);
   }
+
+  @Test
+  void corsPreflightHandlerRejectsNullOriginList() {
+    assertThatThrownBy(
+            () -> Handlers.corsPreflightHandler((List<String>) null, METHODS, HEADERS, false, null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessageContaining("allowedOrigins");
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsNullOriginPredicate() {
+    assertThatThrownBy(
+            () ->
+                Handlers.corsPreflightHandler(
+                    (Predicate<String>) null, METHODS, HEADERS, false, null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessageContaining("originAllowed");
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsNullMethods() {
+    assertThatThrownBy(() -> Handlers.corsPreflightHandler(ORIGINS, null, HEADERS, false, null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessageContaining("allowedMethods");
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsEmptyMethods() {
+    assertThatThrownBy(
+            () -> Handlers.corsPreflightHandler(ORIGINS, List.of(), HEADERS, false, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("allowedMethods");
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsNullHeaders() {
+    assertThatThrownBy(() -> Handlers.corsPreflightHandler(ORIGINS, METHODS, null, false, null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessageContaining("allowedHeaders");
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsNegativeMaxAge() {
+    assertThatThrownBy(
+            () ->
+                Handlers.corsPreflightHandler(
+                    ORIGINS, METHODS, HEADERS, false, Duration.ofSeconds(-1)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("maxAge");
+  }
+
+  @Test
+  void corsPreflightHandlerRejectsOverflowingMaxAge() {
+    Duration tooBig = Duration.ofSeconds((long) Integer.MAX_VALUE + 1);
+    assertThatThrownBy(
+            () -> Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, tooBig))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("maxAge");
+  }
 }
