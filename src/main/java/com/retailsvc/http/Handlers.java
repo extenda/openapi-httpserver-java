@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 public final class Handlers {
 
   private static final Logger LOG = LoggerFactory.getLogger(Handlers.class);
+  private static final String ALLOW = "Allow";
 
   private Handlers() {}
 
@@ -127,59 +128,96 @@ public final class Handlers {
             .map(h -> h.toLowerCase(Locale.ROOT))
             .collect(Collectors.toUnmodifiableSet());
     String maxAgeHeader = maxAge == null ? null : Long.toString(maxAge.getSeconds());
+    boolean emitAllowHeaders = !allowedHeaders.isEmpty();
 
     return req -> {
       if (req.method() != OPTIONS) {
-        return Response.status(HTTP_BAD_METHOD).withHeader("Allow", "OPTIONS");
+        return Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, "OPTIONS");
       }
-      String origin = req.header("Origin").orElse(null);
-      if (origin == null) {
-        throw new BadRequestException("CORS preflight is missing the Origin header");
-      }
-      String requestMethod = req.header("Access-Control-Request-Method").orElse(null);
-      if (requestMethod == null) {
-        throw new BadRequestException(
-            "CORS preflight is missing the Access-Control-Request-Method header");
-      }
-      if (!originAllowed.test(origin)) {
+      String origin = requireHeader(req, "Origin");
+      String requestMethod = requireHeader(req, "Access-Control-Request-Method");
+      if (!isPreflightAllowed(
+          req, origin, requestMethod, originAllowed, allowedMethods, headerAllowlistLower)) {
         return Response.status(HTTP_FORBIDDEN);
       }
-      HttpMethod parsedMethod;
-      try {
-        parsedMethod = HttpMethod.parse(requestMethod);
-      } catch (IllegalArgumentException e) {
-        return Response.status(HTTP_FORBIDDEN);
-      }
-      if (!allowedMethods.contains(parsedMethod)) {
-        return Response.status(HTTP_FORBIDDEN);
-      }
-      String requestedHeaders = req.header("Access-Control-Request-Headers").orElse("");
-      for (String raw : requestedHeaders.split(",")) {
-        String h = raw.trim().toLowerCase(Locale.ROOT);
-        if (h.isEmpty()) {
-          continue;
-        }
-        if (!headerAllowlistLower.contains(h)) {
-          return Response.status(HTTP_FORBIDDEN);
-        }
-      }
-
-      Response resp =
-          Response.status(HTTP_NO_CONTENT)
-              .withHeader("Access-Control-Allow-Origin", origin)
-              .withHeader("Access-Control-Allow-Methods", allowMethodsHeader)
-              .withHeader("Vary", "Origin");
-      if (!allowedHeaders.isEmpty()) {
-        resp = resp.withHeader("Access-Control-Allow-Headers", allowHeadersHeader);
-      }
-      if (allowCredentials) {
-        resp = resp.withHeader("Access-Control-Allow-Credentials", "true");
-      }
-      if (maxAgeHeader != null) {
-        resp = resp.withHeader("Access-Control-Max-Age", maxAgeHeader);
-      }
-      return resp;
+      return buildPreflightSuccess(
+          origin,
+          allowMethodsHeader,
+          allowHeadersHeader,
+          emitAllowHeaders,
+          allowCredentials,
+          maxAgeHeader);
     };
+  }
+
+  private static String requireHeader(Request req, String name) {
+    return req.header(name)
+        .orElseThrow(
+            () -> new BadRequestException("CORS preflight is missing the " + name + " header"));
+  }
+
+  private static boolean isPreflightAllowed(
+      Request req,
+      String origin,
+      String requestMethod,
+      Predicate<String> originAllowed,
+      List<HttpMethod> allowedMethods,
+      Set<String> headerAllowlistLower) {
+    if (!originAllowed.test(origin)) {
+      return false;
+    }
+    HttpMethod parsed = parseMethodOrNull(requestMethod);
+    if (parsed == null || !allowedMethods.contains(parsed)) {
+      return false;
+    }
+    return requestedHeadersAllowed(req, headerAllowlistLower);
+  }
+
+  private static HttpMethod parseMethodOrNull(String s) {
+    try {
+      return HttpMethod.parse(s);
+    } catch (IllegalArgumentException _) {
+      // Unknown method token — treated as disallowed by the caller.
+      return null;
+    }
+  }
+
+  private static boolean requestedHeadersAllowed(Request req, Set<String> allowedLower) {
+    String requested = req.header("Access-Control-Request-Headers").orElse("");
+    for (String raw : requested.split(",")) {
+      String h = raw.trim().toLowerCase(Locale.ROOT);
+      if (h.isEmpty()) {
+        continue;
+      }
+      if (!allowedLower.contains(h)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static Response buildPreflightSuccess(
+      String origin,
+      String allowMethodsHeader,
+      String allowHeadersHeader,
+      boolean emitAllowHeaders,
+      boolean allowCredentials,
+      String maxAgeHeader) {
+    Response resp =
+        Response.status(HTTP_NO_CONTENT)
+            .withHeader("Access-Control-Allow-Origin", origin)
+            .withHeader("Access-Control-Allow-Methods", allowMethodsHeader)
+            .withHeader("Vary", "Origin");
+    if (emitAllowHeaders) {
+      resp = resp.withHeader("Access-Control-Allow-Headers", allowHeadersHeader);
+    }
+    if (allowCredentials) {
+      resp = resp.withHeader("Access-Control-Allow-Credentials", "true");
+    }
+    if (maxAgeHeader != null) {
+      resp = resp.withHeader("Access-Control-Max-Age", maxAgeHeader);
+    }
+    return resp;
   }
 
   public static ExceptionHandler defaultExceptionHandler() {
@@ -199,7 +237,7 @@ public final class Handlers {
           case MethodNotAllowedException mna ->
               Response.status(HTTP_BAD_METHOD)
                   .withHeader(
-                      "Allow",
+                      ALLOW,
                       mna.allowed().stream().map(Enum::name).collect(Collectors.joining(", ")));
           default -> {
             LOG.error("Unhandled exception in handler", t);
@@ -213,7 +251,7 @@ public final class Handlers {
     return req ->
         switch (req.method()) {
           case GET, HEAD -> Response.empty();
-          default -> Response.status(HTTP_BAD_METHOD).withHeader("Allow", "GET, HEAD");
+          default -> Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, "GET, HEAD");
         };
   }
 
@@ -238,7 +276,7 @@ public final class Handlers {
     Objects.requireNonNull(probe, "probe");
     return req -> {
       if (req.method() != GET && req.method() != HEAD) {
-        return Response.status(HTTP_BAD_METHOD).withHeader("Allow", "GET, HEAD");
+        return Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, "GET, HEAD");
       }
       boolean up;
       List<Dependency> dependencies;
@@ -297,7 +335,7 @@ public final class Handlers {
               Response.status(HTTP_OK)
                   .withContentType(contentType)
                   .withHeader("Content-Length", String.valueOf(length));
-          default -> Response.status(HTTP_BAD_METHOD).withHeader("Allow", "GET, HEAD");
+          default -> Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, "GET, HEAD");
         };
   }
 }

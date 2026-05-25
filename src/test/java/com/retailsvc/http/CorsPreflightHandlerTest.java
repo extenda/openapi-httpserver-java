@@ -114,8 +114,9 @@ class CorsPreflightHandlerTest {
   @Test
   void corsPreflightHandlerRejectsMissingOriginWith400() {
     RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, null);
+    Request noOrigin = preflight(null, "POST", "content-type");
 
-    assertThatThrownBy(() -> handler.handle(preflight(null, "POST", "content-type")))
+    assertThatThrownBy(() -> handler.handle(noOrigin))
         .isInstanceOf(BadRequestException.class)
         .hasMessageContaining("Origin");
   }
@@ -123,9 +124,9 @@ class CorsPreflightHandlerTest {
   @Test
   void corsPreflightHandlerRejectsMissingRequestMethodWith400() {
     RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, null);
+    Request noRequestMethod = preflight("https://app.example.com", null, "content-type");
 
-    assertThatThrownBy(
-            () -> handler.handle(preflight("https://app.example.com", null, "content-type")))
+    assertThatThrownBy(() -> handler.handle(noRequestMethod))
         .isInstanceOf(BadRequestException.class)
         .hasMessageContaining("Access-Control-Request-Method");
   }
@@ -240,8 +241,9 @@ class CorsPreflightHandlerTest {
 
   @Test
   void corsPreflightHandlerRejectsEmptyMethods() {
-    assertThatThrownBy(
-            () -> Handlers.corsPreflightHandler(ORIGINS, List.of(), HEADERS, false, null))
+    List<HttpMethod> empty = List.of();
+
+    assertThatThrownBy(() -> Handlers.corsPreflightHandler(ORIGINS, empty, HEADERS, false, null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("allowedMethods");
   }
@@ -255,10 +257,10 @@ class CorsPreflightHandlerTest {
 
   @Test
   void corsPreflightHandlerRejectsNegativeMaxAge() {
+    Duration negative = Duration.ofSeconds(-1);
+
     assertThatThrownBy(
-            () ->
-                Handlers.corsPreflightHandler(
-                    ORIGINS, METHODS, HEADERS, false, Duration.ofSeconds(-1)))
+            () -> Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, negative))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("maxAge");
   }
