@@ -56,4 +56,44 @@ class CorsPreflightHandlerTest {
         .containsEntry("Access-Control-Max-Age", "600")
         .containsEntry("Vary", "Origin");
   }
+
+  @Test
+  void corsPreflightHandlerOmitsAllowCredentialsWhenFalse() {
+    RequestHandler handler =
+        Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, Duration.ofMinutes(10));
+
+    Response resp = handler.handle(preflight("https://app.example.com", "POST", "content-type"));
+
+    assertThat(resp.headers()).doesNotContainKey("Access-Control-Allow-Credentials");
+  }
+
+  @Test
+  void corsPreflightHandlerOmitsMaxAgeWhenNull() {
+    RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, true, null);
+
+    Response resp = handler.handle(preflight("https://app.example.com", "POST", "content-type"));
+
+    assertThat(resp.headers()).doesNotContainKey("Access-Control-Max-Age");
+  }
+
+  @Test
+  void corsPreflightHandlerEmitsMaxAgeInSecondsWhenSet() {
+    RequestHandler handler =
+        Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, Duration.ofSeconds(75));
+
+    Response resp = handler.handle(preflight("https://app.example.com", "POST", "content-type"));
+
+    assertThat(resp.headers()).containsEntry("Access-Control-Max-Age", "75");
+  }
+
+  @Test
+  void corsPreflightHandlerOmitsAllowHeadersWhenListEmpty() {
+    RequestHandler handler =
+        Handlers.corsPreflightHandler(ORIGINS, METHODS, List.of(), false, null);
+
+    Response resp = handler.handle(preflight("https://app.example.com", "POST", ""));
+
+    assertThat(resp.headers()).doesNotContainKey("Access-Control-Allow-Headers");
+    assertThat(resp.status()).isEqualTo(HTTP_NO_CONTENT);
+  }
 }
