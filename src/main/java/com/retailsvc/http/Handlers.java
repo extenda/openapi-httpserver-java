@@ -2,9 +2,12 @@ package com.retailsvc.http;
 
 import static com.retailsvc.http.spec.HttpMethod.GET;
 import static com.retailsvc.http.spec.HttpMethod.HEAD;
+import static com.retailsvc.http.spec.HttpMethod.OPTIONS;
 import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
+import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -13,10 +16,15 @@ import com.retailsvc.http.internal.HealthRenderer;
 import com.retailsvc.http.internal.ProblemDetail;
 import com.retailsvc.http.internal.ProblemDetailRenderer;
 import com.retailsvc.http.internal.ResourceSource;
+import com.retailsvc.http.spec.HttpMethod;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -51,6 +59,126 @@ public final class Handlers {
         decorated = decorated.withHeader("Cross-Origin-Resource-Policy", "same-origin");
       }
       return decorated;
+    };
+  }
+
+  /**
+   * Returns a {@link RequestHandler} that answers CORS preflight {@code OPTIONS} requests for any
+   * path the caller wires it under (typically via {@code
+   * OpenApiServer.builder().extraRoute("/api/*", Handlers.corsPreflightHandler(...))}).
+   *
+   * <p>Requests are validated in order: origin against {@code allowedOrigins} (exact match), {@code
+   * Access-Control-Request-Method} against {@code allowedMethods}, and each header in {@code
+   * Access-Control-Request-Headers} against {@code allowedHeaders} (case-insensitive). A non-{@code
+   * OPTIONS} request yields {@code 405} with {@code Allow: OPTIONS}; a missing {@code Origin} or
+   * {@code Access-Control-Request-Method} header yields {@code 400}; any disallowed origin / method
+   * / header yields {@code 403} with no CORS headers (the browser then blocks the request).
+   *
+   * <p>On success the response is {@code 204 No Content} with {@code Access-Control-Allow-Origin}
+   * echoing the request's {@code Origin}, the configured method and header allowlists, and {@code
+   * Vary: Origin} so caches segment by origin. {@code Access-Control-Allow-Credentials} and {@code
+   * Access-Control-Max-Age} are emitted only when enabled.
+   *
+   * @param allowedOrigins exact-match origin allowlist; never {@code null}
+   * @param allowedMethods non-empty list of methods to advertise in {@code Allow-Methods}
+   * @param allowedHeaders header allowlist (matched case-insensitively); may be empty (then {@code
+   *     Access-Control-Allow-Headers} is omitted)
+   * @param allowCredentials whether to emit {@code Access-Control-Allow-Credentials: true}
+   * @param maxAge {@code Access-Control-Max-Age} value; {@code null} omits the header
+   */
+  public static RequestHandler corsPreflightHandler(
+      List<String> allowedOrigins,
+      List<HttpMethod> allowedMethods,
+      List<String> allowedHeaders,
+      boolean allowCredentials,
+      Duration maxAge) {
+    Objects.requireNonNull(allowedOrigins, "allowedOrigins must not be null");
+    Set<String> origins = Set.copyOf(allowedOrigins);
+    return corsPreflightHandler(
+        origins::contains, allowedMethods, allowedHeaders, allowCredentials, maxAge);
+  }
+
+  /**
+   * Predicate-based overload of {@link #corsPreflightHandler(List, List, List, boolean, Duration)}
+   * for callers that need dynamic origin policy (regex, suffix match, config lookup).
+   */
+  public static RequestHandler corsPreflightHandler(
+      Predicate<String> originAllowed,
+      List<HttpMethod> allowedMethods,
+      List<String> allowedHeaders,
+      boolean allowCredentials,
+      Duration maxAge) {
+    Objects.requireNonNull(originAllowed, "originAllowed must not be null");
+    Objects.requireNonNull(allowedMethods, "allowedMethods must not be null");
+    Objects.requireNonNull(allowedHeaders, "allowedHeaders must not be null");
+    if (allowedMethods.isEmpty()) {
+      throw new IllegalArgumentException("allowedMethods must not be empty");
+    }
+    if (maxAge != null && (maxAge.isNegative() || maxAge.getSeconds() > Integer.MAX_VALUE)) {
+      throw new IllegalArgumentException(
+          "maxAge must be non-negative and fit in an int number of seconds, got " + maxAge);
+    }
+
+    String allowMethodsHeader =
+        allowedMethods.stream().map(Enum::name).collect(Collectors.joining(", "));
+    String allowHeadersHeader = String.join(", ", allowedHeaders);
+    Set<String> headerAllowlistLower =
+        allowedHeaders.stream()
+            .map(h -> h.toLowerCase(Locale.ROOT))
+            .collect(Collectors.toUnmodifiableSet());
+    String maxAgeHeader = maxAge == null ? null : Long.toString(maxAge.getSeconds());
+
+    return req -> {
+      if (req.method() != OPTIONS) {
+        return Response.status(HTTP_BAD_METHOD).withHeader("Allow", "OPTIONS");
+      }
+      String origin = req.header("Origin").orElse(null);
+      if (origin == null) {
+        throw new BadRequestException("CORS preflight is missing the Origin header");
+      }
+      String requestMethod = req.header("Access-Control-Request-Method").orElse(null);
+      if (requestMethod == null) {
+        throw new BadRequestException(
+            "CORS preflight is missing the Access-Control-Request-Method header");
+      }
+      if (!originAllowed.test(origin)) {
+        return Response.status(HTTP_FORBIDDEN);
+      }
+      HttpMethod parsedMethod;
+      try {
+        parsedMethod = HttpMethod.parse(requestMethod);
+      } catch (IllegalArgumentException e) {
+        return Response.status(HTTP_FORBIDDEN);
+      }
+      if (!allowedMethods.contains(parsedMethod)) {
+        return Response.status(HTTP_FORBIDDEN);
+      }
+      String requestedHeaders = req.header("Access-Control-Request-Headers").orElse("");
+      for (String raw : requestedHeaders.split(",")) {
+        String h = raw.trim().toLowerCase(Locale.ROOT);
+        if (h.isEmpty()) {
+          continue;
+        }
+        if (!headerAllowlistLower.contains(h)) {
+          return Response.status(HTTP_FORBIDDEN);
+        }
+      }
+
+      Response resp =
+          Response.status(HTTP_NO_CONTENT)
+              .withHeader("Access-Control-Allow-Origin", origin)
+              .withHeader("Access-Control-Allow-Methods", allowMethodsHeader)
+              .withHeader("Vary", "Origin");
+      if (!allowedHeaders.isEmpty()) {
+        resp = resp.withHeader("Access-Control-Allow-Headers", allowHeadersHeader);
+      }
+      if (allowCredentials) {
+        resp = resp.withHeader("Access-Control-Allow-Credentials", "true");
+      }
+      if (maxAgeHeader != null) {
+        resp = resp.withHeader("Access-Control-Max-Age", maxAgeHeader);
+      }
+      return resp;
     };
   }
 
