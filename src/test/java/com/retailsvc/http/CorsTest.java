@@ -20,7 +20,7 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.Test;
 
-class CorsPreflightHandlerTest {
+class CorsTest {
 
   private static final List<HttpMethod> METHODS = List.of(GET, POST, PUT, DELETE);
   private static final List<String> HEADERS = List.of("content-type", "authorization");
@@ -43,9 +43,9 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerReturns204WithExpectedHeadersOnValidPreflight() {
+  void preflightHandlerReturns204WithExpectedHeadersOnValidPreflight() {
     RequestHandler handler =
-        Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, true, Duration.ofMinutes(10));
+        Cors.preflightHandler(ORIGINS, METHODS, HEADERS, true, Duration.ofMinutes(10));
 
     Response resp =
         handler.handle(preflight("https://app.example.com", "POST", "content-type, authorization"));
@@ -62,9 +62,9 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerOmitsAllowCredentialsWhenFalse() {
+  void preflightHandlerOmitsAllowCredentialsWhenFalse() {
     RequestHandler handler =
-        Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, Duration.ofMinutes(10));
+        Cors.preflightHandler(ORIGINS, METHODS, HEADERS, false, Duration.ofMinutes(10));
 
     Response resp = handler.handle(preflight("https://app.example.com", "POST", "content-type"));
 
@@ -72,8 +72,8 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerOmitsMaxAgeWhenNull() {
-    RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, true, null);
+  void preflightHandlerOmitsMaxAgeWhenNull() {
+    RequestHandler handler = Cors.preflightHandler(ORIGINS, METHODS, HEADERS, true, null);
 
     Response resp = handler.handle(preflight("https://app.example.com", "POST", "content-type"));
 
@@ -81,9 +81,9 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerEmitsMaxAgeInSecondsWhenSet() {
+  void preflightHandlerEmitsMaxAgeInSecondsWhenSet() {
     RequestHandler handler =
-        Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, Duration.ofSeconds(75));
+        Cors.preflightHandler(ORIGINS, METHODS, HEADERS, false, Duration.ofSeconds(75));
 
     Response resp = handler.handle(preflight("https://app.example.com", "POST", "content-type"));
 
@@ -91,9 +91,8 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerOmitsAllowHeadersWhenListEmpty() {
-    RequestHandler handler =
-        Handlers.corsPreflightHandler(ORIGINS, METHODS, List.of(), false, null);
+  void preflightHandlerOmitsAllowHeadersWhenListEmpty() {
+    RequestHandler handler = Cors.preflightHandler(ORIGINS, METHODS, List.of(), false, null);
 
     Response resp = handler.handle(preflight("https://app.example.com", "POST", ""));
 
@@ -102,8 +101,8 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerRejectsNonOptionsWith405AndAllowOptions() {
-    RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, null);
+  void preflightHandlerRejectsNonOptionsWith405AndAllowOptions() {
+    RequestHandler handler = Cors.preflightHandler(ORIGINS, METHODS, HEADERS, false, null);
 
     Response resp = handler.handle(bare(GET));
 
@@ -112,8 +111,8 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerRejectsMissingOriginWith400() {
-    RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, null);
+  void preflightHandlerRejectsMissingOriginWith400() {
+    RequestHandler handler = Cors.preflightHandler(ORIGINS, METHODS, HEADERS, false, null);
     Request noOrigin = preflight(null, "POST", "content-type");
 
     assertThatThrownBy(() -> handler.handle(noOrigin))
@@ -122,8 +121,8 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerRejectsMissingRequestMethodWith400() {
-    RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, null);
+  void preflightHandlerRejectsMissingRequestMethodWith400() {
+    RequestHandler handler = Cors.preflightHandler(ORIGINS, METHODS, HEADERS, false, null);
     Request noRequestMethod = preflight("https://app.example.com", null, "content-type");
 
     assertThatThrownBy(() -> handler.handle(noRequestMethod))
@@ -132,8 +131,8 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerRejectsDisallowedOriginWith403() {
-    RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, null);
+  void preflightHandlerRejectsDisallowedOriginWith403() {
+    RequestHandler handler = Cors.preflightHandler(ORIGINS, METHODS, HEADERS, false, null);
 
     Response resp = handler.handle(preflight("https://evil.example.com", "POST", "content-type"));
 
@@ -142,9 +141,8 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerRejectsDisallowedMethodWith403() {
-    RequestHandler handler =
-        Handlers.corsPreflightHandler(ORIGINS, List.of(GET), HEADERS, false, null);
+  void preflightHandlerRejectsDisallowedMethodWith403() {
+    RequestHandler handler = Cors.preflightHandler(ORIGINS, List.of(GET), HEADERS, false, null);
 
     Response resp = handler.handle(preflight("https://app.example.com", "DELETE", "content-type"));
 
@@ -152,9 +150,9 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerRejectsDisallowedHeaderWith403() {
+  void preflightHandlerRejectsDisallowedHeaderWith403() {
     RequestHandler handler =
-        Handlers.corsPreflightHandler(ORIGINS, METHODS, List.of("content-type"), false, null);
+        Cors.preflightHandler(ORIGINS, METHODS, List.of("content-type"), false, null);
 
     Response resp = handler.handle(preflight("https://app.example.com", "POST", "x-secret"));
 
@@ -162,8 +160,8 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerRejectsUnknownMethodTokenWith403() {
-    RequestHandler handler = Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, null);
+  void preflightHandlerRejectsUnknownMethodTokenWith403() {
+    RequestHandler handler = Cors.preflightHandler(ORIGINS, METHODS, HEADERS, false, null);
 
     Response resp = handler.handle(preflight("https://app.example.com", "BOGUS", "content-type"));
 
@@ -171,9 +169,9 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerMatchesHeadersCaseInsensitively() {
+  void preflightHandlerMatchesHeadersCaseInsensitively() {
     RequestHandler handler =
-        Handlers.corsPreflightHandler(
+        Cors.preflightHandler(
             ORIGINS, METHODS, List.of("Content-Type", "Authorization"), false, null);
 
     Response resp =
@@ -183,10 +181,9 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerEchoesOriginAndIncludesVary() {
+  void preflightHandlerEchoesOriginAndIncludesVary() {
     Predicate<String> anyExampleOrigin = o -> o.endsWith(".example.com");
-    RequestHandler handler =
-        Handlers.corsPreflightHandler(anyExampleOrigin, METHODS, HEADERS, false, null);
+    RequestHandler handler = Cors.preflightHandler(anyExampleOrigin, METHODS, HEADERS, false, null);
 
     Response resp =
         handler.handle(preflight("https://tenant-7.example.com", "POST", "content-type"));
@@ -198,9 +195,9 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerListOverloadDelegatesToPredicateBehaviour() {
+  void preflightHandlerListOverloadDelegatesToPredicateBehaviour() {
     RequestHandler list =
-        Handlers.corsPreflightHandler(
+        Cors.preflightHandler(
             List.of("https://a.example.com", "https://b.example.com"),
             METHODS,
             HEADERS,
@@ -215,61 +212,57 @@ class CorsPreflightHandlerTest {
   }
 
   @Test
-  void corsPreflightHandlerRejectsNullOriginList() {
+  void preflightHandlerRejectsNullOriginList() {
     assertThatThrownBy(
-            () -> Handlers.corsPreflightHandler((List<String>) null, METHODS, HEADERS, false, null))
+            () -> Cors.preflightHandler((List<String>) null, METHODS, HEADERS, false, null))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("allowedOrigins");
   }
 
   @Test
-  void corsPreflightHandlerRejectsNullOriginPredicate() {
+  void preflightHandlerRejectsNullOriginPredicate() {
     assertThatThrownBy(
-            () ->
-                Handlers.corsPreflightHandler(
-                    (Predicate<String>) null, METHODS, HEADERS, false, null))
+            () -> Cors.preflightHandler((Predicate<String>) null, METHODS, HEADERS, false, null))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("originAllowed");
   }
 
   @Test
-  void corsPreflightHandlerRejectsNullMethods() {
-    assertThatThrownBy(() -> Handlers.corsPreflightHandler(ORIGINS, null, HEADERS, false, null))
+  void preflightHandlerRejectsNullMethods() {
+    assertThatThrownBy(() -> Cors.preflightHandler(ORIGINS, null, HEADERS, false, null))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("allowedMethods");
   }
 
   @Test
-  void corsPreflightHandlerRejectsEmptyMethods() {
+  void preflightHandlerRejectsEmptyMethods() {
     List<HttpMethod> empty = List.of();
 
-    assertThatThrownBy(() -> Handlers.corsPreflightHandler(ORIGINS, empty, HEADERS, false, null))
+    assertThatThrownBy(() -> Cors.preflightHandler(ORIGINS, empty, HEADERS, false, null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("allowedMethods");
   }
 
   @Test
-  void corsPreflightHandlerRejectsNullHeaders() {
-    assertThatThrownBy(() -> Handlers.corsPreflightHandler(ORIGINS, METHODS, null, false, null))
+  void preflightHandlerRejectsNullHeaders() {
+    assertThatThrownBy(() -> Cors.preflightHandler(ORIGINS, METHODS, null, false, null))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("allowedHeaders");
   }
 
   @Test
-  void corsPreflightHandlerRejectsNegativeMaxAge() {
+  void preflightHandlerRejectsNegativeMaxAge() {
     Duration negative = Duration.ofSeconds(-1);
 
-    assertThatThrownBy(
-            () -> Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, negative))
+    assertThatThrownBy(() -> Cors.preflightHandler(ORIGINS, METHODS, HEADERS, false, negative))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("maxAge");
   }
 
   @Test
-  void corsPreflightHandlerRejectsOverflowingMaxAge() {
+  void preflightHandlerRejectsOverflowingMaxAge() {
     Duration tooBig = Duration.ofSeconds((long) Integer.MAX_VALUE + 1);
-    assertThatThrownBy(
-            () -> Handlers.corsPreflightHandler(ORIGINS, METHODS, HEADERS, false, tooBig))
+    assertThatThrownBy(() -> Cors.preflightHandler(ORIGINS, METHODS, HEADERS, false, tooBig))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("maxAge");
   }

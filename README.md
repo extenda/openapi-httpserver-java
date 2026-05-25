@@ -947,7 +947,7 @@ Built-in helpers:
   classpath resource or filesystem file (content-type inferred from extension; the stream is
   opened and closed per request, and the handler owns its lifecycle). Throws
   `IllegalArgumentException` at construction if the resource or file is missing.
-- `Handlers.corsPreflightHandler(...)` — answers CORS `OPTIONS` preflight requests against
+- `Cors.preflightHandler(...)` — answers CORS `OPTIONS` preflight requests against
   caller-supplied allowlists. See [CORS preflight](#cors-preflight) below.
 
 ### Wildcards in extra routes
@@ -1019,7 +1019,7 @@ header.
 
 ### CORS preflight
 
-`Handlers.corsPreflightHandler(...)` answers `OPTIONS` preflight requests so browsers can
+`Cors.preflightHandler(...)` answers `OPTIONS` preflight requests so browsers can
 perform cross-origin calls against the server. The handler is preflight-only — wire it on a
 wildcard `extraRoute` covering the routes you want to expose to browsers.
 
@@ -1027,7 +1027,7 @@ wildcard `extraRoute` covering the routes you want to expose to browsers.
 var server = OpenApiServer.builder()
     .spec(spec)
     .handlers(handlers)
-    .extraRoute("/api/**", Handlers.corsPreflightHandler(
+    .extraRoute("/api/**", Cors.preflightHandler(
         List.of("https://app.example.com"),
         List.of(GET, POST, PUT, DELETE),
         List.of("content-type", "authorization"),
