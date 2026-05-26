@@ -25,6 +25,8 @@ import org.slf4j.LoggerFactory;
 public final class Handlers {
 
   private static final Logger LOG = LoggerFactory.getLogger(Handlers.class);
+  private static final String ALLOW = "Allow";
+  private static final String GET_HEAD = "GET, HEAD";
 
   private Handlers() {}
 
@@ -71,7 +73,7 @@ public final class Handlers {
           case MethodNotAllowedException mna ->
               Response.status(HTTP_BAD_METHOD)
                   .withHeader(
-                      "Allow",
+                      ALLOW,
                       mna.allowed().stream().map(Enum::name).collect(Collectors.joining(", ")));
           default -> {
             LOG.error("Unhandled exception in handler", t);
@@ -85,7 +87,7 @@ public final class Handlers {
     return req ->
         switch (req.method()) {
           case GET, HEAD -> Response.empty();
-          default -> Response.status(HTTP_BAD_METHOD).withHeader("Allow", "GET, HEAD");
+          default -> Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, GET_HEAD);
         };
   }
 
@@ -110,7 +112,7 @@ public final class Handlers {
     Objects.requireNonNull(probe, "probe");
     return req -> {
       if (req.method() != GET && req.method() != HEAD) {
-        return Response.status(HTTP_BAD_METHOD).withHeader("Allow", "GET, HEAD");
+        return Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, GET_HEAD);
       }
       boolean up;
       List<Dependency> dependencies;
@@ -169,7 +171,7 @@ public final class Handlers {
               Response.status(HTTP_OK)
                   .withContentType(contentType)
                   .withHeader("Content-Length", String.valueOf(length));
-          default -> Response.status(HTTP_BAD_METHOD).withHeader("Allow", "GET, HEAD");
+          default -> Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, GET_HEAD);
         };
   }
 }
