@@ -21,15 +21,28 @@ public final class BadRequestException extends RuntimeException {
   private final String keyword;
 
   public BadRequestException(String detail) {
-    this(DEFAULT_STATUS, detail, null, null);
+    this(DEFAULT_STATUS, detail, null, null, null);
+  }
+
+  public BadRequestException(String detail, Throwable cause) {
+    this(DEFAULT_STATUS, detail, null, null, cause);
   }
 
   public BadRequestException(int status, String detail) {
-    this(status, detail, null, null);
+    this(status, detail, null, null, null);
+  }
+
+  public BadRequestException(int status, String detail, Throwable cause) {
+    this(status, detail, null, null, cause);
   }
 
   public BadRequestException(int status, String detail, String pointer, String keyword) {
-    super(Objects.requireNonNull(detail, "detail must not be null"));
+    this(status, detail, pointer, keyword, null);
+  }
+
+  public BadRequestException(
+      int status, String detail, String pointer, String keyword, Throwable cause) {
+    super(Objects.requireNonNull(detail, "detail must not be null"), cause);
     if (status < 400 || status > 499) {
       throw new IllegalArgumentException("status must be 4xx, got " + status);
     }

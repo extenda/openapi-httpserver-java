@@ -44,6 +44,23 @@ class BadRequestExceptionTest {
   }
 
   @Test
+  void preservesCause() {
+    Throwable cause = new IllegalStateException("root");
+
+    BadRequestException defaultStatus = new BadRequestException("bad", cause);
+    BadRequestException withStatus = new BadRequestException(422, "bad", cause);
+    BadRequestException full = new BadRequestException(422, "bad", "/x", "unique", cause);
+
+    assertThat(defaultStatus).hasCause(cause);
+    assertThat(defaultStatus.status()).isEqualTo(400);
+    assertThat(withStatus).hasCause(cause);
+    assertThat(withStatus.status()).isEqualTo(422);
+    assertThat(full).hasCause(cause);
+    assertThat(full.pointer()).contains("/x");
+    assertThat(full.keyword()).contains("unique");
+  }
+
+  @Test
   void rejectsNullDetail() {
     assertThatThrownBy(() -> new BadRequestException(null))
         .isInstanceOf(NullPointerException.class)

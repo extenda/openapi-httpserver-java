@@ -2,16 +2,43 @@ package com.retailsvc.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.retailsvc.http.spec.HttpMethod;
 import com.retailsvc.http.validate.ValidationError;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 class HandlersDefaultExceptionTest {
 
   private static final TypeMapper JSON = new GsonTypeMapper();
+
+  private Logger handlersLogger;
+  private Level originalLevel;
+  private ListAppender<ILoggingEvent> appender;
+
+  @BeforeEach
+  void attachAppender() {
+    handlersLogger = (Logger) LoggerFactory.getLogger(Handlers.class);
+    originalLevel = handlersLogger.getLevel();
+    handlersLogger.setLevel(Level.DEBUG);
+    appender = new ListAppender<>();
+    appender.start();
+    handlersLogger.addAppender(appender);
+  }
+
+  @AfterEach
+  void detachAppender() {
+    handlersLogger.detachAppender(appender);
+    handlersLogger.setLevel(originalLevel);
+  }
 
   @Test
   void validationExceptionRendersProblemJson() {
@@ -68,6 +95,50 @@ class HandlersDefaultExceptionTest {
     assertThat(resp.status()).isEqualTo(405);
     assertThat(resp.headers()).containsKey("Allow");
     assertThat(resp.headers().get("Allow")).contains("GET").contains("POST");
+  }
+
+  @Test
+  void badRequestCauseLoggedAtDebug() {
+    Throwable cause = new IllegalStateException("root");
+
+    Handlers.defaultExceptionHandler().handle(new BadRequestException("bad", cause));
+
+    assertThat(appender.list)
+        .anySatisfy(
+            event -> {
+              assertThat(event.getLevel()).isEqualTo(Level.DEBUG);
+              assertThat(event.getThrowableProxy().getClassName())
+                  .isEqualTo(IllegalStateException.class.getName());
+            });
+  }
+
+  @Test
+  void badRequestWithoutCauseDoesNotLog() {
+    Handlers.defaultExceptionHandler().handle(new BadRequestException("bad"));
+
+    assertThat(appender.list).isEmpty();
+  }
+
+  @Test
+  void notFoundCauseLoggedAtDebug() {
+    Throwable cause = new IllegalStateException("root");
+
+    Handlers.defaultExceptionHandler().handle(new NotFoundException("missing", cause));
+
+    assertThat(appender.list)
+        .anySatisfy(
+            event -> {
+              assertThat(event.getLevel()).isEqualTo(Level.DEBUG);
+              assertThat(event.getThrowableProxy().getClassName())
+                  .isEqualTo(IllegalStateException.class.getName());
+            });
+  }
+
+  @Test
+  void notFoundWithoutCauseDoesNotLog() {
+    Handlers.defaultExceptionHandler().handle(new NotFoundException("missing"));
+
+    assertThat(appender.list).isEmpty();
   }
 
   @Test

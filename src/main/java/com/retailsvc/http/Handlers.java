@@ -64,12 +64,21 @@ public final class Handlers {
                   HTTP_BAD_REQUEST,
                   ProblemDetailRenderer.renderJson(ProblemDetail.forValidation(ve.error())),
                   "application/problem+json");
-          case BadRequestException bre ->
-              Response.bytes(
-                  bre.status(),
-                  ProblemDetailRenderer.renderJson(ProblemDetail.forBadRequest(bre)),
-                  "application/problem+json");
-          case NotFoundException _ -> Response.notFound();
+          case BadRequestException bre -> {
+            if (bre.getCause() != null && LOG.isDebugEnabled()) {
+              LOG.debug("BadRequestException cause", bre.getCause());
+            }
+            yield Response.bytes(
+                bre.status(),
+                ProblemDetailRenderer.renderJson(ProblemDetail.forBadRequest(bre)),
+                "application/problem+json");
+          }
+          case NotFoundException nfe -> {
+            if (nfe.getCause() != null && LOG.isDebugEnabled()) {
+              LOG.debug("NotFoundException cause", nfe.getCause());
+            }
+            yield Response.notFound();
+          }
           case MethodNotAllowedException mna ->
               Response.status(HTTP_BAD_METHOD)
                   .withHeader(
