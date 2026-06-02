@@ -159,6 +159,40 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void stringFormatDateTimeAcceptsAnyIsoPrecision() {
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "date-time", null, Map.of());
+    assertThatCode(() -> v.validate("2026-01-01T20:00Z", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("2026-01-01T20:00:00Z", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("2026-01-01T20:00:00.1Z", s, "/v")).doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("2026-01-01T20:00:00.123Z", s, "/v"))
+        .doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("2026-01-01T20:00:00.000000Z", s, "/v"))
+        .doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("2026-01-01T20:00:00.123456789Z", s, "/v"))
+        .doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("2026-01-01T20:00:00+02:00", s, "/v"))
+        .doesNotThrowAnyException();
+    assertThatCode(() -> v.validate("2026-01-01T20:00:00.250-05:30", s, "/v"))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  void stringFormatDateTimeRejectsBadValues() {
+    StringSchema s =
+        new StringSchema(Set.of(TypeName.STRING), null, null, null, "date-time", null, Map.of());
+    assertThatThrownBy(() -> v.validate("2026-01-01T20:00:00", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("2026-01-01 20:00:00Z", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+    assertThatThrownBy(() -> v.validate("not-a-date", s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+  }
+
+  @Test
   void integerWithMinMax() {
     IntegerSchema s =
         new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 10L, null, null, null, "int32", Map.of());
