@@ -527,29 +527,45 @@ public final class DefaultValidator implements Validator {
   }
 
   private Optional<ValidationError> checkAnyOf(Object value, List<Schema> options, String pointer) {
+    List<ValidationError> failures = null;
     for (Schema o : options) {
-      if (check(value, o, pointer).isEmpty()) {
+      Optional<ValidationError> result = check(value, o, pointer);
+      if (result.isEmpty()) {
         return OK;
       }
+      if (failures == null) {
+        failures = new ArrayList<>(options.size() - 1);
+      }
+      failures.add(result.get());
     }
-    return err(pointer, "anyOf", "did not match any anyOf branch", value);
+    List<ValidationError> branches = failures != null ? failures : List.of();
+    return Optional.of(
+        new ValidationError(pointer, "anyOf", "did not match any anyOf branch", value, branches));
   }
 
   private Optional<ValidationError> checkOneOf(Object value, List<Schema> options, String pointer) {
     int matched = 0;
+    List<ValidationError> failures = new ArrayList<>();
     for (Schema o : options) {
-      if (check(value, o, pointer).isEmpty()) {
+      Optional<ValidationError> result = check(value, o, pointer);
+      if (result.isEmpty()) {
         matched++;
+      } else {
+        failures.add(result.get());
       }
     }
     if (matched == 1) {
       return OK;
     }
-    return err(
-        pointer,
-        "oneOf",
-        "matched " + matched + " of " + options.size() + " oneOf branches",
-        value);
+    return Optional.of(
+        new ValidationError(
+            pointer,
+            "oneOf",
+            "matched " + matched + " of " + options.size() + " oneOf branches",
+            value,
+            // Ambiguous match (matched > 1): the non-matching branches' errors are noise — omit
+            // them.
+            matched == 0 ? failures : List.of()));
   }
 
   private Optional<ValidationError> checkNot(Object value, Schema inner, String pointer) {

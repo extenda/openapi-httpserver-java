@@ -9,6 +9,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.retailsvc.http.spec.HttpMethod;
 import com.retailsvc.http.validate.ValidationError;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
@@ -54,8 +55,14 @@ class HandlersDefaultExceptionTest {
     String json = new String(bytes, StandardCharsets.UTF_8);
     @SuppressWarnings("unchecked")
     Map<String, Object> parsed = (Map<String, Object>) JSON.readFrom(bytes, "application/json");
-    assertThat(parsed).containsEntry("keyword", "type");
     assertThat(((Number) parsed.get("status")).intValue()).isEqualTo(400);
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> errors = (List<Map<String, Object>>) parsed.get("errors");
+    assertThat(errors)
+        .singleElement()
+        .satisfies(
+            entry ->
+                assertThat(entry).containsEntry("pointer", "#/x").containsEntry("keyword", "type"));
     assertThat(json).contains("expected string");
   }
 
@@ -73,9 +80,16 @@ class HandlersDefaultExceptionTest {
     assertThat(((Number) parsed.get("status")).intValue()).isEqualTo(422);
     assertThat(parsed)
         .containsEntry("title", "Unprocessable Content")
-        .containsEntry("detail", "email taken")
-        .containsEntry("pointer", "/email")
-        .containsEntry("keyword", "unique");
+        .containsEntry("detail", "email taken");
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> errors = (List<Map<String, Object>>) parsed.get("errors");
+    assertThat(errors)
+        .singleElement()
+        .satisfies(
+            entry ->
+                assertThat(entry)
+                    .containsEntry("pointer", "#/email")
+                    .containsEntry("keyword", "unique"));
   }
 
   @Test
