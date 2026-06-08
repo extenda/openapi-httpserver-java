@@ -697,12 +697,11 @@ git add src/main/java/com/retailsvc/http/internal/ProblemDetail.java \
         src/test/java/com/retailsvc/http/internal/ProblemDetailRendererTest.java \
         src/test/java/com/retailsvc/http/internal/ProblemDetailTest.java \
         src/test/java/com/retailsvc/http/HandlersDefaultExceptionTest.java
-git commit -m "feat!: Render validation errors as RFC 9457 errors array
+git commit -m "feat: Move validation pointer and keyword into an errors array
 
-BREAKING CHANGE: problem+json responses no longer carry top-level
-pointer/keyword. Each failure is now an entry in an errors[] array
-with a #/... JSON-Pointer-in-fragment pointer. oneOf/anyOf failures
-list one entry per branch, deepest-first and de-duplicated."
+Each failure is now an entry in an errors[] array with a #/...
+JSON-Pointer-in-fragment pointer. oneOf/anyOf failures list one entry
+per branch, deepest-first and de-duplicated."
 ```
 
 ---
