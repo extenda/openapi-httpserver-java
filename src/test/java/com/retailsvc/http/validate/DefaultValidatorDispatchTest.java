@@ -235,4 +235,42 @@ class DefaultValidatorDispatchTest {
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("false");
   }
+
+  @Test
+  void oneOfZeroMatchesCapturesEachBranchError() {
+    // "hello" (len 5): branch[0] minLength 100 fails, branch[1] maxLength 2 fails.
+    var schema = new OneOfSchema(List.of(stringSchema(100, null), stringSchema(null, 2)), Map.of());
+    assertThatThrownBy(() -> v.validate("hello", schema, "/v"))
+        .isInstanceOf(ValidationException.class)
+        .satisfies(
+            t -> {
+              var err = ((ValidationException) t).error();
+              assertThat(err.branches())
+                  .extracting(ValidationError::keyword)
+                  .containsExactly("minLength", "maxLength");
+            });
+  }
+
+  @Test
+  void oneOfTwoMatchesHasNoBranchErrors() {
+    // Both branches accept "hello" — ambiguity, not a field error.
+    var schema = new OneOfSchema(List.of(stringSchema(null, 10), stringSchema(1, null)), Map.of());
+    assertThatThrownBy(() -> v.validate("hello", schema, "/v"))
+        .isInstanceOf(ValidationException.class)
+        .satisfies(t -> assertThat(((ValidationException) t).error().branches()).isEmpty());
+  }
+
+  @Test
+  void anyOfNoMatchCapturesEachBranchError() {
+    var schema = new AnyOfSchema(List.of(stringSchema(100, null), stringSchema(null, 2)), Map.of());
+    assertThatThrownBy(() -> v.validate("hello", schema, "/v"))
+        .isInstanceOf(ValidationException.class)
+        .satisfies(
+            t -> {
+              var err = ((ValidationException) t).error();
+              assertThat(err.branches())
+                  .extracting(ValidationError::keyword)
+                  .containsExactly("minLength", "maxLength");
+            });
+  }
 }
