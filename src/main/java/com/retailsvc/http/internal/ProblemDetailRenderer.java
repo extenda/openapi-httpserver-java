@@ -1,15 +1,15 @@
 package com.retailsvc.http.internal;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
- * Built-in JSON writer for the {@code application/problem+json} (RFC 7807) wire shape. Keeps the
+ * Built-in JSON writer for the {@code application/problem+json} (RFC 9457) wire shape. Keeps the
  * exception and security paths free of any {@code TypeMapper}, so the library can emit problem
  * responses without a JSON library on the classpath (and without record-accessor reflection that
  * GraalVM Native Image would otherwise need configured).
  *
- * <p>Null-valued fields are omitted, matching the default Gson encoding the library historically
- * produced.
+ * <p>Null-valued fields and an empty {@code errors} array are omitted.
  */
 public final class ProblemDetailRenderer {
 
@@ -26,10 +26,33 @@ public final class ProblemDetailRenderer {
     first = appendString(out, first, "title", pd.title());
     first = appendInt(out, first, "status", pd.status());
     first = appendString(out, first, "detail", pd.detail());
-    first = appendString(out, first, "pointer", pd.pointer());
-    appendString(out, first, "keyword", pd.keyword());
+    appendErrors(out, first, pd.errors());
     out.append('}');
     return out.toString().getBytes(StandardCharsets.UTF_8);
+  }
+
+  private static void appendErrors(
+      StringBuilder out, boolean first, List<ProblemDetail.Entry> errors) {
+    if (errors == null || errors.isEmpty()) {
+      return;
+    }
+    if (!first) {
+      out.append(',');
+    }
+    out.append("\"errors\":[");
+    for (int i = 0; i < errors.size(); i++) {
+      if (i > 0) {
+        out.append(',');
+      }
+      ProblemDetail.Entry e = errors.get(i);
+      out.append('{');
+      boolean entryFirst = true;
+      entryFirst = appendString(out, entryFirst, "pointer", e.pointer());
+      entryFirst = appendString(out, entryFirst, "keyword", e.keyword());
+      appendString(out, entryFirst, "detail", e.detail());
+      out.append('}');
+    }
+    out.append(']');
   }
 
   private static boolean appendString(StringBuilder out, boolean first, String name, String value) {

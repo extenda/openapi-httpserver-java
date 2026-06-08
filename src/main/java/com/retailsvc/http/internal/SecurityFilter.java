@@ -119,7 +119,7 @@ public final class SecurityFilter extends Filter {
     String detail = describe(pick);
 
     ProblemDetail problemDetail =
-        new ProblemDetail("about:blank", title, status, detail, null, null);
+        new ProblemDetail("about:blank", title, status, detail, List.of());
     byte[] body = ProblemDetailRenderer.renderJson(problemDetail);
     exchange.getResponseHeaders().add("Content-Type", "application/problem+json");
     if (!anyDenied) {
