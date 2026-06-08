@@ -1,6 +1,7 @@
 package com.retailsvc.http.validate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,5 +24,12 @@ class ValidationErrorTest {
     mutable.clear();
 
     assertThat(e.branches()).containsExactly(branch);
+  }
+
+  @Test
+  void nullBranchesArgumentThrows() {
+    assertThatNullPointerException()
+        .isThrownBy(() -> new ValidationError("/x", "oneOf", "summary", "s", null))
+        .withMessageContaining("branches");
   }
 }

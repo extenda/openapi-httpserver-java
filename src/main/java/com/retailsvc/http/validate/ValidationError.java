@@ -1,6 +1,7 @@
 package com.retailsvc.http.validate;
 
 import java.util.List;
+import java.util.Objects;
 
 public record ValidationError(
     String pointer,
@@ -10,6 +11,8 @@ public record ValidationError(
     List<ValidationError> branches) {
 
   public ValidationError {
+    Objects.requireNonNull(
+        branches, "branches must not be null; use the 4-arg constructor for a leaf error");
     branches = List.copyOf(branches);
   }
 
