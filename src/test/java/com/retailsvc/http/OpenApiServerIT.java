@@ -437,6 +437,8 @@ class OpenApiServerIT extends ServerBaseTest {
         assertThat(response.headers().firstValue("Content-Type").orElse(""))
             .contains("application/problem+json");
         assertThat(response.body()).contains("oneOf");
+        // Both branches fail at distinct leaves -> two entries, in the errors[] array.
+        assertThat(response.body()).contains("\"errors\"").contains("#/radius").contains("#/kind");
       } catch (IOException e) {
         fail(e);
       } catch (InterruptedException e) {
@@ -459,6 +461,9 @@ class OpenApiServerIT extends ServerBaseTest {
         assertThat(response.headers().firstValue("Content-Type").orElse(""))
             .contains("application/problem+json");
         assertThat(response.body()).contains("oneOf");
+        // Both branches fail identically at /kind required -> de-duplicated to one entry.
+        assertThat(response.body()).contains("\"errors\"").contains("#/kind");
+        assertThat(response.body().split("#/kind", -1)).hasSize(2); // exactly one occurrence
       } catch (IOException e) {
         fail(e);
       } catch (InterruptedException e) {
