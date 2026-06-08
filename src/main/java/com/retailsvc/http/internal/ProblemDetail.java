@@ -1,5 +1,7 @@
 package com.retailsvc.http.internal;
 
+import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
+
 import com.retailsvc.http.BadRequestException;
 import com.retailsvc.http.validate.ValidationError;
 import java.util.ArrayList;
@@ -28,9 +30,11 @@ public record ProblemDetail(
   public record Entry(String pointer, String keyword, String detail) {}
 
   private static final String DEFAULT_TYPE = "about:blank";
+  private static final String BAD_REQUEST = "Bad Request";
 
   public static ProblemDetail forValidation(ValidationError e) {
-    return new ProblemDetail(DEFAULT_TYPE, "Bad Request", 400, e.message(), entriesOf(e));
+    return new ProblemDetail(
+        DEFAULT_TYPE, BAD_REQUEST, HTTP_BAD_REQUEST, e.message(), entriesOf(e));
   }
 
   public static ProblemDetail forBadRequest(BadRequestException e) {
@@ -76,18 +80,28 @@ public record ProblemDetail(
 
   private static final Map<Integer, String> TITLES =
       Map.of(
-          400, "Bad Request",
-          401, "Unauthorized",
-          403, "Forbidden",
-          404, "Not Found",
-          405, "Method Not Allowed",
-          409, "Conflict",
-          410, "Gone",
-          412, "Precondition Failed",
-          415, "Unsupported Media Type",
-          422, "Unprocessable Content");
+          HTTP_BAD_REQUEST,
+          BAD_REQUEST,
+          401,
+          "Unauthorized",
+          403,
+          "Forbidden",
+          404,
+          "Not Found",
+          405,
+          "Method Not Allowed",
+          409,
+          "Conflict",
+          410,
+          "Gone",
+          412,
+          "Precondition Failed",
+          415,
+          "Unsupported Media Type",
+          422,
+          "Unprocessable Content");
 
   private static String titleFor(int status) {
-    return TITLES.getOrDefault(status, "Bad Request");
+    return TITLES.getOrDefault(status, BAD_REQUEST);
   }
 }
