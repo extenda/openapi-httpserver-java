@@ -892,7 +892,7 @@ array (an RFC 9457 extension member). A non-combinator failure yields a single e
 | `type`     | string  | Always `about:blank` (no per-error type URI).                                            |
 | `title`    | string  | Always `Bad Request`.                                                                    |
 | `status`   | integer | Always `400`.                                                                            |
-| `detail`   | string  | Human-readable description (a leaf message, or `matched 0 of N oneOf branches` for a combinator). |
+| `detail`   | string  | Human-readable description (a leaf message; for a combinator, `matched 0 of N oneOf branches` or `did not match any anyOf branch`). |
 | `errors`   | array   | One entry per failure; omitted when empty. Each entry has the fields below.              |
 
 Each `errors[]` entry:
@@ -917,7 +917,7 @@ Example body for `POST /form-echo` with `age=abc` (`age` is declared as `integer
 }
 ```
 
-Example body for a `oneOf` request body that matches no branch — one entry per branch,
+Example body for a `oneOf` request body that matches no branch — one entry per failed branch,
 deepest (most-likely) first:
 
 ``` json
@@ -927,10 +927,14 @@ deepest (most-likely) first:
   "status": 400,
   "detail": "matched 0 of 2 oneOf branches",
   "errors": [
-    { "pointer": "#/offers/0/conditions/0/itemSet/minQuantity", "keyword": "type", "detail": "expected number" }
+    { "pointer": "#/pet/collar/size", "keyword": "type", "detail": "expected integer" },
+    { "pointer": "#/pet/bark", "keyword": "type", "detail": "expected boolean" }
   ]
 }
 ```
+
+When several branches fail at the same location for the same reason, those identical entries are
+collapsed into one — so a `oneOf` failure can show fewer entries than it has branches.
 
 Other error responses:
 
