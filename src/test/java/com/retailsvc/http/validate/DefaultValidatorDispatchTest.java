@@ -273,4 +273,12 @@ class DefaultValidatorDispatchTest {
                   .containsExactly("minLength", "maxLength");
             });
   }
+
+  @Test
+  void anyOfEmptyOptionsHasNoBranchErrors() {
+    var schema = new AnyOfSchema(List.of(), Map.of());
+    assertThatThrownBy(() -> v.validate("anything", schema, "/v"))
+        .isInstanceOf(ValidationException.class)
+        .satisfies(t -> assertThat(((ValidationException) t).error().branches()).isEmpty());
+  }
 }

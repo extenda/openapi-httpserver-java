@@ -527,16 +527,20 @@ public final class DefaultValidator implements Validator {
   }
 
   private Optional<ValidationError> checkAnyOf(Object value, List<Schema> options, String pointer) {
-    List<ValidationError> failures = new ArrayList<>();
+    List<ValidationError> failures = null;
     for (Schema o : options) {
       Optional<ValidationError> result = check(value, o, pointer);
       if (result.isEmpty()) {
         return OK;
       }
+      if (failures == null) {
+        failures = new ArrayList<>(options.size() - 1);
+      }
       failures.add(result.get());
     }
+    List<ValidationError> branches = failures != null ? failures : List.of();
     return Optional.of(
-        new ValidationError(pointer, "anyOf", "did not match any anyOf branch", value, failures));
+        new ValidationError(pointer, "anyOf", "did not match any anyOf branch", value, branches));
   }
 
   private Optional<ValidationError> checkOneOf(Object value, List<Schema> options, String pointer) {
@@ -559,6 +563,8 @@ public final class DefaultValidator implements Validator {
             "oneOf",
             "matched " + matched + " of " + options.size() + " oneOf branches",
             value,
+            // Ambiguous match (matched > 1): the non-matching branches' errors are noise — omit
+            // them.
             matched == 0 ? failures : List.of()));
   }
 
