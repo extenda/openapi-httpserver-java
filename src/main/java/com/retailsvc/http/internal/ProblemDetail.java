@@ -18,6 +18,12 @@ import java.util.Map;
 public record ProblemDetail(
     String type, String title, int status, String detail, List<Entry> errors) {
 
+  public ProblemDetail {
+    if (errors == null) {
+      errors = List.of();
+    }
+  }
+
   /** One validation failure: its body location, the failed keyword, and a human-readable detail. */
   public record Entry(String pointer, String keyword, String detail) {}
 
@@ -38,20 +44,20 @@ public record ProblemDetail(
 
   /**
    * Flattens a validation error into ordered {@code errors} entries: the failed branches of a
-   * combinator (one each), or the single leaf otherwise. Multi-entry results are sorted deepest
+   * combinator (one each), or the single leaf otherwise. Multiple sources are sorted deepest
    * pointer first (most-likely-intended branch) and de-duplicated on exact equality.
    */
   private static List<Entry> entriesOf(ValidationError e) {
     List<ValidationError> sources = e.branches().isEmpty() ? List.of(e) : e.branches();
-    List<Entry> entries = new ArrayList<>(sources.size());
+    if (sources.size() > 1) {
+      sources = new ArrayList<>(sources);
+      sources.sort(Comparator.comparingInt((ValidationError s) -> depth(s.pointer())).reversed());
+    }
+    LinkedHashSet<Entry> entries = new LinkedHashSet<>();
     for (ValidationError s : sources) {
       entries.add(new Entry(fragment(s.pointer()), s.keyword(), s.message()));
     }
-    if (entries.size() <= 1) {
-      return entries;
-    }
-    entries.sort(Comparator.comparingInt((Entry en) -> depth(en.pointer())).reversed());
-    return new ArrayList<>(new LinkedHashSet<>(entries));
+    return new ArrayList<>(entries);
   }
 
   private static String fragment(String pointer) {

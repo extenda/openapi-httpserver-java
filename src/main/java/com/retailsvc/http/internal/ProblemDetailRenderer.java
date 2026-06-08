@@ -33,7 +33,7 @@ public final class ProblemDetailRenderer {
 
   private static void appendErrors(
       StringBuilder out, boolean first, List<ProblemDetail.Entry> errors) {
-    if (errors == null || errors.isEmpty()) {
+    if (errors.isEmpty()) {
       return;
     }
     if (!first) {
