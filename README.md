@@ -10,7 +10,7 @@
 A lightweight Java library that wraps the JDK's `com.sun.net.httpserver.HttpServer` and serves
 endpoints declared in an OpenAPI 3.1.x specification. Handlers are pure functions registered by
 `operationId`; the framework handles routing, OpenAPI parameter and body validation, JSON
-(de)serialisation, and RFC 7807 error rendering.
+(de)serialisation, and RFC 9457 error rendering.
 
 ## Table of contents
 
@@ -27,7 +27,7 @@ endpoints declared in an OpenAPI 3.1.x specification. Handlers are pure function
 - [After-response hooks](#after-response-hooks)
 - [Security](#security)
 - [Request body content types](#request-body-content-types)
-- [Error responses (RFC 7807)](#error-responses-rfc-7807)
+- [Error responses (RFC 9457)](#error-responses-rfc-9457)
 - [Extra (non-OpenAPI) handlers](#extra-non-openapi-handlers)
   - [Health endpoint](#health-endpoint)
 - [Graceful shutdown](#graceful-shutdown)
@@ -47,7 +47,7 @@ endpoints declared in an OpenAPI 3.1.x specification. Handlers are pure function
   `ResponseDecorator` for cross-cutting response headers
 - OpenAPI `securitySchemes` and `security` enforcement (`apiKey`, `http bearer`, `http basic`),
   with an opt-out for sidecar / gateway authentication
-- RFC 7807 `application/problem+json` validation errors with JSON-Pointer to the failing location
+- RFC 9457 `application/problem+json` validation errors with an `errors[]` array of JSON-Pointers to the failing locations
 - Built on the JDK's native `HttpServer` with thread-per-request behaviour using virtual threads
 
 ## Maven artifact
@@ -630,7 +630,7 @@ to detect errors.
 
 The library parses `components.securitySchemes` and the `security` requirement lists (root-level
 and per-operation), extracts the credential per scheme, hands it to a consumer-provided
-`SchemeValidator` callback, and renders RFC 7807 `application/problem+json` rejections — 401 for
+`SchemeValidator` callback, and renders RFC 9457 `application/problem+json` rejections — 401 for
 missing/malformed credentials (with `WWW-Authenticate`), 403 when the validator denies.
 
 Supported scheme types in this release:
@@ -870,28 +870,38 @@ case-insensitive):
 
 Form-field coercion mirrors the rules already used at the parameter boundary: the wire is
 string-only by definition, so a property typed as `integer` accepts `"42"` and yields `42`.
-Coercion failures surface as RFC-7807 `400` responses with a JSON-pointer to the failing field.
+Coercion failures surface as RFC-9457 `400` responses with a JSON-pointer to the failing field.
 
 Both built-in parsers honour the `charset=` parameter on the `Content-Type` header (default
 UTF-8). Unknown charsets fall back to UTF-8.
 
-## Error responses (RFC 7807)
+## Error responses (RFC 9457)
 
 Validation failures — missing required fields, type mismatches, unsupported content types,
 coercion errors, malformed bodies — produce an `HTTP 400 Bad Request` response with body media
 type `application/problem+json`, following
-[RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807).
+[RFC 9457](https://datatracker.ietf.org/doc/html/rfc9457) (which obsoletes RFC 7807).
 
-A single error is reported per request (first failure wins). The response body has these fields:
+The top level carries the RFC core members; each individual failure is an entry in an `errors`
+array (an RFC 9457 extension member). A non-combinator failure yields a single entry; a
+`oneOf` / `anyOf` failure yields one entry per failed branch, ordered most-likely-cause first
+(the branch the payload most resembles) and de-duplicated.
 
 | Field      | Type    | Description                                                                              |
 | ---------- | ------- | ---------------------------------------------------------------------------------------- |
 | `type`     | string  | Always `about:blank` (no per-error type URI).                                            |
 | `title`    | string  | Always `Bad Request`.                                                                    |
 | `status`   | integer | Always `400`.                                                                            |
-| `detail`   | string  | Human-readable description of the failure (e.g. `expected integer`).                     |
-| `pointer`  | string  | [RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901) JSON-Pointer to the failing location (e.g. `/body/age`, `/query/limit`, `/path/id`, or `/body` for body-wide errors). |
+| `detail`   | string  | Human-readable description (a leaf message, or `matched 0 of N oneOf branches` for a combinator). |
+| `errors`   | array   | One entry per failure; omitted when empty. Each entry has the fields below.              |
+
+Each `errors[]` entry:
+
+| Field      | Type    | Description                                                                              |
+| ---------- | ------- | ---------------------------------------------------------------------------------------- |
+| `pointer`  | string  | [RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901) JSON-Pointer to the failing location, as a URI fragment — e.g. `#/age` for a body field, `#/query/limit` / `#/path/id` for parameters, `#/body` for whole-body errors (missing body, unsupported content type), or `#` when the entire body is the wrong type. |
 | `keyword`  | string  | The validation rule that failed: `type`, `required`, `enum`, `pattern`, `format`, `minimum`, `maximum`, `minLength`, `maxLength`, `additionalProperties`, `oneOf`, `anyOf`, `allOf`, `not`, `const`, `content-type`, `decode`, … |
+| `detail`   | string  | Human-readable description of this failure (e.g. `expected integer`).                    |
 
 Example body for `POST /form-echo` with `age=abc` (`age` is declared as `integer`):
 
@@ -901,8 +911,24 @@ Example body for `POST /form-echo` with `age=abc` (`age` is declared as `integer
   "title": "Bad Request",
   "status": 400,
   "detail": "expected integer",
-  "pointer": "/age",
-  "keyword": "type"
+  "errors": [
+    { "pointer": "#/age", "keyword": "type", "detail": "expected integer" }
+  ]
+}
+```
+
+Example body for a `oneOf` request body that matches no branch — one entry per branch,
+deepest (most-likely) first:
+
+``` json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "matched 0 of 2 oneOf branches",
+  "errors": [
+    { "pointer": "#/offers/0/conditions/0/itemSet/minQuantity", "keyword": "type", "detail": "expected number" }
+  ]
 }
 ```
 
