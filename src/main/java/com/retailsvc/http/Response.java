@@ -57,7 +57,7 @@ public record Response(int status, Object body, String contentType, Map<String, 
 
   /**
    * {@code 201 Created} with {@code body} serialised as JSON. Add a {@code Location} header for the
-   * new resource via {@link #withHeader(String, String) withHeader("Location", uri)}.
+   * new resource via {@link #withLocation(String)}.
    */
   public static Response created(Object body) {
     return new Response(HTTP_CREATED, body, null, Map.of());
@@ -138,6 +138,11 @@ public record Response(int status, Object body, String contentType, Map<String, 
     LinkedHashMap<String, String> merged = new LinkedHashMap<>(headers);
     merged.put(name, value);
     return new Response(status, body, contentType, merged);
+  }
+
+  /** Sets the {@code Location} header, typically the URI of a newly {@link #created} resource. */
+  public Response withLocation(String location) {
+    return withHeader("Location", location);
   }
 
   public Response withHeaders(Map<String, String> additional) {

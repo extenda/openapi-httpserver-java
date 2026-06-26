@@ -48,6 +48,14 @@ class ResponseTest {
   }
 
   @Test
+  void createdWithLocationViaWithLocation() {
+    Response r = Response.created(Map.of("id", "x-1")).withLocation("/things/x-1");
+
+    assertThat(r.status()).isEqualTo(HTTP_CREATED);
+    assertThat(r.headers()).containsEntry("Location", "/things/x-1");
+  }
+
+  @Test
   void notFoundNoBody() {
     Response r = Response.notFound();
 
