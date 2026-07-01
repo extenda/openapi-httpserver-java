@@ -260,6 +260,74 @@ class StringIntegerNumberTest {
   }
 
   @Test
+  void integerExclusiveBounds() {
+    IntegerSchema exclMin =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, 5L, null, null, null, Map.of());
+    assertThatCode(() -> v.validate(6, exclMin, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate(5, exclMin, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("exclusiveMinimum");
+
+    IntegerSchema exclMax =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, 5L, null, null, Map.of());
+    assertThatCode(() -> v.validate(4, exclMax, "/v")).doesNotThrowAnyException();
+    assertThatThrownBy(() -> v.validate(5, exclMax, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("exclusiveMaximum");
+  }
+
+  @Test
+  void integerLargeButWithinLongRangeIsCheckedPrecisely() {
+    // > 2^53 skips the exact-double fast path, but 2^60 still fits in a long and is bound-checked.
+    IntegerSchema s =
+        new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 1000L, null, null, null, null, Map.of());
+    assertThatThrownBy(() -> v.validate(BigInteger.TWO.pow(60), s, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("maximum");
+  }
+
+  @Test
+  void integerOverflowingLongIsCheckedAgainstBoundsAndFormat() {
+    BigInteger huge = BigInteger.TWO.pow(64).add(BigInteger.valueOf(50)); // > Long.MAX
+    BigInteger hugeNegative = huge.negate(); // < Long.MIN
+
+    IntegerSchema max =
+        new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 1000L, null, null, null, null, Map.of());
+    assertThatThrownBy(() -> v.validate(huge, max, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("maximum");
+
+    IntegerSchema exclMax =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, 1000L, null, null, Map.of());
+    assertThatThrownBy(() -> v.validate(huge, exclMax, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("maximum");
+
+    IntegerSchema min =
+        new IntegerSchema(Set.of(TypeName.INTEGER), 0L, null, null, null, null, null, Map.of());
+    assertThatThrownBy(() -> v.validate(hugeNegative, min, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("minimum");
+
+    IntegerSchema exclMin =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, 0L, null, null, null, Map.of());
+    assertThatThrownBy(() -> v.validate(hugeNegative, exclMin, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("minimum");
+
+    IntegerSchema int64 =
+        new IntegerSchema(
+            Set.of(TypeName.INTEGER), null, null, null, null, null, "int64", Map.of());
+    assertThatThrownBy(() -> v.validate(huge, int64, "/v"))
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("format");
+
+    IntegerSchema unbounded =
+        new IntegerSchema(Set.of(TypeName.INTEGER), null, null, null, null, null, null, Map.of());
+    assertThatCode(() -> v.validate(huge, unbounded, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
   void numberAcceptsDoublesAndIntegers() {
     NumberSchema s =
         new NumberSchema(Set.of(TypeName.NUMBER), 0, 1, null, null, null, "double", Map.of());
