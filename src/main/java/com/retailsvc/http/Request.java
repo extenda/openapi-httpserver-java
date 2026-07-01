@@ -1,11 +1,9 @@
 package com.retailsvc.http;
 
+import com.retailsvc.http.internal.QueryParams;
 import com.retailsvc.http.spec.HttpMethod;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -265,7 +263,7 @@ public final class Request {
    */
   public Map<String, String> queryParams() {
     if (queryParamCache == null) {
-      queryParamCache = parseQuery(rawQuery);
+      queryParamCache = QueryParams.parse(rawQuery);
     }
     return queryParamCache;
   }
@@ -344,24 +342,5 @@ public final class Request {
    */
   public List<Runnable> afterHooks() {
     return Collections.unmodifiableList(afterHooks);
-  }
-
-  private static Map<String, String> parseQuery(String query) {
-    if (query == null || query.isBlank()) {
-      return Map.of();
-    }
-    Map<String, String> out = new LinkedHashMap<>();
-    for (String pair : query.split("&")) {
-      if (pair.isEmpty()) {
-        continue;
-      }
-      int eq = pair.indexOf('=');
-      String rawKey = eq < 0 ? pair : pair.substring(0, eq);
-      String rawValue = eq < 0 ? "" : pair.substring(eq + 1);
-      out.putIfAbsent(
-          URLDecoder.decode(rawKey, StandardCharsets.UTF_8),
-          URLDecoder.decode(rawValue, StandardCharsets.UTF_8));
-    }
-    return out;
   }
 }

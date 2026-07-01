@@ -21,6 +21,7 @@ import com.retailsvc.http.spec.schema.Schema;
 import com.retailsvc.http.spec.schema.StringSchema;
 import com.retailsvc.http.spec.schema.TypeName;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalDate;
@@ -365,13 +366,40 @@ public final class DefaultValidator implements Validator {
     return true;
   }
 
+  /** Largest magnitude an IEEE-754 double represents as an exact integer (2^53). */
+  private static final double MAX_EXACT_INTEGRAL_DOUBLE = 9007199254740992.0;
+
   private static Optional<ValidationError> checkInteger(
       Object value, IntegerSchema s, String pointer) {
     if (!(value instanceof Number num)) {
       return err(pointer, "type", "expected integer", value);
     }
-    long n = num.longValue();
+    // Fast path: integral wrappers bound-check as a long with no allocation. This is the common
+    // case (e.g. Jackson int/long, Gson integral tokens parsed as Long).
+    if (num instanceof Long
+        || num instanceof Integer
+        || num instanceof Short
+        || num instanceof Byte) {
+      return checkIntegerBounds(num.longValue(), s, pointer);
+    }
+    // Integral doubles small enough to be represented exactly also take the long path.
+    double d = num.doubleValue();
+    if (Double.isFinite(d) && d == Math.rint(d) && Math.abs(d) <= MAX_EXACT_INTEGRAL_DOUBLE) {
+      return checkIntegerBounds((long) d, s, pointer);
+    }
+    // Non-integral (e.g. 4.9), non-finite, or beyond a double's exact-integer range: verify the
+    // value is a whole number and compare the full magnitude so nothing wraps past a bound.
+    BigInteger n;
+    try {
+      n = new BigDecimal(num.toString()).toBigIntegerExact();
+    } catch (ArithmeticException | NumberFormatException e) {
+      return err(pointer, "type", "expected integer", value);
+    }
+    return checkIntegerBounds(n, s, pointer);
+  }
 
+  private static Optional<ValidationError> checkIntegerBounds(
+      long n, IntegerSchema s, String pointer) {
     if (s.minimum() != null && n < s.minimum()) {
       return err(pointer, "minimum", "integer below minimum " + s.minimum(), n);
     }
@@ -392,6 +420,45 @@ public final class DefaultValidator implements Validator {
       return checkIntegerFormat(n, s.format(), pointer);
     }
     return OK;
+  }
+
+  private static Optional<ValidationError> checkIntegerBounds(
+      BigInteger n, IntegerSchema s, String pointer) {
+    long l;
+    try {
+      l = n.longValueExact();
+    } catch (ArithmeticException outsideLong) {
+      // Magnitude exceeds long range: it is below any Long minimum (if negative) or above any Long
+      // maximum (if positive), and cannot satisfy an int32/int64 format.
+      if (n.signum() > 0) {
+        if (s.maximum() != null) {
+          return err(pointer, "maximum", "integer above maximum " + s.maximum(), n);
+        }
+        if (s.exclusiveMaximum() != null) {
+          return err(
+              pointer, "exclusiveMaximum", "integer not less than " + s.exclusiveMaximum(), n);
+        }
+      } else {
+        if (s.minimum() != null) {
+          return err(pointer, "minimum", "integer below minimum " + s.minimum(), n);
+        }
+        if (s.exclusiveMinimum() != null) {
+          return err(
+              pointer, "exclusiveMinimum", "integer not greater than " + s.exclusiveMinimum(), n);
+        }
+      }
+      if (s.multipleOf() != null && n.remainder(BigInteger.valueOf(s.multipleOf())).signum() != 0) {
+        return err(pointer, "multipleOf", "not a multiple of " + s.multipleOf(), n);
+      }
+      if (s.format() != null) {
+        IntegerFormatCheck check = INTEGER_FORMAT_CHECKS.get(s.format());
+        if (check != null) {
+          return err(pointer, FORMAT_KEYWORD, check.message(), n);
+        }
+      }
+      return OK;
+    }
+    return checkIntegerBounds(l, s, pointer);
   }
 
   private static Optional<ValidationError> checkNumber(

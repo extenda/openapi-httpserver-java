@@ -8,6 +8,7 @@ import com.retailsvc.http.spec.schema.IntegerSchema;
 import com.retailsvc.http.spec.schema.NumberSchema;
 import com.retailsvc.http.spec.schema.StringSchema;
 import com.retailsvc.http.spec.schema.TypeName;
+import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -223,6 +224,39 @@ class StringIntegerNumberTest {
     assertThatThrownBy(() -> v.validate(7, s, "/v"))
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("multipleOf");
+  }
+
+  @Test
+  void integerRejectsFractionalDouble() {
+    // Exploit: a Double with a fractional part must not satisfy `type: integer`. Master narrowed
+    // via
+    // longValue() before the bound check, so 4.9 slipped through minimum/maximum as 4.
+    IntegerSchema s =
+        new IntegerSchema(Set.of(TypeName.INTEGER), 1L, 5L, null, null, null, null, Map.of());
+    assertThatThrownBy(() -> v.validate(4.9, s, "/v"))
+        .isInstanceOf(ValidationException.class)
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("type");
+  }
+
+  @Test
+  void integerAcceptsIntegralDouble() {
+    IntegerSchema s =
+        new IntegerSchema(Set.of(TypeName.INTEGER), 1L, 5L, null, null, null, null, Map.of());
+    assertThatCode(() -> v.validate(4.0, s, "/v")).doesNotThrowAnyException();
+  }
+
+  @Test
+  void integerRejectsValueOverflowingLongPastMaximum() {
+    // Exploit: 2^64 + 50 narrows to 50 via longValue(), sneaking past maximum:1000. The full
+    // magnitude must be compared so the bound cannot be wrapped.
+    IntegerSchema s =
+        new IntegerSchema(Set.of(TypeName.INTEGER), 0L, 1000L, null, null, null, null, Map.of());
+    BigInteger huge = BigInteger.TWO.pow(64).add(BigInteger.valueOf(50));
+    assertThatThrownBy(() -> v.validate(huge, s, "/v"))
+        .isInstanceOf(ValidationException.class)
+        .extracting(t -> ((ValidationException) t).error().keyword())
+        .isEqualTo("maximum");
   }
 
   @Test

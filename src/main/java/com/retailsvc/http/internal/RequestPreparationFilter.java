@@ -20,7 +20,6 @@ import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -189,7 +188,7 @@ public final class RequestPreparationFilter extends Filter {
     for (Parameter p : op.parameters()) {
       String pointer = p.pointer();
       if (p.in() == Parameter.Location.QUERY && query == null) {
-        query = parseQuery(exchange.getRequestURI().getQuery());
+        query = QueryParams.parse(exchange.getRequestURI().getRawQuery());
       }
       String value =
           switch (p.in()) {
@@ -252,20 +251,5 @@ public final class RequestPreparationFilter extends Filter {
     }
     validator.validate(parsed, mt.schema(), "");
     return new ParsedBody(parsed, mapper);
-  }
-
-  private static Map<String, String> parseQuery(String query) {
-    if (query == null || query.isBlank()) {
-      return Map.of();
-    }
-    Map<String, String> out = new HashMap<>();
-    for (String pair : query.split("&")) {
-      int eq = pair.indexOf('=');
-      if (eq <= 0) {
-        continue;
-      }
-      out.putIfAbsent(pair.substring(0, eq), pair.substring(eq + 1));
-    }
-    return out;
   }
 }
