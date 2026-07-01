@@ -367,8 +367,6 @@ public final class DefaultValidator implements Validator {
   }
 
   /** Largest magnitude an IEEE-754 double represents as an exact integer (2^53). */
-  private static final double MAX_EXACT_INTEGRAL_DOUBLE = 9007199254740992.0;
-
   private static Optional<ValidationError> checkInteger(
       Object value, IntegerSchema s, String pointer) {
     if (!(value instanceof Number num)) {
@@ -382,17 +380,13 @@ public final class DefaultValidator implements Validator {
         || num instanceof Byte) {
       return checkIntegerBounds(num.longValue(), s, pointer);
     }
-    // Integral doubles small enough to be represented exactly also take the long path.
-    double d = num.doubleValue();
-    if (Double.isFinite(d) && d == Math.rint(d) && Math.abs(d) <= MAX_EXACT_INTEGRAL_DOUBLE) {
-      return checkIntegerBounds((long) d, s, pointer);
-    }
-    // Non-integral (e.g. 4.9), non-finite, or beyond a double's exact-integer range: verify the
-    // value is a whole number and compare the full magnitude so nothing wraps past a bound.
+    // Any other numeric type (Double, BigDecimal, ...) must be a whole number: convert exactly and
+    // reject a fractional part (e.g. 4.9) or a non-finite value, comparing the full magnitude so
+    // nothing wraps past a bound.
     BigInteger n;
     try {
       n = new BigDecimal(num.toString()).toBigIntegerExact();
-    } catch (ArithmeticException | NumberFormatException e) {
+    } catch (ArithmeticException | NumberFormatException notIntegral) {
       return err(pointer, "type", "expected integer", value);
     }
     return checkIntegerBounds(n, s, pointer);
