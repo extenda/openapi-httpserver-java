@@ -2,7 +2,7 @@ package com.retailsvc.http;
 
 import static java.net.http.HttpClient.Version.HTTP_1_1;
 import static java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor;
-import static org.assertj.core.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.google.gson.Gson;
 import com.retailsvc.http.spec.Operation;
@@ -30,14 +30,16 @@ public abstract class ServerBaseTest {
 
   @BeforeEach
   void setUp() {
-    try (InputStream in = ServerBaseTest.class.getResourceAsStream("/openapi.json")) {
-      String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-      @SuppressWarnings("unchecked")
-      Map<String, Object> raw = (Map<String, Object>) gson.fromJson(text, Map.class);
-      spec = Spec.from(raw);
-    } catch (Exception e) {
-      fail(e);
-    }
+    spec =
+        assertDoesNotThrow(
+            () -> {
+              try (InputStream in = ServerBaseTest.class.getResourceAsStream("/openapi.json")) {
+                String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> raw = (Map<String, Object>) gson.fromJson(text, Map.class);
+                return Spec.from(raw);
+              }
+            });
   }
 
   @AfterEach
@@ -53,21 +55,18 @@ public abstract class ServerBaseTest {
   }
 
   protected OpenApiServer newServer(Map<String, RequestHandler> handlers) {
-    try {
-      server =
-          OpenApiServer.builder()
-              .spec(spec)
-              .handlers(stubAllHandlers(handlers))
-              .securityValidator("apiKeyAuth", (req, cred) -> Optional.empty())
-              .securityValidator("bearerAuth", (req, cred) -> Optional.empty())
-              .securityValidator("basicAuth", (req, cred) -> Optional.empty())
-              .port(0)
-              .build();
-      return server;
-    } catch (Exception e) {
-      fail(e);
-    }
-    return null;
+    server =
+        assertDoesNotThrow(
+            () ->
+                OpenApiServer.builder()
+                    .spec(spec)
+                    .handlers(stubAllHandlers(handlers))
+                    .securityValidator("apiKeyAuth", (req, cred) -> Optional.empty())
+                    .securityValidator("bearerAuth", (req, cred) -> Optional.empty())
+                    .securityValidator("basicAuth", (req, cred) -> Optional.empty())
+                    .port(0)
+                    .build());
+    return server;
   }
 
   /**

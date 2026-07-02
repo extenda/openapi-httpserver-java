@@ -14,7 +14,9 @@ import java.util.Optional;
  */
 public final class BadRequestException extends RuntimeException {
 
-  private static final int DEFAULT_STATUS = 400;
+  private static final int MIN_CLIENT_ERROR_STATUS = 400;
+  private static final int MAX_CLIENT_ERROR_STATUS = 499;
+  private static final int DEFAULT_STATUS = MIN_CLIENT_ERROR_STATUS;
 
   private final int status;
   private final String pointer;
@@ -42,10 +44,10 @@ public final class BadRequestException extends RuntimeException {
 
   public BadRequestException(
       int status, String detail, String pointer, String keyword, Throwable cause) {
-    super(Objects.requireNonNull(detail, "detail must not be null"), cause);
-    if (status < 400 || status > 499) {
+    if (status < MIN_CLIENT_ERROR_STATUS || status > MAX_CLIENT_ERROR_STATUS) {
       throw new IllegalArgumentException("status must be 4xx, got " + status);
     }
+    super(Objects.requireNonNull(detail, "detail must not be null"), cause);
     this.status = status;
     this.pointer = pointer;
     this.keyword = keyword;
