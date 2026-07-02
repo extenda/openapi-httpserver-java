@@ -4,11 +4,9 @@ import static java.net.http.HttpRequest.BodyPublishers.noBody;
 import static java.net.http.HttpRequest.BodyPublishers.ofString;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import com.retailsvc.http.start.EchoHandler;
 import com.retailsvc.http.start.GetDataHandler;
-import java.io.IOException;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.util.Map;
 import java.util.UUID;
@@ -31,100 +29,91 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void getDataShouldReturnJsonBody() {
-      try (var server = newServer(Map.of("get-data", new GetDataHandler()));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("get-data", new GetDataHandler()));
+                var client = httpClient()) {
 
-        var headers = Map.of("x-name", "Alotta");
-        var request = newRequest(server, path, "GET", noBody(), headers);
+              var headers = Map.of("x-name", "Alotta");
+              var request = newRequest(server, path, "GET", noBody(), headers);
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(200);
-        assertThat(responseBody).isEqualToIgnoringWhitespace("{\"id\":\"some-id\"}");
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(200);
+              assertThat(responseBody).isEqualToIgnoringWhitespace("{\"id\":\"some-id\"}");
+            }
+          });
     }
 
     @Test
     void getDataShouldReturnBadRequestOnInvalidXNameHeader() {
-      try (var server = newServer(Map.of("get-data", new GetDataHandler()));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("get-data", new GetDataHandler()));
+                var client = httpClient()) {
 
-        var headers = Map.of("x-name", "invalid-header");
-        var request = newRequest(server, path, "GET", noBody(), headers);
+              var headers = Map.of("x-name", "invalid-header");
+              var request = newRequest(server, path, "GET", noBody(), headers);
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var contentType = response.headers().firstValue("Content-Type").orElse("");
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var contentType = response.headers().firstValue("Content-Type").orElse("");
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(400);
-        assertThat(contentType).contains("application/problem+json");
-        assertThat(responseBody).contains("keyword");
-        assertThat(responseBody).contains("pointer");
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(400);
+              assertThat(contentType).contains("application/problem+json");
+              assertThat(responseBody).contains("keyword");
+              assertThat(responseBody).contains("pointer");
+            }
+          });
     }
 
     @Test
     void postDataShouldReturnJsonBody() {
-      try (var server = newServer(Map.of("post-data", new EchoHandler()));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("post-data", new EchoHandler()));
+                var client = httpClient()) {
 
-        // language=JSON
-        var body =
-            """
-            {
-              "id": "some-id",
-              "age": 42,
-              "random": "d5af5004-8b5a-4db6-838e-38be773eac34",
-              "status": "ERROR",
-              "feelingGood": true,
-              "aList": [ "string", "string" ],
-              "anObject": {
-                "id": "some-id",
-                "age": 42,
-                "longNumber": 900,
-                "nested": {
-                  "nestedValue": 43
-                }
-              },
-              "aListOfObjects": [
-                { "value": 42 },
-                { "value": 43 }
-              ],
-              "aDate": "2025-03-02",
-              "aDateTime": "2025-03-02T12:34:56Z"
-            }\
-            """;
-        var headers = Map.of("correlation-id", UUID.randomUUID().toString());
-        var request = newRequest(server, path, "POST", ofString(body), headers);
+              // language=JSON
+              var body =
+                  """
+                  {
+                    "id": "some-id",
+                    "age": 42,
+                    "random": "d5af5004-8b5a-4db6-838e-38be773eac34",
+                    "status": "ERROR",
+                    "feelingGood": true,
+                    "aList": [ "string", "string" ],
+                    "anObject": {
+                      "id": "some-id",
+                      "age": 42,
+                      "longNumber": 900,
+                      "nested": {
+                        "nestedValue": 43
+                      }
+                    },
+                    "aListOfObjects": [
+                      { "value": 42 },
+                      { "value": 43 }
+                    ],
+                    "aDate": "2025-03-02",
+                    "aDateTime": "2025-03-02T12:34:56Z"
+                  }\
+                  """;
+              var headers = Map.of("correlation-id", UUID.randomUUID().toString());
+              var request = newRequest(server, path, "POST", ofString(body), headers);
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(200);
-        assertThat(responseBody).isEqualToIgnoringWhitespace(body);
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(200);
+              assertThat(responseBody).isEqualToIgnoringWhitespace(body);
+            }
+          });
     }
 
     @Test
@@ -153,52 +142,49 @@ class OpenApiServerIT extends ServerBaseTest {
     void postDataShouldReturnBadRequestOnMissingRequiredProperties() {
       Map<String, RequestHandler> handlers = Map.of("post-data", new EchoHandler());
 
-      try (var server = newServer(handlers);
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(handlers);
+                var client = httpClient()) {
 
-        // language=JSON
-        var body =
-            """
-            {
-              "id": "some-id",
-              "age": 42,
-              "random": "d5af5004-8b5a-4db6-838e-38be773eac34",
-              "status": "ERROR",
-              "anObject": {
-                "id": "some-id",
-                "age": 42,
-                "longNumber": 900,
-                "nested": {
-                  "nestedValue": 43
-                }
-              },
-              "aListOfObjects": [
-                { "value": 42 },
-                { "value": 43 }
-              ],
-              "aDate": "2025-03-02",
-              "aDateTime": "2025-03-02T12:34:56Z"
-            }\
-            """;
-        var headers = Map.of("correlation-id", UUID.randomUUID().toString());
-        var request = newRequest(server, path, "POST", ofString(body), headers);
+              // language=JSON
+              var body =
+                  """
+                  {
+                    "id": "some-id",
+                    "age": 42,
+                    "random": "d5af5004-8b5a-4db6-838e-38be773eac34",
+                    "status": "ERROR",
+                    "anObject": {
+                      "id": "some-id",
+                      "age": 42,
+                      "longNumber": 900,
+                      "nested": {
+                        "nestedValue": 43
+                      }
+                    },
+                    "aListOfObjects": [
+                      { "value": 42 },
+                      { "value": 43 }
+                    ],
+                    "aDate": "2025-03-02",
+                    "aDateTime": "2025-03-02T12:34:56Z"
+                  }\
+                  """;
+              var headers = Map.of("correlation-id", UUID.randomUUID().toString());
+              var request = newRequest(server, path, "POST", ofString(body), headers);
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var contentType = response.headers().firstValue("Content-Type").orElse("");
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var contentType = response.headers().firstValue("Content-Type").orElse("");
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(400);
-        assertThat(contentType).contains("application/problem+json");
-        assertThat(responseBody).contains("keyword");
-        assertThat(responseBody).contains("pointer");
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(400);
+              assertThat(contentType).contains("application/problem+json");
+              assertThat(responseBody).contains("keyword");
+              assertThat(responseBody).contains("pointer");
+            }
+          });
     }
   }
 
@@ -209,33 +195,31 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void listObjectsShouldReturnJsonBody() {
-      try (var server = newServer(Map.of("post-list-objects", new EchoHandler()));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("post-list-objects", new EchoHandler()));
+                var client = httpClient()) {
 
-        // language=JSON
-        var body =
-            """
-            [
-              { "value": 42 },
-              { "value": 43 }
-            ]
-            """;
-        var headers = Map.of("correlation-id", UUID.randomUUID().toString());
-        var request = newRequest(server, path, "POST", ofString(body), headers);
+              // language=JSON
+              var body =
+                  """
+                  [
+                    { "value": 42 },
+                    { "value": 43 }
+                  ]
+                  """;
+              var headers = Map.of("correlation-id", UUID.randomUUID().toString());
+              var request = newRequest(server, path, "POST", ofString(body), headers);
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(200);
-        assertThat(responseBody).isEqualToIgnoringWhitespace("[{\"value\":42},{\"value\":43}]");
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(200);
+              assertThat(responseBody)
+                  .isEqualToIgnoringWhitespace("[{\"value\":42},{\"value\":43}]");
+            }
+          });
     }
 
     @Test
@@ -268,53 +252,47 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void getParamsQueryShouldReturnOkOnValidQueryParams() {
-      try (var server = newServer(Map.of("query-params", new EchoHandler()));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("query-params", new EchoHandler()));
+                var client = httpClient()) {
 
-        var pathWithParams = path + "?q1=data&q2=data";
-        var headers = Map.of("correlation-id", UUID.randomUUID().toString());
-        var request = newRequest(server, pathWithParams, "GET", noBody(), headers);
+              var pathWithParams = path + "?q1=data&q2=data";
+              var headers = Map.of("correlation-id", UUID.randomUUID().toString());
+              var request = newRequest(server, pathWithParams, "GET", noBody(), headers);
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(200);
-        assertThat(responseBody).isEmpty();
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(200);
+              assertThat(responseBody).isEmpty();
+            }
+          });
     }
 
     @Test
     void paramsQueryShouldReturnBadRequestOnMissingRequiredQueryParams() {
-      try (var server = newServer(Map.of("query-params", new EchoHandler()));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("query-params", new EchoHandler()));
+                var client = httpClient()) {
 
-        // missing 'q2=data'
-        var pathWithParams = path + "?q1=data";
-        var request = newRequest(server, pathWithParams, "GET", noBody());
+              // missing 'q2=data'
+              var pathWithParams = path + "?q1=data";
+              var request = newRequest(server, pathWithParams, "GET", noBody());
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var contentType = response.headers().firstValue("Content-Type").orElse("");
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var contentType = response.headers().firstValue("Content-Type").orElse("");
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(400);
-        assertThat(contentType).contains("application/problem+json");
-        assertThat(responseBody).contains("keyword");
-        assertThat(responseBody).contains("pointer");
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(400);
+              assertThat(contentType).contains("application/problem+json");
+              assertThat(responseBody).contains("keyword");
+              assertThat(responseBody).contains("pointer");
+            }
+          });
     }
   }
 
@@ -325,75 +303,66 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void getPathParamsShouldReturnOkOnValidPathParam() {
-      try (var server = newServer(Map.of("path-params", new EchoHandler()));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("path-params", new EchoHandler()));
+                var client = httpClient()) {
 
-        var pathWithParams = path + "/1234567890";
-        var request = newRequest(server, pathWithParams, "GET", noBody());
+              var pathWithParams = path + "/1234567890";
+              var request = newRequest(server, pathWithParams, "GET", noBody());
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(200);
-        assertThat(responseBody).isEmpty();
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(200);
+              assertThat(responseBody).isEmpty();
+            }
+          });
     }
 
     @Test
     void getPathParamsShouldReturnOkOnMultipleValidPathParams() {
-      try (var server = newServer(Map.of("path-params-multi", new EchoHandler()));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("path-params-multi", new EchoHandler()));
+                var client = httpClient()) {
 
-        var pathWithParams = path + "/1234567890/Justin/Case";
-        var request = newRequest(server, pathWithParams, "GET", noBody());
+              var pathWithParams = path + "/1234567890/Justin/Case";
+              var request = newRequest(server, pathWithParams, "GET", noBody());
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(200);
-        assertThat(responseBody).isEmpty();
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(200);
+              assertThat(responseBody).isEmpty();
+            }
+          });
     }
 
     @Test
     void getPathParamsShouldReturnBadRequestOnBadFormatPathParam() {
-      try (var server = newServer(Map.of("path-params-multi", new EchoHandler()));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("path-params-multi", new EchoHandler()));
+                var client = httpClient()) {
 
-        // '123' does not match pattern [A-Za-z]+ for Name parameter
-        var pathWithParams = path + "/1234567890/123/Case";
-        var request = newRequest(server, pathWithParams, "GET", noBody());
+              // '123' does not match pattern [A-Za-z]+ for Name parameter
+              var pathWithParams = path + "/1234567890/123/Case";
+              var request = newRequest(server, pathWithParams, "GET", noBody());
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var contentType = response.headers().firstValue("Content-Type").orElse("");
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var contentType = response.headers().firstValue("Content-Type").orElse("");
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(400);
-        assertThat(contentType).contains("application/problem+json");
-        assertThat(responseBody).contains("keyword");
-        assertThat(responseBody).contains("pointer");
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(400);
+              assertThat(contentType).contains("application/problem+json");
+              assertThat(responseBody).contains("keyword");
+              assertThat(responseBody).contains("pointer");
+            }
+          });
     }
   }
 
@@ -404,63 +373,60 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void postShapeValidCircleReturns200() {
-      try (var server = newServer(Map.of("post-shape", new EchoHandler()));
-          var client = httpClient()) {
-        var body = "{\"kind\":\"circle\",\"radius\":2.5}";
-        var request = newRequest(server, path, "POST", ofString(body));
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("post-shape", new EchoHandler()));
+                var client = httpClient()) {
+              var body = "{\"kind\":\"circle\",\"radius\":2.5}";
+              var request = newRequest(server, path, "POST", ofString(body));
 
-        var response = client.send(request, BodyHandlers.ofString());
+              var response = client.send(request, BodyHandlers.ofString());
 
-        assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.body()).contains("\"kind\":\"circle\"");
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(response.statusCode()).isEqualTo(200);
+              assertThat(response.body()).contains("\"kind\":\"circle\"");
+            }
+          });
     }
 
     @Test
     void postShapeValidSquareReturns200() {
-      try (var server = newServer(Map.of("post-shape", new EchoHandler()));
-          var client = httpClient()) {
-        var body = "{\"kind\":\"square\",\"side\":3}";
-        var request = newRequest(server, path, "POST", ofString(body));
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("post-shape", new EchoHandler()));
+                var client = httpClient()) {
+              var body = "{\"kind\":\"square\",\"side\":3}";
+              var request = newRequest(server, path, "POST", ofString(body));
 
-        var response = client.send(request, BodyHandlers.ofString());
+              var response = client.send(request, BodyHandlers.ofString());
 
-        assertThat(response.statusCode()).isEqualTo(200);
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(response.statusCode()).isEqualTo(200);
+            }
+          });
     }
 
     @Test
     void postShapeUnknownKindReturns400() {
       // matches zero branches: "kind" is neither "circle" nor "square".
-      try (var server = newServer(Map.of("post-shape", new EchoHandler()));
-          var client = httpClient()) {
-        var body = "{\"kind\":\"triangle\",\"side\":3}";
-        var request = newRequest(server, path, "POST", ofString(body));
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("post-shape", new EchoHandler()));
+                var client = httpClient()) {
+              var body = "{\"kind\":\"triangle\",\"side\":3}";
+              var request = newRequest(server, path, "POST", ofString(body));
 
-        var response = client.send(request, BodyHandlers.ofString());
+              var response = client.send(request, BodyHandlers.ofString());
 
-        assertThat(response.statusCode()).isEqualTo(400);
-        assertThat(response.headers().firstValue("Content-Type").orElse(""))
-            .contains("application/problem+json");
-        assertThat(response.body()).contains("oneOf");
-        // Both branches fail at distinct leaves -> two entries, in the errors[] array.
-        assertThat(response.body()).contains("\"errors\"").contains("#/radius").contains("#/kind");
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(response.statusCode()).isEqualTo(400);
+              assertThat(response.headers().firstValue("Content-Type").orElse(""))
+                  .contains("application/problem+json");
+              assertThat(response.body()).contains("oneOf");
+              // Both branches fail at distinct leaves -> two entries, in the errors[] array.
+              assertThat(response.body())
+                  .contains("\"errors\"")
+                  .contains("#/radius")
+                  .contains("#/kind");
+            }
+          });
     }
 
     @Test
@@ -491,60 +457,54 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void postFilterValidStringValueReturns200() {
-      try (var server = newServer(Map.of("post-filter", new EchoHandler()));
-          var client = httpClient()) {
-        var body = "{\"value\":\"abcd\"}";
-        var request = newRequest(server, path, "POST", ofString(body));
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("post-filter", new EchoHandler()));
+                var client = httpClient()) {
+              var body = "{\"value\":\"abcd\"}";
+              var request = newRequest(server, path, "POST", ofString(body));
 
-        var response = client.send(request, BodyHandlers.ofString());
+              var response = client.send(request, BodyHandlers.ofString());
 
-        assertThat(response.statusCode()).isEqualTo(200);
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(response.statusCode()).isEqualTo(200);
+            }
+          });
     }
 
     @Test
     void postFilterValidIntegerValueReturns200() {
-      try (var server = newServer(Map.of("post-filter", new EchoHandler()));
-          var client = httpClient()) {
-        var body = "{\"value\":42}";
-        var request = newRequest(server, path, "POST", ofString(body));
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("post-filter", new EchoHandler()));
+                var client = httpClient()) {
+              var body = "{\"value\":42}";
+              var request = newRequest(server, path, "POST", ofString(body));
 
-        var response = client.send(request, BodyHandlers.ofString());
+              var response = client.send(request, BodyHandlers.ofString());
 
-        assertThat(response.statusCode()).isEqualTo(200);
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(response.statusCode()).isEqualTo(200);
+            }
+          });
     }
 
     @Test
     void postFilterShortStringMatchesNoBranchReturns400() {
       // "ab" has length < 3 (string branch fails) and is not an integer (integer branch fails).
-      try (var server = newServer(Map.of("post-filter", new EchoHandler()));
-          var client = httpClient()) {
-        var body = "{\"value\":\"ab\"}";
-        var request = newRequest(server, path, "POST", ofString(body));
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("post-filter", new EchoHandler()));
+                var client = httpClient()) {
+              var body = "{\"value\":\"ab\"}";
+              var request = newRequest(server, path, "POST", ofString(body));
 
-        var response = client.send(request, BodyHandlers.ofString());
+              var response = client.send(request, BodyHandlers.ofString());
 
-        assertThat(response.statusCode()).isEqualTo(400);
-        assertThat(response.headers().firstValue("Content-Type").orElse(""))
-            .contains("application/problem+json");
-        assertThat(response.body()).contains("anyOf");
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(response.statusCode()).isEqualTo(400);
+              assertThat(response.headers().firstValue("Content-Type").orElse(""))
+                  .contains("application/problem+json");
+              assertThat(response.body()).contains("anyOf");
+            }
+          });
     }
   }
 
@@ -555,41 +515,37 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void postBlockedAcceptedTokenReturns200() {
-      try (var server = newServer(Map.of("post-blocked", new EchoHandler()));
-          var client = httpClient()) {
-        var body = "{\"token\":\"allowed\"}";
-        var request = newRequest(server, path, "POST", ofString(body));
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("post-blocked", new EchoHandler()));
+                var client = httpClient()) {
+              var body = "{\"token\":\"allowed\"}";
+              var request = newRequest(server, path, "POST", ofString(body));
 
-        var response = client.send(request, BodyHandlers.ofString());
+              var response = client.send(request, BodyHandlers.ofString());
 
-        assertThat(response.statusCode()).isEqualTo(200);
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(response.statusCode()).isEqualTo(200);
+            }
+          });
     }
 
     @Test
     void postBlockedForbiddenTokenReturns400() {
-      try (var server = newServer(Map.of("post-blocked", new EchoHandler()));
-          var client = httpClient()) {
-        var body = "{\"token\":\"forbidden\"}";
-        var request = newRequest(server, path, "POST", ofString(body));
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("post-blocked", new EchoHandler()));
+                var client = httpClient()) {
+              var body = "{\"token\":\"forbidden\"}";
+              var request = newRequest(server, path, "POST", ofString(body));
 
-        var response = client.send(request, BodyHandlers.ofString());
+              var response = client.send(request, BodyHandlers.ofString());
 
-        assertThat(response.statusCode()).isEqualTo(400);
-        assertThat(response.headers().firstValue("Content-Type").orElse(""))
-            .contains("application/problem+json");
-        assertThat(response.body()).contains("not");
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(response.statusCode()).isEqualTo(400);
+              assertThat(response.headers().firstValue("Content-Type").orElse(""))
+                  .contains("application/problem+json");
+              assertThat(response.body()).contains("not");
+            }
+          });
     }
   }
 
@@ -600,46 +556,40 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatEmailShouldReturnBadRequestOnInvalidEmail() {
-      try (var server = newServer(Map.of("format-email", req -> Response.status(200)));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("format-email", req -> Response.status(200)));
+                var client = httpClient()) {
 
-        var request = newRequest(server, path + "?addr=not-an-email", "GET", noBody());
+              var request = newRequest(server, path + "?addr=not-an-email", "GET", noBody());
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var contentType = response.headers().firstValue("Content-Type").orElse("");
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var contentType = response.headers().firstValue("Content-Type").orElse("");
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(400);
-        assertThat(contentType).contains("application/problem+json");
-        assertThat(responseBody).contains("\"format\"");
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(400);
+              assertThat(contentType).contains("application/problem+json");
+              assertThat(responseBody).contains("\"format\"");
+            }
+          });
     }
 
     @Test
     void formatEmailShouldReturnOkOnValidEmail() {
-      try (var server = newServer(Map.of("format-email", req -> Response.status(200)));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("format-email", req -> Response.status(200)));
+                var client = httpClient()) {
 
-        var request = newRequest(server, path + "?addr=user%40example.com", "GET", noBody());
+              var request = newRequest(server, path + "?addr=user%40example.com", "GET", noBody());
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
 
-        assertThat(statusCode).isEqualTo(200);
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(200);
+            }
+          });
     }
   }
 
@@ -650,46 +600,40 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatByteShouldReturnBadRequestOnInvalidBase64() {
-      try (var server = newServer(Map.of("format-byte", req -> Response.status(200)));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("format-byte", req -> Response.status(200)));
+                var client = httpClient()) {
 
-        var request = newRequest(server, path + "?data=not%20base64!!", "GET", noBody());
+              var request = newRequest(server, path + "?data=not%20base64!!", "GET", noBody());
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var contentType = response.headers().firstValue("Content-Type").orElse("");
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var contentType = response.headers().firstValue("Content-Type").orElse("");
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(400);
-        assertThat(contentType).contains("application/problem+json");
-        assertThat(responseBody).contains("\"format\"");
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(400);
+              assertThat(contentType).contains("application/problem+json");
+              assertThat(responseBody).contains("\"format\"");
+            }
+          });
     }
 
     @Test
     void formatByteShouldReturnOkOnValidBase64() {
-      try (var server = newServer(Map.of("format-byte", req -> Response.status(200)));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("format-byte", req -> Response.status(200)));
+                var client = httpClient()) {
 
-        var request = newRequest(server, path + "?data=aGVsbG8%3D", "GET", noBody());
+              var request = newRequest(server, path + "?data=aGVsbG8%3D", "GET", noBody());
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
 
-        assertThat(statusCode).isEqualTo(200);
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(200);
+            }
+          });
     }
   }
 
@@ -700,46 +644,40 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void formatInt32ShouldReturnBadRequestOnOverflow() {
-      try (var server = newServer(Map.of("format-int32", req -> Response.status(200)));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("format-int32", req -> Response.status(200)));
+                var client = httpClient()) {
 
-        var request = newRequest(server, path + "?n=2147483648", "GET", noBody());
+              var request = newRequest(server, path + "?n=2147483648", "GET", noBody());
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
-        var contentType = response.headers().firstValue("Content-Type").orElse("");
-        var responseBody = response.body();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
+              var contentType = response.headers().firstValue("Content-Type").orElse("");
+              var responseBody = response.body();
 
-        assertThat(statusCode).isEqualTo(400);
-        assertThat(contentType).contains("application/problem+json");
-        assertThat(responseBody).contains("\"format\"");
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(400);
+              assertThat(contentType).contains("application/problem+json");
+              assertThat(responseBody).contains("\"format\"");
+            }
+          });
     }
 
     @Test
     void formatInt32ShouldReturnOkOnValidValue() {
-      try (var server = newServer(Map.of("format-int32", req -> Response.status(200)));
-          var client = httpClient()) {
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("format-int32", req -> Response.status(200)));
+                var client = httpClient()) {
 
-        var request = newRequest(server, path + "?n=42", "GET", noBody());
+              var request = newRequest(server, path + "?n=42", "GET", noBody());
 
-        var response = client.send(request, BodyHandlers.ofString());
-        var statusCode = response.statusCode();
+              var response = client.send(request, BodyHandlers.ofString());
+              var statusCode = response.statusCode();
 
-        assertThat(statusCode).isEqualTo(200);
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(statusCode).isEqualTo(200);
+            }
+          });
     }
   }
 
@@ -750,43 +688,39 @@ class OpenApiServerIT extends ServerBaseTest {
 
     @Test
     void postGateBodyWithOnlyOpenReturns200() {
-      try (var server = newServer(Map.of("post-gate", new EchoHandler()));
-          var client = httpClient()) {
-        var body = "{\"open\":\"anything\"}";
-        var request = newRequest(server, path, "POST", ofString(body));
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("post-gate", new EchoHandler()));
+                var client = httpClient()) {
+              var body = "{\"open\":\"anything\"}";
+              var request = newRequest(server, path, "POST", ofString(body));
 
-        var response = client.send(request, BodyHandlers.ofString());
+              var response = client.send(request, BodyHandlers.ofString());
 
-        assertThat(response.statusCode()).isEqualTo(200);
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(response.statusCode()).isEqualTo(200);
+            }
+          });
     }
 
     @Test
     void postGateBodyWithBlockedReturns400() {
-      try (var server = newServer(Map.of("post-gate", new EchoHandler()));
-          var client = httpClient()) {
-        // Any value in 'blocked' triggers the false-schema rejection,
-        // because NeverSchema rejects every value.
-        var body = "{\"open\":\"x\",\"blocked\":\"anything\"}";
-        var request = newRequest(server, path, "POST", ofString(body));
+      assertDoesNotThrow(
+          () -> {
+            try (var server = newServer(Map.of("post-gate", new EchoHandler()));
+                var client = httpClient()) {
+              // Any value in 'blocked' triggers the false-schema rejection,
+              // because NeverSchema rejects every value.
+              var body = "{\"open\":\"x\",\"blocked\":\"anything\"}";
+              var request = newRequest(server, path, "POST", ofString(body));
 
-        var response = client.send(request, BodyHandlers.ofString());
+              var response = client.send(request, BodyHandlers.ofString());
 
-        assertThat(response.statusCode()).isEqualTo(400);
-        assertThat(response.headers().firstValue("Content-Type").orElse(""))
-            .contains("application/problem+json");
-        assertThat(response.body()).contains("\"keyword\":\"false\"");
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
-      }
+              assertThat(response.statusCode()).isEqualTo(400);
+              assertThat(response.headers().firstValue("Content-Type").orElse(""))
+                  .contains("application/problem+json");
+              assertThat(response.body()).contains("\"keyword\":\"false\"");
+            }
+          });
     }
   }
 }

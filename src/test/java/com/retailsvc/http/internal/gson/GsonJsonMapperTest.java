@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Month;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -82,7 +83,7 @@ class GsonJsonMapperTest {
   void writesLocalDateTimeAsIso8601() {
     assertThat(
             new String(
-                mapper.writeTo(Map.of("ts", LocalDateTime.of(2026, 5, 13, 10, 0))),
+                mapper.writeTo(Map.of("ts", LocalDateTime.of(2026, Month.MAY, 13, 10, 0))),
                 StandardCharsets.UTF_8))
         .isEqualTo("{\"ts\":\"2026-05-13T10:00\"}");
   }
@@ -91,7 +92,8 @@ class GsonJsonMapperTest {
   void writesLocalDateAsIso8601() {
     assertThat(
             new String(
-                mapper.writeTo(Map.of("d", LocalDate.of(2026, 5, 13))), StandardCharsets.UTF_8))
+                mapper.writeTo(Map.of("d", LocalDate.of(2026, Month.MAY, 13))),
+                StandardCharsets.UTF_8))
         .isEqualTo("{\"d\":\"2026-05-13\"}");
   }
 
@@ -118,7 +120,7 @@ class GsonJsonMapperTest {
             WithDates.class);
 
     assertThat(value.ts).isEqualTo(Instant.parse("2026-05-13T10:00:00Z"));
-    assertThat(value.day).isEqualTo(LocalDate.of(2026, 5, 13));
+    assertThat(value.day).isEqualTo(LocalDate.of(2026, Month.MAY, 13));
   }
 
   @Test
