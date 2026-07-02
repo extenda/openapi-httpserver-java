@@ -128,6 +128,28 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
+    void postDataShouldReturnBadRequestOnMalformedJson() throws Exception {
+      try (var server = newServer(Map.of("post-data", new EchoHandler()));
+          var client = httpClient()) {
+
+        // Double comma after a property is invalid JSON; must be 400, not 500.
+        var body = "{\"id\":\"some-id\",,\"age\":42}";
+        var headers = Map.of("correlation-id", UUID.randomUUID().toString());
+        var request = newRequest(server, path, "POST", ofString(body), headers);
+
+        var response = client.send(request, BodyHandlers.ofString());
+        var statusCode = response.statusCode();
+        var contentType = response.headers().firstValue("Content-Type").orElse("");
+        var responseBody = response.body();
+
+        assertThat(statusCode).isEqualTo(400);
+        assertThat(contentType).contains("application/problem+json");
+        assertThat(responseBody).contains("keyword");
+        assertThat(responseBody).contains("pointer");
+      }
+    }
+
+    @Test
     void postDataShouldReturnBadRequestOnMissingRequiredProperties() {
       Map<String, RequestHandler> handlers = Map.of("post-data", new EchoHandler());
 
@@ -217,7 +239,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void listObjectsShouldReturnBadRequestOnPassingObjectInsteadOfArray() {
+    void listObjectsShouldReturnBadRequestOnPassingObjectInsteadOfArray() throws Exception {
       try (var server = newServer(Map.of("post-list-objects", new EchoHandler()));
           var client = httpClient()) {
 
@@ -235,12 +257,6 @@ class OpenApiServerIT extends ServerBaseTest {
         assertThat(contentType).contains("application/problem+json");
         assertThat(responseBody).contains("keyword");
         assertThat(responseBody).contains("pointer");
-
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
       }
     }
   }
@@ -448,7 +464,7 @@ class OpenApiServerIT extends ServerBaseTest {
     }
 
     @Test
-    void postShapeMissingDiscriminatorReturns400() {
+    void postShapeMissingDiscriminatorReturns400() throws Exception {
       // omitting "kind" makes both branches fail "required".
       try (var server = newServer(Map.of("post-shape", new EchoHandler()));
           var client = httpClient()) {
@@ -464,11 +480,6 @@ class OpenApiServerIT extends ServerBaseTest {
         // Both branches fail identically at /kind required -> de-duplicated to one entry.
         assertThat(response.body()).contains("\"errors\"").contains("#/kind");
         assertThat(response.body().split("#/kind", -1)).hasSize(2); // exactly one occurrence
-      } catch (IOException e) {
-        fail(e);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        fail(e);
       }
     }
   }

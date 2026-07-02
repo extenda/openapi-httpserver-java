@@ -243,7 +243,16 @@ public final class RequestPreparationFilter extends Filter {
           new ValidationError(
               BODY_POINTER, "content-type", "unsupported content type: " + mediaType, null));
     }
-    Object parsed = mapper.readFrom(body, header);
+    Object parsed;
+    try {
+      parsed = mapper.readFrom(body, header);
+    } catch (RuntimeException e) {
+      // Body could not be parsed (e.g. malformed JSON). Untrusted input -> 400, not 500.
+      LOG.debug("Failed to parse request body", e);
+      throw new ValidationException(
+          new ValidationError(
+              BODY_POINTER, "malformed", "request body is not valid " + mediaType, null));
+    }
     if (mediaType.equals("application/x-www-form-urlencoded") && parsed instanceof Map<?, ?> map) {
       @SuppressWarnings("unchecked")
       Map<String, Object> typed = (Map<String, Object>) map;
