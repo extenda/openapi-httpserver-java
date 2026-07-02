@@ -2,7 +2,7 @@ package com.retailsvc.http;
 
 import static java.net.http.HttpRequest.BodyPublishers.noBody;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.retailsvc.http.spec.Spec;
 import java.io.InputStream;
@@ -32,21 +32,27 @@ class QueryParamSmugglingTest extends ServerBaseTest {
 
   @SuppressWarnings("unchecked")
   private void constrainQ1ToLowercaseLetters() {
-    try (InputStream in = QueryParamSmugglingTest.class.getResourceAsStream("/openapi.json")) {
-      Map<String, Object> raw =
-          (Map<String, Object>)
-              gson.fromJson(new String(in.readAllBytes(), StandardCharsets.UTF_8), Map.class);
-      var paths = (Map<String, Object>) raw.get("paths");
-      var op = (Map<String, Object>) ((Map<String, Object>) paths.get("/params/query")).get("get");
-      for (Object p : (List<Object>) op.get("parameters")) {
-        var param = (Map<String, Object>) p;
-        if ("q1".equals(param.get("name"))) {
-          ((Map<String, Object>) param.get("schema")).put("pattern", "^[a-z]+$");
-        }
-      }
-      spec = Spec.from(raw);
-    } catch (Exception e) {
-      fail(e);
-    }
+    spec =
+        assertDoesNotThrow(
+            () -> {
+              try (InputStream in =
+                  QueryParamSmugglingTest.class.getResourceAsStream("/openapi.json")) {
+                Map<String, Object> raw =
+                    (Map<String, Object>)
+                        gson.fromJson(
+                            new String(in.readAllBytes(), StandardCharsets.UTF_8), Map.class);
+                var paths = (Map<String, Object>) raw.get("paths");
+                var op =
+                    (Map<String, Object>)
+                        ((Map<String, Object>) paths.get("/params/query")).get("get");
+                for (Object p : (List<Object>) op.get("parameters")) {
+                  var param = (Map<String, Object>) p;
+                  if ("q1".equals(param.get("name"))) {
+                    ((Map<String, Object>) param.get("schema")).put("pattern", "^[a-z]+$");
+                  }
+                }
+                return Spec.from(raw);
+              }
+            });
   }
 }
