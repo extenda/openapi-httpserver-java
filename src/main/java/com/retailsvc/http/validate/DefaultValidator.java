@@ -21,6 +21,7 @@ import com.retailsvc.http.spec.schema.Schema;
 import com.retailsvc.http.spec.schema.StringSchema;
 import com.retailsvc.http.spec.schema.TypeName;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalDate;
@@ -47,6 +48,8 @@ import java.util.regex.PatternSyntaxException;
 public final class DefaultValidator implements Validator {
 
   private static final String FORMAT_KEYWORD = "format";
+  private static final String MINIMUM_KEYWORD = "minimum";
+  private static final String MAXIMUM_KEYWORD = "maximum";
   private static final Optional<ValidationError> OK = Optional.empty();
 
   private record FormatCheck(Predicate<String> isValid, String message) {}
@@ -365,18 +368,39 @@ public final class DefaultValidator implements Validator {
     return true;
   }
 
+  /** Largest magnitude an IEEE-754 double represents as an exact integer (2^53). */
   private static Optional<ValidationError> checkInteger(
       Object value, IntegerSchema s, String pointer) {
     if (!(value instanceof Number num)) {
       return err(pointer, "type", "expected integer", value);
     }
-    long n = num.longValue();
+    // Fast path: integral wrappers bound-check as a long with no allocation. This is the common
+    // case (e.g. Jackson int/long, Gson integral tokens parsed as Long).
+    if (num instanceof Long
+        || num instanceof Integer
+        || num instanceof Short
+        || num instanceof Byte) {
+      return checkIntegerBounds(num.longValue(), s, pointer);
+    }
+    // Any other numeric type (Double, BigDecimal, ...) must be a whole number: convert exactly and
+    // reject a fractional part (e.g. 4.9) or a non-finite value, comparing the full magnitude so
+    // nothing wraps past a bound.
+    BigInteger n;
+    try {
+      n = new BigDecimal(num.toString()).toBigIntegerExact();
+    } catch (ArithmeticException | NumberFormatException _) {
+      return err(pointer, "type", "expected integer", value);
+    }
+    return checkIntegerBounds(n, s, pointer);
+  }
 
+  private static Optional<ValidationError> checkIntegerBounds(
+      long n, IntegerSchema s, String pointer) {
     if (s.minimum() != null && n < s.minimum()) {
-      return err(pointer, "minimum", "integer below minimum " + s.minimum(), n);
+      return err(pointer, MINIMUM_KEYWORD, "integer below minimum " + s.minimum(), n);
     }
     if (s.maximum() != null && n > s.maximum()) {
-      return err(pointer, "maximum", "integer above maximum " + s.maximum(), n);
+      return err(pointer, MAXIMUM_KEYWORD, "integer above maximum " + s.maximum(), n);
     }
     if (s.exclusiveMinimum() != null && n <= s.exclusiveMinimum()) {
       return err(
@@ -394,6 +418,25 @@ public final class DefaultValidator implements Validator {
     return OK;
   }
 
+  private static Optional<ValidationError> checkIntegerBounds(
+      BigInteger n, IntegerSchema s, String pointer) {
+    if (n.bitLength() < Long.SIZE) {
+      return checkIntegerBounds(n.longValue(), s, pointer);
+    }
+    // Magnitude exceeds signed-long range: it breaches whichever bound lies on its side, and no
+    // int32/int64 format can represent it.
+    if (n.signum() > 0 && (s.maximum() != null || s.exclusiveMaximum() != null)) {
+      return err(pointer, MAXIMUM_KEYWORD, "integer out of range", n);
+    }
+    if (n.signum() < 0 && (s.minimum() != null || s.exclusiveMinimum() != null)) {
+      return err(pointer, MINIMUM_KEYWORD, "integer out of range", n);
+    }
+    if (s.format() != null && INTEGER_FORMAT_CHECKS.containsKey(s.format())) {
+      return err(pointer, FORMAT_KEYWORD, INTEGER_FORMAT_CHECKS.get(s.format()).message(), n);
+    }
+    return OK;
+  }
+
   private static Optional<ValidationError> checkNumber(
       Object value, NumberSchema s, String pointer) {
     if (!(value instanceof Number num)) {
@@ -402,10 +445,10 @@ public final class DefaultValidator implements Validator {
     double n = num.doubleValue();
 
     if (s.minimum() != null && n < s.minimum().doubleValue()) {
-      return err(pointer, "minimum", "number below minimum " + s.minimum(), n);
+      return err(pointer, MINIMUM_KEYWORD, "number below minimum " + s.minimum(), n);
     }
     if (s.maximum() != null && n > s.maximum().doubleValue()) {
-      return err(pointer, "maximum", "number above maximum " + s.maximum(), n);
+      return err(pointer, MAXIMUM_KEYWORD, "number above maximum " + s.maximum(), n);
     }
     if (s.exclusiveMinimum() != null && n <= s.exclusiveMinimum().doubleValue()) {
       return err(pointer, "exclusiveMinimum", "number not greater than " + s.exclusiveMinimum(), n);
