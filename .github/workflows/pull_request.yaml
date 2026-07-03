@@ -1,0 +1,34 @@
+name: CI
+on:
+  pull_request:
+    branches: [ master ]
+    types: [ opened, synchronize, reopened ]
+
+env:
+  MAVEN_INIT: 'false'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+          cache: maven
+
+      - name: Run tests
+        run: ./mvnw -V -B verify
+
+      - name: Scan with SonarCloud
+        if: github.repository == 'extenda/openapi-httpserver-java'
+        uses: extenda/actions/sonar-scanner@v0
+        with:
+          sonar-host: https://sonarcloud.io
+          sonar-scanner: maven
+          main-branch: master
+          service-account-key: ${{ secrets.SECRET_AUTH }}

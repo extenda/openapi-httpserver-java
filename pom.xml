@@ -7,19 +7,34 @@
   <artifactId>openapi-httpserver-java</artifactId>
   <version>0.0.1-local</version>
 
+  <name>OpenAPI HTTP Server (Java)</name>
+  <description>A lightweight Java library that serves endpoints declared in an OpenAPI 3.1.x specification on top of the JDK's built-in HttpServer.</description>
   <url>https://github.com/extenda/openapi-httpserver-java</url>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>thced</id>
+      <name>Thomas Cederholm</name>
+      <email>thomas.cederholm@extendaretail.com</email>
+      <url>https://github.com/thced</url>
+      <organization>Extenda Retail</organization>
+      <organizationUrl>https://extendaretail.com</organizationUrl>
+    </developer>
+  </developers>
 
   <scm>
     <connection>scm:git:https://github.com/extenda/openapi-httpserver-java.git</connection>
+    <developerConnection>scm:git:ssh://github.com:extenda/openapi-httpserver-java.git</developerConnection>
     <tag>HEAD</tag>
+    <url>https://github.com/extenda/openapi-httpserver-java/tree/master</url>
   </scm>
-
-  <distributionManagement>
-    <repository>
-      <id>extenda-maven</id>
-      <url>artifactregistry://europe-west1-maven.pkg.dev/extenda/maven-releases</url>
-    </repository>
-  </distributionManagement>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -246,6 +261,53 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.10.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <publishingServerId>central</publishingServerId>
+          <autoPublish>true</autoPublish>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>sign-artifacts</id>
+      <activation>
+        <property>
+          <name>env.MAVEN_GPG_PASSPHRASE</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.2.8</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+                <phase>verify</phase>
+                <configuration>
+                  <bestPractices>true</bestPractices>
+                  <gpgArguments>
+                    <arg>--pinentry-mode</arg>
+                    <arg>loopback</arg>
+                  </gpgArguments>
+                  <!--suppress UnresolvedMavenProperty -->
+                  <keyname>${env.MAVEN_GPG_KEY_NAME}</keyname>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
