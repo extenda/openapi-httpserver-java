@@ -35,4 +35,7 @@ jobs:
           sonar-host: https://sonarcloud.io
           sonar-scanner: maven
           main-branch: master
-          service-account-key: ${{ secrets.SECRET_AUTH }}
+          # Dependabot-triggered runs read the Dependabot secret store, where
+          # SECRET_AUTH does not exist. Fall back to the Dependabot-scoped key
+          # for those runs only.
+          service-account-key: ${{ github.actor == 'dependabot[bot]' && secrets.DEPENDABOT_AUTH || secrets.SECRET_AUTH }}
