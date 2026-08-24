@@ -29,7 +29,7 @@ jobs:
         run: ./mvnw -V -B verify
 
       - name: Scan with SonarCloud
-        if: github.repository == 'extenda/openapi-httpserver-java'
+        if: github.repository == 'extenda/openapi-httpserver-java' && github.actor != 'dependabot[bot]'
         uses: extenda/actions/sonar-scanner@v0
         with:
           sonar-host: https://sonarcloud.io
