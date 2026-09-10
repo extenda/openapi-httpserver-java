@@ -23,6 +23,7 @@ endpoints declared in an OpenAPI 3.1.x specification. Handlers are pure function
 - [Body parsers and response writers](#body-parsers-and-response-writers)
 - [Server configuration](#server-configuration)
   - [HTTPS](#https)
+  - [Content encoding](#content-encoding)
 - [Interceptors and response decorators](#interceptors-and-response-decorators)
 - [After-response hooks](#after-response-hooks)
 - [Security](#security)
@@ -48,6 +49,8 @@ endpoints declared in an OpenAPI 3.1.x specification. Handlers are pure function
 - OpenAPI `securitySchemes` and `security` enforcement (`apiKey`, `http bearer`, `http basic`),
   with an opt-out for sidecar / gateway authentication
 - RFC 9457 `application/problem+json` validation errors with an `errors[]` array of JSON-Pointers to the failing locations
+- Transparent gzip: request bodies are inflated under a zip-bomb ceiling, responses are compressed
+  when the client accepts it and the payload is worth it
 - Built on the JDK's native `HttpServer` with thread-per-request behaviour using virtual threads
 
 ## Maven artifact
@@ -458,6 +461,67 @@ explicitly — it isn't signed by a public CA.
 - Certificate hot-reload on renewal (restart the process after `certbot renew`)
 - TLS protocol / cipher overrides (JDK defaults apply: TLS 1.2 and 1.3)
 - Serving HTTP and HTTPS from one `OpenApiServer` instance
+
+### Content encoding
+
+gzip is handled in both directions, with no configuration required.
+
+**Requests.** A body sent with `Content-Encoding: gzip` is inflated before OpenAPI validation runs,
+so the validator, your `TypeMapper` and your handler all see plain bytes. `identity` is accepted as
+the no-op it is. Any other coding — `br`, `deflate`, or two codings stacked — is rejected with
+`415 Unsupported Media Type`, and a corrupt or truncated gzip stream with `400 Bad Request`.
+
+Once a body is inflated it no longer matches the headers that described it, so `Content-Encoding` is
+hidden from `Request.header(...)` and `Content-Length` reports the inflated size.
+
+Inflation runs under a ceiling, because a few compressed kilobytes can expand into gigabytes:
+
+```java
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .maxDecompressedRequestBytes(32 * 1024 * 1024)  // default 10 MiB; over it, 413
+    .build();
+```
+
+Note this bounds the *inflated* size of a gzip body. It is not a request size limit — a body that
+arrives uncompressed is read in full, as it always has been.
+
+**Responses.** A body is gzipped when the client sends `Accept-Encoding: gzip`, the media type is
+text-shaped (`text/*`, `application/json`, `application/xml`, `application/yaml`, and the `+json` /
+`+xml` / `+yaml` structured suffixes), and it is at least 1 KiB. Below that the coding costs more
+than it saves; `application/octet-stream`, images and other already-compressed media are never
+coded, and neither is `text/event-stream`, which has to stay unbuffered.
+
+```java
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .minimumGzipResponseBytes(4096)  // default 1024; 0 compresses everything compressible
+    .build();
+```
+
+There is no on/off flag. If a proxy in front of you already terminates compression, set the
+threshold above anything this server returns.
+
+`Vary: Accept-Encoding` is set whenever a body *could* have been coded, not only when it was, so
+shared caches keep the two forms apart. It is merged into any `Vary` your handler already set.
+A handler that sets its own `Content-Encoding` is left alone, and so is a payload gzip fails to
+shrink. Statuses that carry no content never get a coding.
+
+Streamed responses (`Response.stream(...)`) are deflated as they are written. A length declared by
+the sized overload describes the uncoded body, so a coded stream goes out chunked; a stream of
+unknown length is coded regardless of the threshold, since measuring it would defeat streaming it.
+For the same reason a `HEAD` whose `GET` would be compressed omits `Content-Length` rather than
+advertising the uncoded length.
+
+**Not in this release** (each can land later without breaking the API):
+
+- brotli, zstd and `deflate`, in either direction
+- the `Accept-Encoding` response header RFC 9110 recommends alongside a 415
+- compression of the `401`/`403` bodies produced by security scheme enforcement — those bypass the
+  renderer and are well under any sensible threshold
+- per-route or per-operation opt-out
 
 ### Graceful shutdown
 
@@ -1218,6 +1282,12 @@ A few things worth keeping in mind when reading this:
   JDK `HttpExchange`. A future enhancement could plug in a higher-throughput backend (Jetty,
   Helidon Níma, Netty) by writing a new adapter behind `com.retailsvc.http.internal` while
   leaving handlers untouched.
+- **gzip changes what an `ETag` identifies.** The library sets none, but a handler that sets a
+  strong `ETag` would use one entity tag for both the coded and uncoded forms of a body. Use a weak
+  tag (`W/"..."`), or set `Content-Encoding` yourself to opt that response out of compression.
+- **A handler that throws mid-stream yields a valid gzip trailer.** Closing the coded stream
+  finishes the gzip member, so a client sees a complete-looking short body rather than the framing
+  error a truncated chunked response would have produced.
 - **Per-request state uses `ScopedValue`** (Java 25, JEP 506). This matters if a handler
   offloads work to an executor that's not a `StructuredTaskScope`-managed child thread: the
   `ScopedValue` is not visible there, so the handler must capture the values it needs (e.g.

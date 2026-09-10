@@ -26,20 +26,23 @@ Java 25 is required (see `.java-version`). The server uses thread-per-request wi
 Request flow when `OpenApiServer` boots (`src/main/java/com/retailsvc/http/OpenApiServer.java`):
 
 1. `HttpServer` is created on a port with a virtual-thread-per-task executor.
-2. A single `HttpContext` is registered at `spec.basePath()` (the first `servers[].url` path from the OpenAPI doc). A catch-all `/` context returns 404.
-3. Three filters run in order on every request:
-    - `ExceptionFilter` — wraps the chain; delegates uncaught exceptions to the user-supplied `ExceptionHandler` (default in `Handlers`).
-    - `RequestPreparationFilter` — reads the raw request body, stashes it as an exchange attribute, runs OpenAPI parameter + body validation via `DefaultValidator`, and stores the resolved `operationId` on the exchange.
-    - `DispatchHandler` — looks up the `HttpHandler` registered for that `operationId` in the user-supplied map and invokes it. Handler coverage is verified at boot, so the lookup never returns `null`.
+2. One `HttpContext` is registered per spec binding at `spec.basePath()` (the first `servers[].url` path from the OpenAPI doc). Unless a binding owns `/`, a catch-all `/` context serves extra routes via `ExtrasRouter` and 404s everything else; `ExceptionFilter` wraps that context only.
+3. On a binding context, two filters run in order, then the handler:
+    - `RequestPreparationFilter` — reads the request body through `RequestBodyReader` (which inflates a gzip `Content-Encoding` under a size cap), resolves the route, runs OpenAPI parameter + body validation via `DefaultValidator`, and binds the resulting `Request` into the `DispatchHandler.CURRENT` scoped value. It renders its own failures through the `ExceptionHandler` rather than relying on `ExceptionFilter`.
+    - `SecurityFilter` — enforces the spec's `securitySchemes` / `security`, re-binding the `Request` with resolved principals. It writes its 401/403 responses straight to the exchange.
+    - `DispatchHandler` — looks up the `RequestHandler` registered for the resolved `operationId` in the user-supplied map and invokes it, applying interceptors and response decorators. Handler coverage is verified at boot, so the lookup never returns `null`.
+
+Every response except `SecurityFilter`'s rejections is written by `ResponseRenderer`, which is also where response gzip coding is applied.
 
 Key abstractions:
 
 - `com.retailsvc.http.spec.Spec` — parsed from a consumer-supplied `Map<String, Object>` via `Spec.from(raw)`. No JSON library dependency in the library itself; callers use Gson, Jackson, SnakeYAML, etc. to produce the map.
 - Sealed `com.retailsvc.http.spec.schema.Schema` interface with per-kind records (`StringSchema`, `NumberSchema`, `IntegerSchema`, `ArraySchema`, `ObjectSchema`, `BooleanSchema`, `NullSchema`, `AnyOfSchema`, `AllOfSchema`, `OneOfSchema`). Pattern-match dispatch eliminates instanceof chains.
-- `com.retailsvc.http.validate.DefaultValidator` — single class using `switch` pattern-match over `Schema` subtypes. Validation failures produce RFC 7807 `application/problem+json` 400 responses.
+- `com.retailsvc.http.validate.DefaultValidator` — single class using `switch` pattern-match over `Schema` subtypes. Validation failures produce RFC 9457 `application/problem+json` 400 responses.
 - `com.retailsvc.http.internal.Router` — two indexes: exact path map and templated path list. Resolves `operationId` + extracted path variables for each request.
-- `JsonMapper` — `@FunctionalInterface`; single method `Object mapFrom(byte[])`. Callers supply a lambda (see README).
-- `com.retailsvc.http.Request` — static helper; `Request.bytes(exchange)` returns raw body bytes, `Request.parsed(exchange)` returns the `Object` produced by the `JsonMapper`.
+- `TypeMapper` — per-media-type request parsing and response writing; registered via `Builder.bodyMapper(...)`, with `GsonTypeMapper` auto-registered when Gson is on the classpath.
+- `com.retailsvc.http.Request` — an immutable record-like carrier built from primitives (body bytes, path parameters, raw query string, a header lookup function), never the `HttpExchange`. `bytes()` returns the decoded body, `parsed()` the object produced by the `TypeMapper`.
+- `com.retailsvc.http.internal.RequestBodyReader` / `ResponseCompression` — inbound and outbound gzip. See the README's "Content encoding" section for the policy.
 
 ## Conventions
 

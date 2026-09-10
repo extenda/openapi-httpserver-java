@@ -304,7 +304,7 @@ as it completes.
 
 ### Task 6 — docs
 
-- [ ] **Step 11** README: `### Request decompression` and `### Response compression` under
+- [x] **Step 11** README: `### Request decompression` and `### Response compression` under
       `## Server configuration`, a TOC entry, a `## Highlights` bullet, and a **"Not in this
       release"** list matching the HTTPS section's convention — brotli/deflate/zstd,
       `Accept-Encoding` on 415 responses (RFC 9110 §15.5.16 SHOULD; `BadRequestException` carries no
@@ -312,7 +312,7 @@ as it completes.
       bullets: the cap bounds *inflated* bytes only and is not a request size limit; a strong `ETag`
       set by a handler now spans two byte streams; a handler that throws mid-stream yields a valid
       gzip trailer over truncated content rather than a framing error.
-- [ ] **Step 12** Correct the stale request-flow description in `CLAUDE.md` — it describes three
+- [x] **Step 12** Correct the stale request-flow description in `CLAUDE.md` — it describes three
       filters including `ExceptionFilter` on the spec context, exchange-attribute body stashing and
       a `Request.bytes(exchange)` static helper, none of which match the current code, and it
       mentions neither `SecurityFilter` nor `ExtrasRouter`.
