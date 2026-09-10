@@ -246,12 +246,12 @@ as it completes.
 
 ### Task 3 — response compression
 
-- [ ] **Step 6** `internal/ResponseCompressionTest` — `nullContentTypeIsNotCompressible`,
+- [x] **Step 6** `internal/ResponseCompressionTest` — `nullContentTypeIsNotCompressible`,
       `jsonIsCompressible`, `problemJsonIsCompressible`, `yamlIsCompressible`,
       `textPlainWithCharsetIsCompressible`, `xmlSuffixIsCompressible`,
       `octetStreamIsNotCompressible`, `imagePngIsNotCompressible`, `eventStreamIsNotCompressible`,
       `gzipRoundTripsBytes`, `gzipStreamRoundTripsBytes`. Then implement.
-- [ ] **Step 7** `internal/ResponseRendererTest` — the repo's **first direct renderer test**, so it
+- [x] **Step 7** `internal/ResponseRendererTest` — the repo's **first direct renderer test**, so it
       starts with baseline coverage of behaviour it is about to change
       (`writesBytesWithContentLength`, `writesNullBodyWithMinusOne`, `writesSizedStreamWithLength`),
       then: `compressesJsonBodyOverThreshold`, `setsContentEncodingGzipWhenCompressed`,
@@ -267,7 +267,7 @@ as it completes.
       `DispatchHandlerTest.stubExchange()` — it stubs only `getResponseHeaders()` today, so an
       unstubbed `getRequestHeaders()` returns null. Fixing the stub is honest and removes a fragile
       dependency on evaluation order in main code.
-- [ ] **Step 8** Streaming and null bodies, same test class:
+- [x] **Step 8** Streaming and null bodies, same test class:
       `compressesChunkedStreamWhenAcceptEncodingPresent`,
       `degradesSizedStreamToChunkedWhenCompressed`, `skipsCompressionForSizedStreamBelowThreshold`,
       `skipsCompressionForNullContentTypeStream`,

@@ -29,6 +29,7 @@ class DispatchHandlerTest {
 
   private static HttpExchange stubExchange() {
     HttpExchange exchange = mock(HttpExchange.class);
+    when(exchange.getRequestHeaders()).thenReturn(new Headers());
     when(exchange.getResponseHeaders()).thenReturn(new Headers());
     Map<String, Object> attrs = new HashMap<>();
     doAnswer(

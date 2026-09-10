@@ -1,5 +1,11 @@
 package com.retailsvc.http.internal;
 
+import static java.net.HttpURLConnection.HTTP_NOT_MODIFIED;
+import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
+import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_PARTIAL;
+import static java.net.HttpURLConnection.HTTP_RESET;
+
 import com.retailsvc.http.Response;
 import com.retailsvc.http.TypeMapper;
 import com.sun.net.httpserver.Headers;
@@ -12,14 +18,30 @@ import java.util.Map;
 /** Writes a {@link Response} to an {@link HttpExchange}. */
 public final class ResponseRenderer {
 
+  /** Default smallest body worth gzipping: 1 KiB. */
+  public static final long DEFAULT_MINIMUM_GZIP_BYTES = 1024;
+
   private static final String CONTENT_TYPE = "Content-Type";
+  private static final String CONTENT_ENCODING = "Content-Encoding";
+  private static final String CONTENT_LENGTH = "Content-Length";
+  private static final String VARY = "Vary";
+  private static final String ACCEPT_ENCODING = "Accept-Encoding";
+  private static final String GZIP = "gzip";
+  private static final long UNKNOWN_LENGTH = -1;
+  private static final long CHUNKED = 0;
   private static final String DEFAULT_JSON = "application/json";
   private static final String OCTET_STREAM = "application/octet-stream";
 
   private final Map<String, TypeMapper> mappers;
+  private final long minimumGzipBytes;
 
   public ResponseRenderer(Map<String, TypeMapper> mappers) {
+    this(mappers, DEFAULT_MINIMUM_GZIP_BYTES);
+  }
+
+  public ResponseRenderer(Map<String, TypeMapper> mappers, long minimumGzipBytes) {
     this.mappers = Map.copyOf(mappers);
+    this.minimumGzipBytes = minimumGzipBytes;
   }
 
   public void render(HttpExchange exchange, Response response) throws IOException {
@@ -31,7 +53,7 @@ public final class ResponseRenderer {
       int status = response.status();
 
       if (body == null) {
-        exchange.sendResponseHeaders(status, -1);
+        renderEmpty(exchange, headers, status, response.contentType());
       } else if (body instanceof BodyWriter writer) {
         renderStream(exchange, headers, status, response.contentType(), writer);
       } else {
@@ -40,16 +62,75 @@ public final class ResponseRenderer {
     }
   }
 
-  private static void renderStream(
+  /**
+   * Writes a bodiless response. Nothing can be coded here, but the response still has to say how a
+   * body would have been coded: a length declared for a body the client will fetch separately would
+   * describe the uncoded form, which is not what a coded {@code GET} would return.
+   */
+  private void renderEmpty(HttpExchange exchange, Headers headers, int status, String contentType)
+      throws IOException {
+    if (contentType != null && !headers.containsKey(CONTENT_TYPE)) {
+      headers.add(CONTENT_TYPE, contentType);
+    }
+    if (!headers.containsKey(CONTENT_ENCODING)
+        && ResponseCompression.isCompressible(contentType)
+        && bodyAllowed(status)) {
+      addVary(headers);
+      if (declaredLength(headers) >= minimumGzipBytes && acceptsGzip(exchange)) {
+        headers.remove(CONTENT_LENGTH);
+      }
+    }
+    exchange.sendResponseHeaders(status, -1);
+  }
+
+  private void renderStream(
       HttpExchange exchange, Headers headers, int status, String contentType, BodyWriter writer)
       throws IOException {
     if (contentType != null && !headers.containsKey(CONTENT_TYPE)) {
       headers.add(CONTENT_TYPE, contentType);
     }
-    long length = writer instanceof BodyWriter.Sized sized ? sized.length() : 0;
-    exchange.sendResponseHeaders(status, length);
+    long declared = writer instanceof BodyWriter.Sized sized ? sized.length() : UNKNOWN_LENGTH;
+    if (compressStream(exchange, headers, status, contentType, declared)) {
+      headers.set(CONTENT_ENCODING, GZIP);
+      exchange.sendResponseHeaders(status, CHUNKED);
+      try (OutputStream out = ResponseCompression.gzipStream(exchange.getResponseBody())) {
+        writer.writeTo(out);
+      }
+      return;
+    }
+    exchange.sendResponseHeaders(status, Math.max(declared, CHUNKED));
     try (OutputStream out = exchange.getResponseBody()) {
       writer.writeTo(out);
+    }
+  }
+
+  /**
+   * A coded stream has to go out chunked, because the length a {@code Sized} body declares measures
+   * the uncoded form. A body of unknown length is compressed regardless of the threshold —
+   * buffering it to find out how big it is would defeat streaming it.
+   */
+  private boolean compressStream(
+      HttpExchange exchange, Headers headers, int status, String contentType, long declaredLength) {
+    if (headers.containsKey(CONTENT_ENCODING)
+        || !ResponseCompression.isCompressible(contentType)
+        || !bodyAllowed(status)) {
+      return false;
+    }
+    addVary(headers);
+    boolean worthCoding = declaredLength < 0 || declaredLength >= minimumGzipBytes;
+    return worthCoding && acceptsGzip(exchange);
+  }
+
+  /** The length a handler declared for a body it did not write, or -1 when absent or unreadable. */
+  private static long declaredLength(Headers headers) {
+    String declared = headers.getFirst(CONTENT_LENGTH);
+    if (declared == null) {
+      return UNKNOWN_LENGTH;
+    }
+    try {
+      return Long.parseLong(declared.trim());
+    } catch (NumberFormatException e) {
+      return UNKNOWN_LENGTH;
     }
   }
 
@@ -68,12 +149,71 @@ public final class ResponseRenderer {
     if (!headers.containsKey(CONTENT_TYPE)) {
       headers.add(CONTENT_TYPE, effectiveContentType);
     }
-    exchange.sendResponseHeaders(status, bytes.length == 0 ? -1 : bytes.length);
-    if (bytes.length > 0) {
+    byte[] payload = maybeCompress(exchange, headers, status, effectiveContentType, bytes);
+    exchange.sendResponseHeaders(status, payload.length == 0 ? -1 : payload.length);
+    if (payload.length > 0) {
       try (OutputStream out = exchange.getResponseBody()) {
-        out.write(bytes);
+        out.write(payload);
       }
     }
+  }
+
+  /**
+   * Gzips the body when the client asked for it and the payload is big enough to be worth it. A
+   * handler that coded the body itself is left alone, and so is a payload that gzip fails to
+   * shrink.
+   */
+  private byte[] maybeCompress(
+      HttpExchange exchange, Headers headers, int status, String contentType, byte[] bytes)
+      throws IOException {
+    if (headers.containsKey(CONTENT_ENCODING)
+        || !ResponseCompression.isCompressible(contentType)
+        || !bodyAllowed(status)) {
+      return bytes;
+    }
+    addVary(headers);
+    if (bytes.length < minimumGzipBytes || !acceptsGzip(exchange)) {
+      return bytes;
+    }
+    byte[] gzipped = ResponseCompression.gzip(bytes);
+    if (gzipped.length >= bytes.length) {
+      return bytes;
+    }
+    headers.set(CONTENT_ENCODING, GZIP);
+    return gzipped;
+  }
+
+  /** Statuses that carry no content cannot carry a content coding either. */
+  private static boolean bodyAllowed(int status) {
+    return status >= HTTP_OK
+        && status != HTTP_NO_CONTENT
+        && status != HTTP_RESET
+        && status != HTTP_PARTIAL
+        && status != HTTP_NOT_MODIFIED;
+  }
+
+  private static boolean acceptsGzip(HttpExchange exchange) {
+    return AcceptEncodingHeader.acceptsGzip(exchange.getRequestHeaders().getFirst(ACCEPT_ENCODING));
+  }
+
+  /**
+   * Marks the response as varying by {@code Accept-Encoding} so shared caches keep the coded and
+   * uncoded forms apart. Announced whenever the body could have been coded, not only when it was,
+   * and merged into one field line so a client reading a single value sees the whole list.
+   */
+  private static void addVary(Headers headers) {
+    String existing = headers.getFirst(VARY);
+    if (existing == null) {
+      headers.set(VARY, ACCEPT_ENCODING);
+      return;
+    }
+    for (String field : existing.split(",")) {
+      String trimmed = field.trim();
+      if ("*".equals(trimmed) || ACCEPT_ENCODING.equalsIgnoreCase(trimmed)) {
+        return;
+      }
+    }
+    headers.set(VARY, existing + ", " + ACCEPT_ENCODING);
   }
 
   private byte[] serialize(Object body, String contentType) {
