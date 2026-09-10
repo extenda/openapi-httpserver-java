@@ -82,6 +82,8 @@ public final class ResponseRenderer {
     boolean gzip = shouldCompress(exchange, headers, status, contentType, declared);
     if (gzip) {
       headers.set(CONTENT_ENCODING, GZIP);
+      // The coded body goes out chunked, and the JDK leaves a handler-set length in place there.
+      headers.remove(CONTENT_LENGTH);
     }
     exchange.sendResponseHeaders(status, gzip ? CHUNKED : Math.max(declared, CHUNKED));
     try (OutputStream out =

@@ -397,6 +397,21 @@ class ResponseRendererTest {
     assertThat(sink.toByteArray()).isEqualTo(payload);
   }
 
+  @Test
+  void stripsHandlerContentLengthWhenStreamIsCompressed() throws IOException {
+    acceptsGzip();
+    byte[] payload = largeText();
+
+    renderer.render(
+        exchange,
+        Response.stream(HTTP_OK, payload.length, TEXT, out -> out.write(payload))
+            .withHeader("Content-Length", String.valueOf(payload.length)));
+
+    assertThat(responseHeaders.getFirst(CONTENT_ENCODING)).isEqualTo("gzip");
+    assertThat(responseHeaders.getFirst("Content-Length")).isNull();
+    assertThat(length.get()).isZero();
+  }
+
   private void acceptsGzip() {
     requestHeaders.add("Accept-Encoding", "gzip, deflate, br");
   }
