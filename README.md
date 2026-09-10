@@ -480,7 +480,7 @@ Inflation runs under a ceiling, because a few compressed kilobytes can expand in
 OpenApiServer.builder()
     .spec(spec)
     .handlers(handlers)
-    .maxDecompressedRequestBytes(32 * 1024 * 1024)  // default 10 MiB; over it, 413
+    .maxDecompressedRequestBytes(32 * 1024 * 1024)  // raises the 10 MiB default; over it, 413
     .build();
 ```
 
@@ -497,7 +497,7 @@ coded, and neither is `text/event-stream`, which has to stay unbuffered.
 OpenApiServer.builder()
     .spec(spec)
     .handlers(handlers)
-    .minimumGzipResponseBytes(4096)  // default 1024; 0 compresses everything compressible
+    .minimumGzipResponseBytes(4096)  // raises the 1 KiB default; 0 compresses every eligible body
     .build();
 ```
 
