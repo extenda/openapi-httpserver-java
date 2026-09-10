@@ -4,9 +4,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.zip.GZIPInputStream;
 import org.junit.jupiter.api.Test;
 
@@ -72,18 +70,6 @@ class ResponseCompressionTest {
 
     assertThat(compressed).isNotEqualTo(plain);
     assertThat(gunzip(compressed)).isEqualTo(plain);
-  }
-
-  @Test
-  void gzipStreamRoundTripsBytes() throws IOException {
-    byte[] plain = "stream me".repeat(20).getBytes(UTF_8);
-    ByteArrayOutputStream sink = new ByteArrayOutputStream();
-
-    try (OutputStream out = ResponseCompression.gzipStream(sink)) {
-      out.write(plain);
-    }
-
-    assertThat(gunzip(sink.toByteArray())).isEqualTo(plain);
   }
 
   private static byte[] gunzip(byte[] data) throws IOException {

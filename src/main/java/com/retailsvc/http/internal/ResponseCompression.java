@@ -2,7 +2,6 @@ package com.retailsvc.http.internal;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.Set;
 import java.util.zip.GZIPOutputStream;
 
@@ -52,13 +51,5 @@ public final class ResponseCompression {
       gzip.write(body);
     }
     return out.toByteArray();
-  }
-
-  /**
-   * Wraps {@code out} so a streamed body is deflated as it is written. Closing the returned stream
-   * writes the gzip trailer and releases the deflater's native memory, so the caller must close it.
-   */
-  public static OutputStream gzipStream(OutputStream out) throws IOException {
-    return new GZIPOutputStream(out);
   }
 }

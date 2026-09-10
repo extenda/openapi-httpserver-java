@@ -8,7 +8,6 @@ import com.retailsvc.http.BadRequestException;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.function.UnaryOperator;
@@ -29,6 +28,7 @@ public final class RequestBodyReader {
   private static final int BUFFER_SIZE = 8192;
 
   private final long maxDecompressedBytes;
+  private final int readLimit;
 
   public RequestBodyReader(long maxDecompressedBytes) {
     if (maxDecompressedBytes <= 0) {
@@ -36,6 +36,7 @@ public final class RequestBodyReader {
           "maxDecompressedBytes must be positive, got " + maxDecompressedBytes);
     }
     this.maxDecompressedBytes = maxDecompressedBytes;
+    this.readLimit = (int) Math.min(maxDecompressedBytes, Integer.MAX_VALUE - 1) + 1;
   }
 
   /**
@@ -67,20 +68,13 @@ public final class RequestBodyReader {
       return raw;
     }
     try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(raw), BUFFER_SIZE)) {
-      ByteArrayOutputStream out = new ByteArrayOutputStream();
-      byte[] buffer = new byte[BUFFER_SIZE];
-      long total = 0;
-      int read;
-      while ((read = in.read(buffer)) != -1) {
-        total += read;
-        if (total > maxDecompressedBytes) {
-          throw new BadRequestException(
-              HTTP_ENTITY_TOO_LARGE,
-              "decompressed request body exceeds " + maxDecompressedBytes + " bytes");
-        }
-        out.write(buffer, 0, read);
+      byte[] inflated = in.readNBytes(readLimit);
+      if (inflated.length > maxDecompressedBytes) {
+        throw new BadRequestException(
+            HTTP_ENTITY_TOO_LARGE,
+            "decompressed request body exceeds " + maxDecompressedBytes + " bytes");
       }
-      return out.toByteArray();
+      return inflated;
     } catch (ZipException | EOFException e) {
       throw new BadRequestException(HTTP_BAD_REQUEST, "malformed gzip request body", e);
     }

@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Locale;
 import java.util.Map;
+import java.util.zip.GZIPOutputStream;
 
 /** Writes a {@link Response} to an {@link HttpExchange}. */
 public final class ResponseRenderer {
@@ -65,9 +66,7 @@ public final class ResponseRenderer {
    */
   private void renderEmpty(HttpExchange exchange, Headers headers, int status, String contentType)
       throws IOException {
-    if (contentType != null && !headers.containsKey(CONTENT_TYPE)) {
-      headers.add(CONTENT_TYPE, contentType);
-    }
+    defaultContentType(headers, contentType);
     long declared = declaredLength(headers);
     if (shouldCompress(exchange, headers, status, contentType, declared) && declared >= 0) {
       headers.remove(CONTENT_LENGTH);
@@ -78,21 +77,23 @@ public final class ResponseRenderer {
   private void renderStream(
       HttpExchange exchange, Headers headers, int status, String contentType, BodyWriter writer)
       throws IOException {
+    defaultContentType(headers, contentType);
+    long declared = writer instanceof BodyWriter.Sized sized ? sized.length() : UNKNOWN_LENGTH;
+    boolean gzip = shouldCompress(exchange, headers, status, contentType, declared);
+    if (gzip) {
+      headers.set(CONTENT_ENCODING, GZIP);
+    }
+    exchange.sendResponseHeaders(status, gzip ? CHUNKED : Math.max(declared, CHUNKED));
+    try (OutputStream out =
+        gzip ? new GZIPOutputStream(exchange.getResponseBody()) : exchange.getResponseBody()) {
+      writer.writeTo(out);
+    }
+  }
+
+  /** Adds the response's own content type unless the handler already set one. */
+  private static void defaultContentType(Headers headers, String contentType) {
     if (contentType != null && !headers.containsKey(CONTENT_TYPE)) {
       headers.add(CONTENT_TYPE, contentType);
-    }
-    long declared = writer instanceof BodyWriter.Sized sized ? sized.length() : UNKNOWN_LENGTH;
-    if (shouldCompress(exchange, headers, status, contentType, declared)) {
-      headers.set(CONTENT_ENCODING, GZIP);
-      exchange.sendResponseHeaders(status, CHUNKED);
-      try (OutputStream out = ResponseCompression.gzipStream(exchange.getResponseBody())) {
-        writer.writeTo(out);
-      }
-      return;
-    }
-    exchange.sendResponseHeaders(status, Math.max(declared, CHUNKED));
-    try (OutputStream out = exchange.getResponseBody()) {
-      writer.writeTo(out);
     }
   }
 
@@ -120,7 +121,7 @@ public final class ResponseRenderer {
     }
     try {
       return Long.parseLong(declared.trim());
-    } catch (NumberFormatException e) {
+    } catch (NumberFormatException _) {
       return UNKNOWN_LENGTH;
     }
   }
@@ -137,9 +138,7 @@ public final class ResponseRenderer {
       effectiveContentType = contentType != null ? contentType : DEFAULT_JSON;
       bytes = serialize(body, effectiveContentType);
     }
-    if (!headers.containsKey(CONTENT_TYPE)) {
-      headers.add(CONTENT_TYPE, effectiveContentType);
-    }
+    defaultContentType(headers, effectiveContentType);
     byte[] payload = maybeCompress(exchange, headers, status, effectiveContentType, bytes);
     exchange.sendResponseHeaders(status, payload.length == 0 ? -1 : payload.length);
     if (payload.length > 0) {

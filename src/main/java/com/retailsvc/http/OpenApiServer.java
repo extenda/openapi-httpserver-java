@@ -66,8 +66,8 @@ public class OpenApiServer implements AutoCloseable {
       Map<String, RequestHandler> extras,
       boolean externalAuth,
       List<AfterResponseHook> afterHooks,
-      long maxDecompressedRequestBytes,
-      long minimumGzipResponseBytes) {}
+      RequestBodyReader bodyReader,
+      ResponseRenderer renderer) {}
 
   OpenApiServer(
       List<SpecBinding> bindings,
@@ -86,7 +86,6 @@ public class OpenApiServer implements AutoCloseable {
     requireNonNull(bodyMappers, "bodyMappers must not be null");
 
     long t0 = System.currentTimeMillis();
-    ExceptionHandler exceptionHandler = handlerConfig.exceptionHandler();
 
     InetSocketAddress socketAddress =
         (bindAddress == null)
@@ -95,26 +94,8 @@ public class OpenApiServer implements AutoCloseable {
     this.httpServer = createHttpServer(socketAddress, sslContext);
     httpServer.setExecutor(newThreadPerTaskExecutor(ofVirtual().name("http-", 0).factory()));
 
-    ResponseRenderer renderer =
-        new ResponseRenderer(bodyMappers, handlerConfig.minimumGzipResponseBytes());
-    RequestBodyReader bodyReader =
-        new RequestBodyReader(handlerConfig.maxDecompressedRequestBytes());
-    boolean anyBindingAtRoot =
-        wireBindings(
-            httpServer,
-            bindings,
-            bodyMappers,
-            handlerConfig,
-            exceptionHandler,
-            renderer,
-            bodyReader);
-    wireExtras(
-        httpServer,
-        anyBindingAtRoot,
-        handlerConfig.extras(),
-        exceptionHandler,
-        renderer,
-        bodyReader);
+    boolean anyBindingAtRoot = wireBindings(httpServer, bindings, bodyMappers, handlerConfig);
+    wireExtras(httpServer, anyBindingAtRoot, handlerConfig);
 
     httpServer.start();
     this.shutdownTimeoutSeconds = shutdownTimeoutSeconds;
@@ -131,42 +112,26 @@ public class OpenApiServer implements AutoCloseable {
     return HttpServer.create(addr, 0);
   }
 
-  @SuppressWarnings("java:S107")
   private static boolean wireBindings(
       HttpServer httpServer,
       List<SpecBinding> bindings,
       Map<String, TypeMapper> bodyMappers,
-      HandlerConfig handlerConfig,
-      ExceptionHandler exceptionHandler,
-      ResponseRenderer renderer,
-      RequestBodyReader bodyReader) {
+      HandlerConfig handlerConfig) {
     boolean anyBindingAtRoot = false;
     for (SpecBinding binding : bindings) {
       String basePath = Optional.ofNullable(binding.spec().basePath()).orElse("/");
       anyBindingAtRoot |= "/".equals(basePath);
-      wireBinding(
-          httpServer,
-          basePath,
-          binding,
-          bodyMappers,
-          handlerConfig,
-          exceptionHandler,
-          renderer,
-          bodyReader);
+      wireBinding(httpServer, basePath, binding, bodyMappers, handlerConfig);
     }
     return anyBindingAtRoot;
   }
 
-  @SuppressWarnings("java:S107")
   private static void wireBinding(
       HttpServer httpServer,
       String basePath,
       SpecBinding binding,
       Map<String, TypeMapper> bodyMappers,
-      HandlerConfig handlerConfig,
-      ExceptionHandler exceptionHandler,
-      ResponseRenderer renderer,
-      RequestBodyReader bodyReader) {
+      HandlerConfig handlerConfig) {
     Map<String, Operation> operationsById =
         binding.spec().operations().stream()
             .collect(Collectors.toUnmodifiableMap(Operation::operationId, op -> op));
@@ -178,10 +143,10 @@ public class OpenApiServer implements AutoCloseable {
                 binding.router(),
                 binding.validator(),
                 bodyMappers,
-                exceptionHandler,
-                renderer,
+                handlerConfig.exceptionHandler(),
+                handlerConfig.renderer(),
                 handlerConfig.afterHooks(),
-                bodyReader));
+                handlerConfig.bodyReader()));
     ctx.getFilters()
         .add(
             new SecurityFilter(
@@ -195,16 +160,12 @@ public class OpenApiServer implements AutoCloseable {
             binding.handlers(),
             handlerConfig.interceptors(),
             handlerConfig.decorators(),
-            renderer));
+            handlerConfig.renderer()));
   }
 
   private static void wireExtras(
-      HttpServer httpServer,
-      boolean anyBindingAtRoot,
-      Map<String, RequestHandler> extras,
-      ExceptionHandler exceptionHandler,
-      ResponseRenderer renderer,
-      RequestBodyReader bodyReader) {
+      HttpServer httpServer, boolean anyBindingAtRoot, HandlerConfig handlerConfig) {
+    Map<String, RequestHandler> extras = handlerConfig.extras();
     if (anyBindingAtRoot) {
       if (!extras.isEmpty()) {
         throw new IllegalStateException(
@@ -212,9 +173,12 @@ public class OpenApiServer implements AutoCloseable {
       }
       return;
     }
-    ExtrasRouter extrasRouter = new ExtrasRouter(extras, renderer, bodyReader);
+    ExtrasRouter extrasRouter =
+        new ExtrasRouter(extras, handlerConfig.renderer(), handlerConfig.bodyReader());
     HttpContext extrasCtx = httpServer.createContext("/", extrasRouter);
-    extrasCtx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
+    extrasCtx
+        .getFilters()
+        .add(new ExceptionFilter(handlerConfig.exceptionHandler(), handlerConfig.renderer()));
   }
 
   private void logStartup(long t0) {
@@ -510,8 +474,8 @@ public class OpenApiServer implements AutoCloseable {
               extras,
               externalAuth,
               List.copyOf(afterHooks),
-              maxDecompressedRequestBytes,
-              minimumGzipResponseBytes);
+              new RequestBodyReader(maxDecompressedRequestBytes),
+              new ResponseRenderer(resolved, minimumGzipResponseBytes));
       int resolvedPort = resolvePort();
       SSLContext sslContext =
           httpsCertChain != null ? PemSslContext.load(httpsCertChain, httpsPrivateKey) : null;
