@@ -1,5 +1,6 @@
 package com.retailsvc.http.internal;
 
+import static java.net.HttpURLConnection.HTTP_NOT_MODIFIED;
 import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -344,6 +345,56 @@ class ResponseRendererTest {
         Response.status(HTTP_OK).withContentType(TEXT).withHeader("Content-Length", "12"));
 
     assertThat(responseHeaders.getFirst("Content-Length")).isEqualTo("12");
+  }
+
+  @Test
+  void neverCompressesNotModifiedResponses() throws IOException {
+    acceptsGzip();
+
+    renderer.render(exchange, Response.bytes(HTTP_NOT_MODIFIED, largeText(), JSON));
+
+    assertThat(responseHeaders.getFirst(CONTENT_ENCODING)).isNull();
+  }
+
+  @Test
+  void keepsContentLengthOnNullBodyWhenUnparsable() throws IOException {
+    acceptsGzip();
+
+    renderer.render(
+        exchange,
+        Response.status(HTTP_OK)
+            .withContentType(TEXT)
+            .withHeader("Content-Length", "not-a-number"));
+
+    assertThat(responseHeaders.getFirst("Content-Length")).isEqualTo("not-a-number");
+  }
+
+  @Test
+  void keepsHandlerSuppliedContentTypeOnStreams() throws IOException {
+    acceptsGzip();
+    byte[] payload = largeText();
+
+    renderer.render(
+        exchange,
+        Response.stream(HTTP_OK, TEXT, out -> out.write(payload))
+            .withHeader("Content-Type", "text/csv"));
+
+    assertThat(responseHeaders.get("Content-Type")).containsExactly("text/csv");
+    assertThat(gunzip(sink.toByteArray())).isEqualTo(payload);
+  }
+
+  @Test
+  void skipsCompressionOnStreamWhenHandlerAlreadySetContentEncoding() throws IOException {
+    acceptsGzip();
+    byte[] payload = largeText();
+
+    renderer.render(
+        exchange,
+        Response.stream(HTTP_OK, TEXT, out -> out.write(payload))
+            .withHeader(CONTENT_ENCODING, "br"));
+
+    assertThat(responseHeaders.get(CONTENT_ENCODING)).containsExactly("br");
+    assertThat(sink.toByteArray()).isEqualTo(payload);
   }
 
   private void acceptsGzip() {

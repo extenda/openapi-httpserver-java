@@ -91,4 +91,26 @@ class AcceptEncodingHeaderTest {
   void emptyTokensAreIgnored() {
     assertThat(AcceptEncodingHeader.acceptsGzip("deflate,,gzip")).isTrue();
   }
+
+  @Test
+  void repeatedGzipTokensTakeThePositiveWeight() {
+    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;q=0, gzip")).isTrue();
+    assertThat(AcceptEncodingHeader.acceptsGzip("gzip, x-gzip;q=0")).isTrue();
+  }
+
+  @Test
+  void repeatedWildcardsTakeThePositiveWeight() {
+    assertThat(AcceptEncodingHeader.acceptsGzip("*;q=0, *")).isTrue();
+  }
+
+  @Test
+  void parametersOtherThanWeightAreIgnored() {
+    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;level=9")).isTrue();
+    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;level=9;q=0")).isFalse();
+  }
+
+  @Test
+  void valuelessParameterIsIgnored() {
+    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;q")).isTrue();
+  }
 }
