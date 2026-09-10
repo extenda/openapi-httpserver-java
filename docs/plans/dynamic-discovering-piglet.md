@@ -284,7 +284,7 @@ as it completes.
 
 ### Task 5 — end to end
 
-- [ ] **Step 10** `GzipIT` extending `ServerBaseTest`. Reuses the existing `/openapi.json` fixture
+- [x] **Step 10** `GzipIT` extending `ServerBaseTest`. Reuses the existing `/openapi.json` fixture
       with runtime handler overrides — **no new spec files**. `text-echo` (`POST /text-echo`,
       `text/plain`, schema `{"type":"string"}`, no `maxLength`) echoes the body, so one call
       exercises both directions. Private `gzip(byte[])` / `gunzip(byte[])` helpers; requests built
