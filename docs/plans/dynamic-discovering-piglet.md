@@ -278,7 +278,7 @@ as it completes.
 
 ### Task 4 — builder
 
-- [ ] **Step 9** `OpenApiServerBuilderTest` — `maxDecompressedRequestBytesRejectsZero`,
+- [x] **Step 9** `OpenApiServerBuilderTest` — `maxDecompressedRequestBytesRejectsZero`,
       `maxDecompressedRequestBytesRejectsNegative`, `minimumGzipResponseBytesRejectsNegative`.
       Then add the two setters, the `HandlerConfig` fields and the `build()` wiring.
 

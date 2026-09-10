@@ -65,7 +65,9 @@ public class OpenApiServer implements AutoCloseable {
       ExceptionHandler exceptionHandler,
       Map<String, RequestHandler> extras,
       boolean externalAuth,
-      List<AfterResponseHook> afterHooks) {}
+      List<AfterResponseHook> afterHooks,
+      long maxDecompressedRequestBytes,
+      long minimumGzipResponseBytes) {}
 
   OpenApiServer(
       List<SpecBinding> bindings,
@@ -93,9 +95,10 @@ public class OpenApiServer implements AutoCloseable {
     this.httpServer = createHttpServer(socketAddress, sslContext);
     httpServer.setExecutor(newThreadPerTaskExecutor(ofVirtual().name("http-", 0).factory()));
 
-    ResponseRenderer renderer = new ResponseRenderer(bodyMappers);
+    ResponseRenderer renderer =
+        new ResponseRenderer(bodyMappers, handlerConfig.minimumGzipResponseBytes());
     RequestBodyReader bodyReader =
-        new RequestBodyReader(RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES);
+        new RequestBodyReader(handlerConfig.maxDecompressedRequestBytes());
     boolean anyBindingAtRoot =
         wireBindings(
             httpServer,
@@ -278,6 +281,8 @@ public class OpenApiServer implements AutoCloseable {
     private final LinkedHashMap<String, RequestHandler> extras = new LinkedHashMap<>();
     private final Map<String, SchemeValidator> securityValidators = new LinkedHashMap<>();
     private boolean externalAuth = false;
+    private long maxDecompressedRequestBytes = RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES;
+    private long minimumGzipResponseBytes = ResponseRenderer.DEFAULT_MINIMUM_GZIP_BYTES;
     private final List<SpecBinding> bindings = new ArrayList<>();
 
     private Builder() {}
@@ -427,6 +432,42 @@ public class OpenApiServer implements AutoCloseable {
      * stops immediately; positive values wait up to that many seconds for in-flight exchanges to
      * finish.
      */
+    /**
+     * Ceiling on the inflated size of a gzip request body, 10 MiB by default. A compressed payload
+     * can expand by orders of magnitude, so this bounds what a single request may allocate;
+     * exceeding it fails the request with 413. Bodies that arrive uncompressed are not affected.
+     */
+    public Builder maxDecompressedRequestBytes(long maxDecompressedRequestBytes) {
+      if (maxDecompressedRequestBytes <= 0) {
+        throw new IllegalArgumentException(
+            "maxDecompressedRequestBytes must be positive, got " + maxDecompressedRequestBytes);
+      }
+      if (maxDecompressedRequestBytes > Integer.MAX_VALUE) {
+        throw new IllegalArgumentException(
+            "maxDecompressedRequestBytes must not exceed "
+                + Integer.MAX_VALUE
+                + ", got "
+                + maxDecompressedRequestBytes);
+      }
+      this.maxDecompressedRequestBytes = maxDecompressedRequestBytes;
+      return this;
+    }
+
+    /**
+     * Smallest response body worth gzipping, 1 KiB by default. Below this, the coding costs more
+     * than it saves. Set it to 0 to compress every compressible body, or high enough to exceed any
+     * response this server produces to stop compressing altogether — useful when a proxy in front
+     * already terminates compression.
+     */
+    public Builder minimumGzipResponseBytes(long minimumGzipResponseBytes) {
+      if (minimumGzipResponseBytes < 0) {
+        throw new IllegalArgumentException(
+            "minimumGzipResponseBytes must be non-negative, got " + minimumGzipResponseBytes);
+      }
+      this.minimumGzipResponseBytes = minimumGzipResponseBytes;
+      return this;
+    }
+
     public Builder shutdownTimeoutSeconds(int shutdownTimeoutSeconds) {
       if (shutdownTimeoutSeconds < 0) {
         throw new IllegalArgumentException(
@@ -468,7 +509,9 @@ public class OpenApiServer implements AutoCloseable {
               effectiveExceptionHandler,
               extras,
               externalAuth,
-              List.copyOf(afterHooks));
+              List.copyOf(afterHooks),
+              maxDecompressedRequestBytes,
+              minimumGzipResponseBytes);
       int resolvedPort = resolvePort();
       SSLContext sslContext =
           httpsCertChain != null ? PemSslContext.load(httpsCertChain, httpsPrivateKey) : null;

@@ -1,6 +1,7 @@
 package com.retailsvc.http;
 
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
@@ -47,6 +48,42 @@ class OpenApiServerBuilderTest {
     assertThatThrownBy(b::build)
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("/api");
+  }
+
+  @Test
+  void rejectsNonPositiveMaxDecompressedRequestBytes() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+
+    assertThatThrownBy(() -> b.maxDecompressedRequestBytes(0))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("0");
+    assertThatThrownBy(() -> b.maxDecompressedRequestBytes(-1))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("-1");
+  }
+
+  @Test
+  void rejectsOversizedMaxDecompressedRequestBytes() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+
+    assertThatThrownBy(() -> b.maxDecompressedRequestBytes(Integer.MAX_VALUE + 1L))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void rejectsNegativeMinimumGzipResponseBytes() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+
+    assertThatThrownBy(() -> b.minimumGzipResponseBytes(-1))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("-1");
+  }
+
+  @Test
+  void acceptsContentCodingLimits() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+
+    assertThat(b.maxDecompressedRequestBytes(4096).minimumGzipResponseBytes(0)).isSameAs(b);
   }
 
   @Test
