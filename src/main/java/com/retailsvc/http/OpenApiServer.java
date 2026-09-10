@@ -392,23 +392,14 @@ public class OpenApiServer implements AutoCloseable {
     }
 
     /**
-     * Sets the default drain timeout used by {@link OpenApiServer#close()}. {@code 0} (the default)
-     * stops immediately; positive values wait up to that many seconds for in-flight exchanges to
-     * finish.
-     */
-    /**
      * Ceiling on the inflated size of a gzip request body, 10 MiB by default. A compressed payload
      * can expand by orders of magnitude, so this bounds what a single request may allocate;
      * exceeding it fails the request with 413. Bodies that arrive uncompressed are not affected.
      */
     public Builder maxDecompressedRequestBytes(long maxDecompressedRequestBytes) {
-      if (maxDecompressedRequestBytes <= 0) {
+      if (maxDecompressedRequestBytes <= 0 || maxDecompressedRequestBytes > Integer.MAX_VALUE) {
         throw new IllegalArgumentException(
-            "maxDecompressedRequestBytes must be positive, got " + maxDecompressedRequestBytes);
-      }
-      if (maxDecompressedRequestBytes > Integer.MAX_VALUE) {
-        throw new IllegalArgumentException(
-            "maxDecompressedRequestBytes must not exceed "
+            "maxDecompressedRequestBytes must be between 1 and "
                 + Integer.MAX_VALUE
                 + ", got "
                 + maxDecompressedRequestBytes);
@@ -432,6 +423,11 @@ public class OpenApiServer implements AutoCloseable {
       return this;
     }
 
+    /**
+     * Sets the default drain timeout used by {@link OpenApiServer#close()}. {@code 0} (the default)
+     * stops immediately; positive values wait up to that many seconds for in-flight exchanges to
+     * finish.
+     */
     public Builder shutdownTimeoutSeconds(int shutdownTimeoutSeconds) {
       if (shutdownTimeoutSeconds < 0) {
         throw new IllegalArgumentException(

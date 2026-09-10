@@ -129,12 +129,12 @@ public final class ResponseRenderer {
   private void renderBytes(
       HttpExchange exchange, Headers headers, int status, String contentType, Object body)
       throws IOException {
-    String effectiveContentType =
-        contentType != null ? contentType : (body instanceof byte[] ? OCTET_STREAM : DEFAULT_JSON);
+    String fallback = body instanceof byte[] ? OCTET_STREAM : DEFAULT_JSON;
+    String effectiveContentType = contentType != null ? contentType : fallback;
     byte[] bytes = body instanceof byte[] raw ? raw : serialize(body, effectiveContentType);
     defaultContentType(headers, effectiveContentType);
     byte[] payload = maybeCompress(exchange, headers, status, effectiveContentType, bytes);
-    exchange.sendResponseHeaders(status, payload.length == 0 ? -1 : payload.length);
+    exchange.sendResponseHeaders(status, payload.length == 0 ? UNKNOWN_LENGTH : payload.length);
     if (payload.length > 0) {
       try (OutputStream out = exchange.getResponseBody()) {
         out.write(payload);
