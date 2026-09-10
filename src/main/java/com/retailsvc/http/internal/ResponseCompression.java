@@ -8,9 +8,6 @@ import java.util.zip.GZIPOutputStream;
 /** Response content-coding policy, and the gzip primitives the renderer writes through. */
 public final class ResponseCompression {
 
-  private static final String TEXT_PREFIX = "text/";
-  private static final String EVENT_STREAM = "text/event-stream";
-
   private static final Set<String> COMPRESSIBLE_TYPES =
       Set.of(
           "application/json",
@@ -35,8 +32,8 @@ public final class ResponseCompression {
       return false;
     }
     String mediaType = ContentTypeHeader.mediaType(contentType);
-    if (mediaType.startsWith(TEXT_PREFIX)) {
-      return !EVENT_STREAM.equals(mediaType);
+    if (mediaType.startsWith("text/")) {
+      return !"text/event-stream".equals(mediaType);
     }
     if (mediaType.endsWith("+json") || mediaType.endsWith("+xml") || mediaType.endsWith("+yaml")) {
       return true;
