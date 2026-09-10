@@ -15,10 +15,13 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.Test;
 
 class ExtrasRouterTest {
@@ -120,19 +123,53 @@ class ExtrasRouterTest {
         .isInstanceOf(BadRequestException.class);
   }
 
+  @Test
+  void gzipRequestBodyIsInflatedForExtraRoutes() throws Exception {
+    AtomicReference<String> seen = new AtomicReference<>();
+    Map<String, RequestHandler> extras = new LinkedHashMap<>();
+    extras.put(
+        "/echo",
+        req -> {
+          seen.set(new String(req.bytes(), StandardCharsets.UTF_8));
+          return Response.empty();
+        });
+    Headers headers = new Headers();
+    headers.add("Content-Encoding", "gzip");
+
+    invoke(newRouter(extras), "/echo", gzip("hello".getBytes(StandardCharsets.UTF_8)), headers);
+
+    assertThat(seen.get()).isEqualTo("hello");
+  }
+
   private static ExtrasRouter newRouter(Map<String, RequestHandler> extras) {
     Map<String, TypeMapper> mappers = Map.of("application/json", new GsonTypeMapper());
-    return new ExtrasRouter(extras, new ResponseRenderer(mappers));
+    return new ExtrasRouter(
+        extras,
+        new ResponseRenderer(mappers),
+        new RequestBodyReader(RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES));
   }
 
   private static void invoke(ExtrasRouter router, String path) throws Exception {
+    invoke(router, path, new byte[0], new Headers());
+  }
+
+  private static void invoke(ExtrasRouter router, String path, byte[] body, Headers headers)
+      throws Exception {
     HttpExchange ex = mock(HttpExchange.class);
     when(ex.getRequestMethod()).thenReturn("GET");
     when(ex.getRequestURI()).thenReturn(URI.create(path));
-    when(ex.getRequestHeaders()).thenReturn(new Headers());
-    when(ex.getRequestBody()).thenReturn(new ByteArrayInputStream(new byte[0]));
+    when(ex.getRequestHeaders()).thenReturn(headers);
+    when(ex.getRequestBody()).thenReturn(new ByteArrayInputStream(body));
     when(ex.getResponseHeaders()).thenReturn(new Headers());
     when(ex.getResponseBody()).thenReturn(new ByteArrayOutputStream());
     router.handle(ex);
+  }
+
+  private static byte[] gzip(byte[] data) throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (GZIPOutputStream gzip = new GZIPOutputStream(out)) {
+      gzip.write(data);
+    }
+    return out.toByteArray();
   }
 }

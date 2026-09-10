@@ -9,6 +9,7 @@ import com.retailsvc.http.internal.ExceptionFilter;
 import com.retailsvc.http.internal.ExtrasRouter;
 import com.retailsvc.http.internal.FormTypeMapper;
 import com.retailsvc.http.internal.PemSslContext;
+import com.retailsvc.http.internal.RequestBodyReader;
 import com.retailsvc.http.internal.RequestPreparationFilter;
 import com.retailsvc.http.internal.ResponseRenderer;
 import com.retailsvc.http.internal.SecurityFilter;
@@ -93,9 +94,24 @@ public class OpenApiServer implements AutoCloseable {
     httpServer.setExecutor(newThreadPerTaskExecutor(ofVirtual().name("http-", 0).factory()));
 
     ResponseRenderer renderer = new ResponseRenderer(bodyMappers);
+    RequestBodyReader bodyReader =
+        new RequestBodyReader(RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES);
     boolean anyBindingAtRoot =
-        wireBindings(httpServer, bindings, bodyMappers, handlerConfig, exceptionHandler, renderer);
-    wireExtras(httpServer, anyBindingAtRoot, handlerConfig.extras(), exceptionHandler, renderer);
+        wireBindings(
+            httpServer,
+            bindings,
+            bodyMappers,
+            handlerConfig,
+            exceptionHandler,
+            renderer,
+            bodyReader);
+    wireExtras(
+        httpServer,
+        anyBindingAtRoot,
+        handlerConfig.extras(),
+        exceptionHandler,
+        renderer,
+        bodyReader);
 
     httpServer.start();
     this.shutdownTimeoutSeconds = shutdownTimeoutSeconds;
@@ -119,13 +135,21 @@ public class OpenApiServer implements AutoCloseable {
       Map<String, TypeMapper> bodyMappers,
       HandlerConfig handlerConfig,
       ExceptionHandler exceptionHandler,
-      ResponseRenderer renderer) {
+      ResponseRenderer renderer,
+      RequestBodyReader bodyReader) {
     boolean anyBindingAtRoot = false;
     for (SpecBinding binding : bindings) {
       String basePath = Optional.ofNullable(binding.spec().basePath()).orElse("/");
       anyBindingAtRoot |= "/".equals(basePath);
       wireBinding(
-          httpServer, basePath, binding, bodyMappers, handlerConfig, exceptionHandler, renderer);
+          httpServer,
+          basePath,
+          binding,
+          bodyMappers,
+          handlerConfig,
+          exceptionHandler,
+          renderer,
+          bodyReader);
     }
     return anyBindingAtRoot;
   }
@@ -138,7 +162,8 @@ public class OpenApiServer implements AutoCloseable {
       Map<String, TypeMapper> bodyMappers,
       HandlerConfig handlerConfig,
       ExceptionHandler exceptionHandler,
-      ResponseRenderer renderer) {
+      ResponseRenderer renderer,
+      RequestBodyReader bodyReader) {
     Map<String, Operation> operationsById =
         binding.spec().operations().stream()
             .collect(Collectors.toUnmodifiableMap(Operation::operationId, op -> op));
@@ -152,7 +177,8 @@ public class OpenApiServer implements AutoCloseable {
                 bodyMappers,
                 exceptionHandler,
                 renderer,
-                handlerConfig.afterHooks()));
+                handlerConfig.afterHooks(),
+                bodyReader));
     ctx.getFilters()
         .add(
             new SecurityFilter(
@@ -174,7 +200,8 @@ public class OpenApiServer implements AutoCloseable {
       boolean anyBindingAtRoot,
       Map<String, RequestHandler> extras,
       ExceptionHandler exceptionHandler,
-      ResponseRenderer renderer) {
+      ResponseRenderer renderer,
+      RequestBodyReader bodyReader) {
     if (anyBindingAtRoot) {
       if (!extras.isEmpty()) {
         throw new IllegalStateException(
@@ -182,7 +209,7 @@ public class OpenApiServer implements AutoCloseable {
       }
       return;
     }
-    ExtrasRouter extrasRouter = new ExtrasRouter(extras, renderer);
+    ExtrasRouter extrasRouter = new ExtrasRouter(extras, renderer, bodyReader);
     HttpContext extrasCtx = httpServer.createContext("/", extrasRouter);
     extrasCtx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
   }
