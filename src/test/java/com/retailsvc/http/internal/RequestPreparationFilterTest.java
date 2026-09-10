@@ -1,5 +1,6 @@
 package com.retailsvc.http.internal;
 
+import static com.retailsvc.http.internal.ResponseRenderer.DEFAULT_MINIMUM_GZIP_BYTES;
 import static java.net.HttpURLConnection.HTTP_UNSUPPORTED_TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -114,7 +115,7 @@ class RequestPreparationFilterTest {
         new DefaultValidator(spec::resolveSchema),
         mappers,
         rethrow,
-        new ResponseRenderer(mappers),
+        new ResponseRenderer(mappers, DEFAULT_MINIMUM_GZIP_BYTES),
         List.of(),
         new RequestBodyReader(RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES));
   }

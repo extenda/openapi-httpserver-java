@@ -5,10 +5,6 @@ import java.util.Locale;
 /** Parses {@code Accept-Encoding} request header values (RFC 9110 §12.5.3). */
 public final class AcceptEncodingHeader {
 
-  private static final String GZIP = "gzip";
-  private static final String X_GZIP = "x-gzip";
-  private static final String WILDCARD = "*";
-  private static final String QUALITY = "q";
   private static final double DEFAULT_QUALITY = 1.0;
 
   private AcceptEncodingHeader() {}
@@ -22,8 +18,9 @@ public final class AcceptEncodingHeader {
     if (header == null) {
       return false;
     }
-    Boolean gzipAccepted = null;
-    Boolean wildcardAccepted = null;
+    boolean gzipSeen = false;
+    boolean gzipAccepted = false;
+    boolean wildcardAccepted = false;
     for (String token : header.split(",")) {
       String trimmed = token.trim();
       if (trimmed.isEmpty()) {
@@ -33,16 +30,14 @@ public final class AcceptEncodingHeader {
       String coding =
           (semi < 0 ? trimmed : trimmed.substring(0, semi)).trim().toLowerCase(Locale.ROOT);
       boolean accepted = quality(semi < 0 ? null : trimmed.substring(semi + 1)) > 0;
-      if (GZIP.equals(coding) || X_GZIP.equals(coding)) {
-        gzipAccepted = gzipAccepted == null ? accepted : gzipAccepted || accepted;
-      } else if (WILDCARD.equals(coding)) {
-        wildcardAccepted = wildcardAccepted == null ? accepted : wildcardAccepted || accepted;
+      if ("gzip".equals(coding) || "x-gzip".equals(coding)) {
+        gzipSeen = true;
+        gzipAccepted |= accepted;
+      } else if ("*".equals(coding)) {
+        wildcardAccepted |= accepted;
       }
     }
-    if (gzipAccepted != null) {
-      return gzipAccepted;
-    }
-    return wildcardAccepted != null && wildcardAccepted;
+    return gzipSeen ? gzipAccepted : wildcardAccepted;
   }
 
   /**
@@ -60,7 +55,7 @@ public final class AcceptEncodingHeader {
         continue;
       }
       String name = trimmed.substring(0, equals).trim().toLowerCase(Locale.ROOT);
-      if (QUALITY.equals(name)) {
+      if ("q".equals(name)) {
         try {
           return Double.parseDouble(trimmed.substring(equals + 1).trim());
         } catch (NumberFormatException e) {

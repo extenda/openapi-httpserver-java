@@ -35,10 +35,6 @@ public final class ResponseRenderer {
   private final Map<String, TypeMapper> mappers;
   private final long minimumGzipBytes;
 
-  public ResponseRenderer(Map<String, TypeMapper> mappers) {
-    this(mappers, DEFAULT_MINIMUM_GZIP_BYTES);
-  }
-
   public ResponseRenderer(Map<String, TypeMapper> mappers, long minimumGzipBytes) {
     this.mappers = Map.copyOf(mappers);
     this.minimumGzipBytes = minimumGzipBytes;
@@ -72,15 +68,11 @@ public final class ResponseRenderer {
     if (contentType != null && !headers.containsKey(CONTENT_TYPE)) {
       headers.add(CONTENT_TYPE, contentType);
     }
-    if (!headers.containsKey(CONTENT_ENCODING)
-        && ResponseCompression.isCompressible(contentType)
-        && bodyAllowed(status)) {
-      addVary(headers);
-      if (declaredLength(headers) >= minimumGzipBytes && acceptsGzip(exchange)) {
-        headers.remove(CONTENT_LENGTH);
-      }
+    long declared = declaredLength(headers);
+    if (shouldCompress(exchange, headers, status, contentType, declared) && declared >= 0) {
+      headers.remove(CONTENT_LENGTH);
     }
-    exchange.sendResponseHeaders(status, -1);
+    exchange.sendResponseHeaders(status, UNKNOWN_LENGTH);
   }
 
   private void renderStream(
@@ -90,7 +82,7 @@ public final class ResponseRenderer {
       headers.add(CONTENT_TYPE, contentType);
     }
     long declared = writer instanceof BodyWriter.Sized sized ? sized.length() : UNKNOWN_LENGTH;
-    if (compressStream(exchange, headers, status, contentType, declared)) {
+    if (shouldCompress(exchange, headers, status, contentType, declared)) {
       headers.set(CONTENT_ENCODING, GZIP);
       exchange.sendResponseHeaders(status, CHUNKED);
       try (OutputStream out = ResponseCompression.gzipStream(exchange.getResponseBody())) {
@@ -105,20 +97,19 @@ public final class ResponseRenderer {
   }
 
   /**
-   * A coded stream has to go out chunked, because the length a {@code Sized} body declares measures
-   * the uncoded form. A body of unknown length is compressed regardless of the threshold —
-   * buffering it to find out how big it is would defeat streaming it.
+   * Whether a body of {@code length} bytes should be gzipped, marking the response as varying by
+   * {@code Accept-Encoding} whenever it could have been. A negative length means unknown, which
+   * counts as over the threshold: measuring a stream to find out would defeat streaming it.
    */
-  private boolean compressStream(
-      HttpExchange exchange, Headers headers, int status, String contentType, long declaredLength) {
+  private boolean shouldCompress(
+      HttpExchange exchange, Headers headers, int status, String contentType, long length) {
     if (headers.containsKey(CONTENT_ENCODING)
         || !ResponseCompression.isCompressible(contentType)
         || !bodyAllowed(status)) {
       return false;
     }
     addVary(headers);
-    boolean worthCoding = declaredLength < 0 || declaredLength >= minimumGzipBytes;
-    return worthCoding && acceptsGzip(exchange);
+    return (length < 0 || length >= minimumGzipBytes) && acceptsGzip(exchange);
   }
 
   /** The length a handler declared for a body it did not write, or -1 when absent or unreadable. */
@@ -158,21 +149,11 @@ public final class ResponseRenderer {
     }
   }
 
-  /**
-   * Gzips the body when the client asked for it and the payload is big enough to be worth it. A
-   * handler that coded the body itself is left alone, and so is a payload that gzip fails to
-   * shrink.
-   */
+  /** Gzips the body when it is worth it, leaving a payload gzip fails to shrink uncoded. */
   private byte[] maybeCompress(
       HttpExchange exchange, Headers headers, int status, String contentType, byte[] bytes)
       throws IOException {
-    if (headers.containsKey(CONTENT_ENCODING)
-        || !ResponseCompression.isCompressible(contentType)
-        || !bodyAllowed(status)) {
-      return bytes;
-    }
-    addVary(headers);
-    if (bytes.length < minimumGzipBytes || !acceptsGzip(exchange)) {
+    if (!shouldCompress(exchange, headers, status, contentType, bytes.length)) {
       return bytes;
     }
     byte[] gzipped = ResponseCompression.gzip(bytes);

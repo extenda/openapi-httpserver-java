@@ -1,5 +1,6 @@
 package com.retailsvc.http.internal;
 
+import static com.retailsvc.http.internal.ResponseRenderer.DEFAULT_MINIMUM_GZIP_BYTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
@@ -145,7 +146,7 @@ class ExtrasRouterTest {
     Map<String, TypeMapper> mappers = Map.of("application/json", new GsonTypeMapper());
     return new ExtrasRouter(
         extras,
-        new ResponseRenderer(mappers),
+        new ResponseRenderer(mappers, DEFAULT_MINIMUM_GZIP_BYTES),
         new RequestBodyReader(RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES));
   }
 

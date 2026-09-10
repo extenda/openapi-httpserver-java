@@ -21,8 +21,6 @@ public final class ResponseCompression {
           "application/javascript",
           "application/x-ndjson");
 
-  private static final Set<String> COMPRESSIBLE_SUFFIXES = Set.of("+json", "+xml", "+yaml");
-
   private ResponseCompression() {}
 
   /**
@@ -41,10 +39,8 @@ public final class ResponseCompression {
     if (mediaType.startsWith(TEXT_PREFIX)) {
       return !EVENT_STREAM.equals(mediaType);
     }
-    for (String suffix : COMPRESSIBLE_SUFFIXES) {
-      if (mediaType.endsWith(suffix)) {
-        return true;
-      }
+    if (mediaType.endsWith("+json") || mediaType.endsWith("+xml") || mediaType.endsWith("+yaml")) {
+      return true;
     }
     return COMPRESSIBLE_TYPES.contains(mediaType);
   }

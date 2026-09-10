@@ -5,19 +5,15 @@ import java.util.Locale;
 /** Classifies a request {@code Content-Encoding} into the codings the server can decode. */
 public final class ContentEncodingHeader {
 
-  private static final String IDENTITY_CODING = "identity";
-  private static final String GZIP_CODING = "gzip";
-  private static final String X_GZIP_CODING = "x-gzip";
-
   private ContentEncodingHeader() {}
 
-  /** The content coding applied to a request body. */
+  /**
+   * The coding applied to a request body: none (absent or the {@code identity} no-op), a single
+   * gzip, or one this server cannot decode and the caller renders 415 for.
+   */
   public enum Coding {
-    /** No coding, or the explicit {@code identity} no-op. */
     NONE,
-    /** A single gzip coding. */
     GZIP,
-    /** A coding this server cannot decode; the caller renders 415. */
     UNSUPPORTED
   }
 
@@ -33,13 +29,13 @@ public final class ContentEncodingHeader {
     Coding result = Coding.NONE;
     for (String token : header.split(",")) {
       String coding = token.trim().toLowerCase(Locale.ROOT);
-      if (coding.isEmpty() || IDENTITY_CODING.equals(coding)) {
+      if (coding.isEmpty() || "identity".equals(coding)) {
         continue;
       }
       if (result != Coding.NONE) {
         return Coding.UNSUPPORTED;
       }
-      if (GZIP_CODING.equals(coding) || X_GZIP_CODING.equals(coding)) {
+      if ("gzip".equals(coding) || "x-gzip".equals(coding)) {
         result = Coding.GZIP;
       } else {
         return Coding.UNSUPPORTED;
