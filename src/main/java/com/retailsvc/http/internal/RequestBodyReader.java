@@ -36,7 +36,7 @@ public final class RequestBodyReader {
           "maxDecompressedBytes must be positive, got " + maxDecompressedBytes);
     }
     this.maxDecompressedBytes = maxDecompressedBytes;
-    this.readLimit = (int) Math.min(maxDecompressedBytes, Integer.MAX_VALUE - 1) + 1;
+    this.readLimit = (int) Math.min(maxDecompressedBytes, Integer.MAX_VALUE - 1L) + 1;
   }
 
   /**

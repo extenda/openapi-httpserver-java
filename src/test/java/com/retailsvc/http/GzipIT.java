@@ -133,7 +133,7 @@ class GzipIT extends ServerBaseTest {
       assertThat(response.headers().firstValue("Vary"))
           .hasValueSatisfying(vary -> assertThat(vary).contains(ACCEPT_ENCODING));
       assertThat(new String(gunzip(response.body()), UTF_8)).isEqualTo(payload);
-      assertThat(response.body().length).isLessThan(payload.length());
+      assertThat(response.body()).hasSizeLessThan(payload.length());
     }
   }
 

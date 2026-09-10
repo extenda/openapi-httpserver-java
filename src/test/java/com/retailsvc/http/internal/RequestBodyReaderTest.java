@@ -77,7 +77,7 @@ class RequestBodyReaderTest {
   }
 
   @Test
-  void oversizedInflatedBodyThrows413() throws IOException {
+  void oversizedInflatedBodyThrows413() {
     byte[] bomb = new byte[(int) CAP * 4];
 
     assertThatThrownBy(() -> reader.read(exchange(gzip(bomb), "gzip")))
