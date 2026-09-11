@@ -71,10 +71,10 @@ class OpenApiServerBuilderTest {
   }
 
   @Test
-  void rejectsNegativeMinimumGzipResponseBytes() {
+  void rejectsNegativeMinCompressibleResponseBytes() {
     OpenApiServer.Builder b = OpenApiServer.builder();
 
-    assertThatThrownBy(() -> b.minimumGzipResponseBytes(-1))
+    assertThatThrownBy(() -> b.minCompressibleResponseBytes(-1))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("-1");
   }
@@ -83,7 +83,7 @@ class OpenApiServerBuilderTest {
   void acceptsContentCodingLimits() {
     OpenApiServer.Builder b = OpenApiServer.builder();
 
-    assertThat(b.maxDecompressedRequestBytes(4096).minimumGzipResponseBytes(0)).isSameAs(b);
+    assertThat(b.maxDecompressedRequestBytes(4096).minCompressibleResponseBytes(0)).isSameAs(b);
   }
 
   @Test

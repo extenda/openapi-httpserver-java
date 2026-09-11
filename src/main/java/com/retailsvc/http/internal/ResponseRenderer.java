@@ -19,8 +19,8 @@ import java.util.zip.GZIPOutputStream;
 /** Writes a {@link Response} to an {@link HttpExchange}. */
 public final class ResponseRenderer {
 
-  /** Default smallest body worth gzipping: 1 KiB. */
-  public static final long DEFAULT_MINIMUM_GZIP_BYTES = 1024;
+  /** Default smallest body worth compressing: 1 KiB. */
+  public static final long DEFAULT_MIN_COMPRESSIBLE_BYTES = 1024;
 
   private static final String CONTENT_TYPE = "Content-Type";
   private static final String CONTENT_ENCODING = "Content-Encoding";
@@ -34,11 +34,11 @@ public final class ResponseRenderer {
   private static final String OCTET_STREAM = "application/octet-stream";
 
   private final Map<String, TypeMapper> mappers;
-  private final long minimumGzipBytes;
+  private final long minCompressibleBytes;
 
-  public ResponseRenderer(Map<String, TypeMapper> mappers, long minimumGzipBytes) {
+  public ResponseRenderer(Map<String, TypeMapper> mappers, long minCompressibleBytes) {
     this.mappers = Map.copyOf(mappers);
-    this.minimumGzipBytes = minimumGzipBytes;
+    this.minCompressibleBytes = minCompressibleBytes;
   }
 
   public void render(HttpExchange exchange, Response response) throws IOException {
@@ -112,7 +112,7 @@ public final class ResponseRenderer {
       return false;
     }
     addVary(headers);
-    return (length < 0 || length >= minimumGzipBytes) && acceptsGzip(exchange);
+    return (length < 0 || length >= minCompressibleBytes) && acceptsGzip(exchange);
   }
 
   /** The length a handler declared for a body it did not write, or -1 when absent or unreadable. */

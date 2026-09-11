@@ -497,7 +497,7 @@ coded, and neither is `text/event-stream`, which has to stay unbuffered.
 OpenApiServer.builder()
     .spec(spec)
     .handlers(handlers)
-    .minimumGzipResponseBytes(4096)  // raises the 1 KiB default; 0 compresses every eligible body
+    .minCompressibleResponseBytes(4096)  // raises the 1 KiB default; 0 compresses every eligible body
     .build();
 ```
 
