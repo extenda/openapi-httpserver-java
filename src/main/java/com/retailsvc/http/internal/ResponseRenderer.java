@@ -6,15 +6,16 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_PARTIAL;
 import static java.net.HttpURLConnection.HTTP_RESET;
 
+import com.retailsvc.http.ContentCoding;
 import com.retailsvc.http.Response;
 import com.retailsvc.http.TypeMapper;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.zip.GZIPOutputStream;
 
 /** Writes a {@link Response} to an {@link HttpExchange}. */
 public final class ResponseRenderer {
@@ -27,7 +28,6 @@ public final class ResponseRenderer {
   private static final String CONTENT_LENGTH = "Content-Length";
   private static final String VARY = "Vary";
   private static final String ACCEPT_ENCODING = "Accept-Encoding";
-  private static final String GZIP = "gzip";
   private static final long UNKNOWN_LENGTH = -1;
   private static final long CHUNKED = 0;
   private static final String DEFAULT_JSON = "application/json";
@@ -35,10 +35,13 @@ public final class ResponseRenderer {
 
   private final Map<String, TypeMapper> mappers;
   private final long minCompressibleBytes;
+  private final List<ContentCoding> encoders;
 
-  public ResponseRenderer(Map<String, TypeMapper> mappers, long minCompressibleBytes) {
+  public ResponseRenderer(
+      Map<String, TypeMapper> mappers, long minCompressibleBytes, List<ContentCoding> encoders) {
     this.mappers = Map.copyOf(mappers);
     this.minCompressibleBytes = minCompressibleBytes;
+    this.encoders = List.copyOf(encoders);
   }
 
   public void render(HttpExchange exchange, Response response) throws IOException {
@@ -68,7 +71,7 @@ public final class ResponseRenderer {
       throws IOException {
     defaultContentType(headers, contentType);
     long declared = declaredLength(headers);
-    if (shouldCompress(exchange, headers, status, contentType, declared) && declared >= 0) {
+    if (selectCoding(exchange, headers, status, contentType, declared) != null && declared >= 0) {
       headers.remove(CONTENT_LENGTH);
     }
     exchange.sendResponseHeaders(status, UNKNOWN_LENGTH);
@@ -79,15 +82,15 @@ public final class ResponseRenderer {
       throws IOException {
     defaultContentType(headers, contentType);
     long declared = writer instanceof BodyWriter.Sized sized ? sized.length() : UNKNOWN_LENGTH;
-    boolean gzip = shouldCompress(exchange, headers, status, contentType, declared);
-    if (gzip) {
-      headers.set(CONTENT_ENCODING, GZIP);
+    ContentCoding coding = selectCoding(exchange, headers, status, contentType, declared);
+    if (coding != null) {
+      headers.set(CONTENT_ENCODING, coding.token());
       // The coded body goes out chunked, and the JDK leaves a handler-set length in place there.
       headers.remove(CONTENT_LENGTH);
     }
-    exchange.sendResponseHeaders(status, gzip ? CHUNKED : Math.max(declared, CHUNKED));
+    exchange.sendResponseHeaders(status, coding != null ? CHUNKED : Math.max(declared, CHUNKED));
     try (OutputStream out =
-        gzip ? new GZIPOutputStream(exchange.getResponseBody()) : exchange.getResponseBody()) {
+        coding != null ? coding.encode(exchange.getResponseBody()) : exchange.getResponseBody()) {
       writer.writeTo(out);
     }
   }
@@ -100,19 +103,24 @@ public final class ResponseRenderer {
   }
 
   /**
-   * Whether a body of {@code length} bytes should be gzipped, marking the response as varying by
-   * {@code Accept-Encoding} whenever it could have been. A negative length means unknown, which
-   * counts as over the threshold: measuring a stream to find out would defeat streaming it.
+   * The coding to apply to a body of {@code length} bytes, or {@code null} to send it uncoded,
+   * marking the response as varying by {@code Accept-Encoding} whenever it could have been coded. A
+   * negative length means unknown, which counts as over the threshold: measuring a stream to find
+   * out would defeat streaming it.
    */
-  private boolean shouldCompress(
+  private ContentCoding selectCoding(
       HttpExchange exchange, Headers headers, int status, String contentType, long length) {
     if (headers.containsKey(CONTENT_ENCODING)
         || !ResponseCompression.isCompressible(contentType)
         || !bodyAllowed(status)) {
-      return false;
+      return null;
     }
     addVary(headers);
-    return (length < 0 || length >= minCompressibleBytes) && acceptsGzip(exchange);
+    if (length >= 0 && length < minCompressibleBytes) {
+      return null;
+    }
+    String accepted = exchange.getRequestHeaders().getFirst(ACCEPT_ENCODING);
+    return AcceptEncodingHeader.select(accepted, encoders).orElse(null);
   }
 
   /** The length a handler declared for a body it did not write, or -1 when absent or unreadable. */
@@ -144,19 +152,20 @@ public final class ResponseRenderer {
     }
   }
 
-  /** Gzips the body when it is worth it, leaving a payload gzip fails to shrink uncoded. */
+  /** Codes the body when it is worth it, leaving a payload the coding fails to shrink uncoded. */
   private byte[] maybeCompress(
       HttpExchange exchange, Headers headers, int status, String contentType, byte[] bytes)
       throws IOException {
-    if (!shouldCompress(exchange, headers, status, contentType, bytes.length)) {
+    ContentCoding coding = selectCoding(exchange, headers, status, contentType, bytes.length);
+    if (coding == null) {
       return bytes;
     }
-    byte[] gzipped = ResponseCompression.gzip(bytes);
-    if (gzipped.length >= bytes.length) {
+    byte[] coded = ResponseCompression.encode(coding, bytes);
+    if (coded.length >= bytes.length) {
       return bytes;
     }
-    headers.set(CONTENT_ENCODING, GZIP);
-    return gzipped;
+    headers.set(CONTENT_ENCODING, coding.token());
+    return coded;
   }
 
   /** Statuses that carry no content cannot carry a content coding either. */
@@ -166,10 +175,6 @@ public final class ResponseRenderer {
         && status != HTTP_RESET
         && status != HTTP_PARTIAL
         && status != HTTP_NOT_MODIFIED;
-  }
-
-  private static boolean acceptsGzip(HttpExchange exchange) {
-    return AcceptEncodingHeader.acceptsGzip(exchange.getRequestHeaders().getFirst(ACCEPT_ENCODING));
   }
 
   /**

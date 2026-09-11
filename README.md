@@ -468,8 +468,8 @@ gzip is handled in both directions, with no configuration required.
 
 **Requests.** A body sent with `Content-Encoding: gzip` is inflated before OpenAPI validation runs,
 so the validator, your `TypeMapper` and your handler all see plain bytes. `identity` is accepted as
-the no-op it is. Any other coding — `br`, `deflate`, or two codings stacked — is rejected with
-`415 Unsupported Media Type`, and a corrupt or truncated gzip stream with `400 Bad Request`.
+the no-op it is. A coding the server has not registered — `br`, say — or two codings stacked is
+rejected with `415 Unsupported Media Type`, and a corrupt or truncated body with `400 Bad Request`.
 
 Once a body is inflated it no longer matches the headers that described it, so `Content-Encoding` is
 hidden from `Request.header(...)` and `Content-Length` reports the inflated size.
@@ -484,8 +484,8 @@ OpenApiServer.builder()
     .build();
 ```
 
-Note this bounds the *inflated* size of a gzip body. It is not a request size limit — a body that
-arrives uncompressed is read in full, as it always has been.
+Note this bounds the *inflated* size of a coded body, whatever the coding. It is not a request size
+limit — a body that arrives uncompressed is read in full, as it always has been.
 
 **Responses.** A body is gzipped when the client sends `Accept-Encoding: gzip`, the media type is
 text-shaped (`text/*`, `application/json`, `application/xml`, `application/yaml`, and the `+json` /
@@ -506,18 +506,34 @@ threshold above anything this server returns.
 
 `Vary: Accept-Encoding` is set whenever a body *could* have been coded, not only when it was, so
 shared caches keep the two forms apart. It is merged into any `Vary` your handler already set.
-A handler that sets its own `Content-Encoding` is left alone, and so is a payload gzip fails to
-shrink. Statuses that carry no content never get a coding.
+A handler that sets its own `Content-Encoding` is left alone, and so is a payload the coding
+fails to shrink. Statuses that carry no content never get a coding.
 
-Streamed responses (`Response.stream(...)`) are deflated as they are written. A length declared by
+Streamed responses (`Response.stream(...)`) are coded as they are written. A length declared by
 the sized overload describes the uncoded body, so a coded stream goes out chunked; a stream of
 unknown length is coded regardless of the threshold, since measuring it would defeat streaming it.
 For the same reason a `HEAD` whose `GET` would be compressed omits `Content-Length` rather than
 advertising the uncoded length.
 
+**Other codings.** The library ships gzip only, and so carries no compression dependency. To offer
+another, implement `ContentCoding` and register it:
+
+```java
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .contentCoding(new ZstdCoding())  // your ContentCoding implementation
+    .build();
+```
+
+The client's weights pick the coding; on a tie, registered codings win over gzip, in registration
+order. `decode` and `encode` wrap streams rather than whole bodies, so a decoder that reads lazily
+is held to `maxDecompressedRequestBytes` without doing anything itself. `requestContentCoding` and
+`responseContentCoding` register one direction only; a request coded with a response-only coding
+gets 415. Tokens must be lower-case, and `gzip`, `x-gzip`, `identity` and `*` are reserved.
+
 **Not in this release** (each can land later without breaking the API):
 
-- brotli, zstd and `deflate`, in either direction
 - the `Accept-Encoding` response header RFC 9110 recommends alongside a 415
 - compression of the `401`/`403` bodies produced by security scheme enforcement — those bypass the
   renderer and are well under any sensible threshold

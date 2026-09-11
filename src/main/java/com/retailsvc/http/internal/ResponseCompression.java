@@ -1,11 +1,12 @@
 package com.retailsvc.http.internal;
 
+import com.retailsvc.http.ContentCoding;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Set;
-import java.util.zip.GZIPOutputStream;
 
-/** Response content-coding policy, and the gzip primitives the renderer writes through. */
+/** Which responses are worth coding, and coding a whole body at once. */
 public final class ResponseCompression {
 
   private static final Set<String> COMPRESSIBLE_TYPES =
@@ -20,7 +21,7 @@ public final class ResponseCompression {
   private ResponseCompression() {}
 
   /**
-   * Whether a response of this content type is worth gzipping. Already-compressed payloads gain
+   * Whether a response of this content type is worth compressing. Already-compressed payloads gain
    * nothing, and {@code text/event-stream} must stay unbuffered so each event reaches the client as
    * it is written.
    *
@@ -41,11 +42,11 @@ public final class ResponseCompression {
     return COMPRESSIBLE_TYPES.contains(mediaType);
   }
 
-  /** Deflates {@code body} into a complete gzip member. */
-  public static byte[] gzip(byte[] body) throws IOException {
+  /** Codes {@code body} completely with {@code coding}. */
+  public static byte[] encode(ContentCoding coding, byte[] body) throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (GZIPOutputStream gzip = new GZIPOutputStream(out)) {
-      gzip.write(body);
+    try (OutputStream coded = coding.encode(out)) {
+      coded.write(body);
     }
     return out.toByteArray();
   }

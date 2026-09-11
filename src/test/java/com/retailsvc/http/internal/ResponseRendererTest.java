@@ -1,5 +1,6 @@
 package com.retailsvc.http.internal;
 
+import static com.retailsvc.http.support.TestCodings.deflate;
 import static java.net.HttpURLConnection.HTTP_NOT_MODIFIED;
 import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
 import static java.net.HttpURLConnection.HTTP_OK;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.retailsvc.http.ContentCoding;
 import com.retailsvc.http.GsonTypeMapper;
 import com.retailsvc.http.Response;
 import com.retailsvc.http.TypeMapper;
@@ -18,12 +20,17 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FilterOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.InflaterInputStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -32,12 +39,14 @@ class ResponseRendererTest {
   private static final Map<String, TypeMapper> MAPPERS =
       Map.of("application/json", new GsonTypeMapper());
   private static final long THRESHOLD = 1024;
+  private static final List<ContentCoding> GZIP_ONLY =
+      ContentCodings.of(List.of(), List.of()).encoders();
   private static final String JSON = "application/json";
   private static final String TEXT = "text/plain";
   private static final String CONTENT_ENCODING = "Content-Encoding";
   private static final String VARY = "Vary";
 
-  private final ResponseRenderer renderer = new ResponseRenderer(MAPPERS, THRESHOLD);
+  private final ResponseRenderer renderer = new ResponseRenderer(MAPPERS, THRESHOLD, GZIP_ONLY);
   private final Headers requestHeaders = new Headers();
   private final Headers responseHeaders = new Headers();
   private final ByteArrayOutputStream sink = new ByteArrayOutputStream();
@@ -410,6 +419,100 @@ class ResponseRendererTest {
     assertThat(responseHeaders.getFirst(CONTENT_ENCODING)).isEqualTo("gzip");
     assertThat(responseHeaders.getFirst("Content-Length")).isNull();
     assertThat(length.get()).isZero();
+  }
+
+  // -- registered codings --
+
+  @Test
+  void registeredCodingCodesTheBodyAndNamesItself() throws IOException {
+    requestHeaders.add("Accept-Encoding", "deflate");
+    byte[] body = largeText();
+
+    withDeflate().render(exchange, Response.bytes(HTTP_OK, body, JSON));
+
+    assertThat(responseHeaders.getFirst(CONTENT_ENCODING)).isEqualTo("deflate");
+    assertThat(inflate(sink.toByteArray())).isEqualTo(body);
+  }
+
+  @Test
+  void registeredCodingCodesAStream() throws IOException {
+    requestHeaders.add("Accept-Encoding", "deflate");
+    byte[] payload = largeText();
+
+    withDeflate().render(exchange, Response.stream(HTTP_OK, TEXT, out -> out.write(payload)));
+
+    assertThat(responseHeaders.getFirst(CONTENT_ENCODING)).isEqualTo("deflate");
+    assertThat(length.get()).isZero();
+    assertThat(inflate(sink.toByteArray())).isEqualTo(payload);
+  }
+
+  @Test
+  void registeredCodingWinsOverGzipWhenWeightedEqually() throws IOException {
+    requestHeaders.add("Accept-Encoding", "gzip, deflate");
+
+    withDeflate().render(exchange, Response.bytes(HTTP_OK, largeText(), JSON));
+
+    assertThat(responseHeaders.getFirst(CONTENT_ENCODING)).isEqualTo("deflate");
+  }
+
+  @Test
+  void gzipStillServesClientsThatOnlyTakeGzip() throws IOException {
+    requestHeaders.add("Accept-Encoding", "gzip");
+
+    withDeflate().render(exchange, Response.bytes(HTTP_OK, largeText(), JSON));
+
+    assertThat(responseHeaders.getFirst(CONTENT_ENCODING)).isEqualTo("gzip");
+  }
+
+  @Test
+  void codingThatDoesNotShrinkTheBodyFallsBackToIdentity() throws IOException {
+    requestHeaders.add("Accept-Encoding", "bloat");
+    byte[] body = largeText();
+    ResponseRenderer bloating =
+        new ResponseRenderer(
+            MAPPERS, THRESHOLD, ContentCodings.of(List.of(), List.of(bloat())).encoders());
+
+    bloating.render(exchange, Response.bytes(HTTP_OK, body, JSON));
+
+    assertThat(responseHeaders.getFirst(CONTENT_ENCODING)).isNull();
+    assertThat(sink.toByteArray()).isEqualTo(body);
+  }
+
+  private static ResponseRenderer withDeflate() {
+    return new ResponseRenderer(
+        MAPPERS, THRESHOLD, ContentCodings.of(List.of(), List.of(deflate())).encoders());
+  }
+
+  /** A coding that doubles every byte, so it can never shrink a body. */
+  private static ContentCoding bloat() {
+    return new ContentCoding() {
+      @Override
+      public String token() {
+        return "bloat";
+      }
+
+      @Override
+      public InputStream decode(InputStream coded) {
+        return coded;
+      }
+
+      @Override
+      public OutputStream encode(OutputStream sink) {
+        return new FilterOutputStream(sink) {
+          @Override
+          public void write(int b) throws IOException {
+            out.write(b);
+            out.write(b);
+          }
+        };
+      }
+    };
+  }
+
+  private static byte[] inflate(byte[] data) throws IOException {
+    try (InflaterInputStream in = new InflaterInputStream(new ByteArrayInputStream(data))) {
+      return in.readAllBytes();
+    }
   }
 
   private void acceptsGzip() {

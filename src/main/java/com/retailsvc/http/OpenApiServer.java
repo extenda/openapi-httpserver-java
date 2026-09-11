@@ -4,6 +4,7 @@ import static java.lang.Thread.ofVirtual;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
+import com.retailsvc.http.internal.ContentCodings;
 import com.retailsvc.http.internal.DispatchHandler;
 import com.retailsvc.http.internal.ExceptionFilter;
 import com.retailsvc.http.internal.ExtrasRouter;
@@ -247,6 +248,8 @@ public class OpenApiServer implements AutoCloseable {
     private boolean externalAuth = false;
     private long maxDecompressedRequestBytes = RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES;
     private long minCompressibleResponseBytes = ResponseRenderer.DEFAULT_MIN_COMPRESSIBLE_BYTES;
+    private final List<ContentCoding> requestCodings = new ArrayList<>();
+    private final List<ContentCoding> responseCodings = new ArrayList<>();
     private final List<SpecBinding> bindings = new ArrayList<>();
 
     private Builder() {}
@@ -425,6 +428,45 @@ public class OpenApiServer implements AutoCloseable {
     }
 
     /**
+     * Registers a content coding the server decodes on requests and applies to responses, alongside
+     * the built-in gzip. When a client weights several codings equally, the ones registered here
+     * win over gzip, in registration order; otherwise the client's weights decide. A decoded body
+     * is still held to {@link #maxDecompressedRequestBytes(long)}.
+     *
+     * @throws IllegalArgumentException if a token or alias is not a lower-case RFC 9110 token, or
+     *     is one of the reserved {@code gzip}, {@code x-gzip}, {@code identity} or {@code *}
+     * @throws IllegalStateException if a token or alias is already registered in either direction
+     */
+    public Builder contentCoding(ContentCoding coding) {
+      ContentCodings.requireRegistrable(coding, requestCodings);
+      ContentCodings.requireRegistrable(coding, responseCodings);
+      requestCodings.add(coding);
+      responseCodings.add(coding);
+      return this;
+    }
+
+    /**
+     * Registers a coding the server only decodes on requests; responses never use it. Validated as
+     * for {@link #contentCoding(ContentCoding)}.
+     */
+    public Builder requestContentCoding(ContentCoding coding) {
+      ContentCodings.requireRegistrable(coding, requestCodings);
+      requestCodings.add(coding);
+      return this;
+    }
+
+    /**
+     * Registers a coding the server only applies to responses. A request coded with it is answered
+     * 415, which keeps a decoder you have no use for off the request path. Validated as for {@link
+     * #contentCoding(ContentCoding)}.
+     */
+    public Builder responseContentCoding(ContentCoding coding) {
+      ContentCodings.requireRegistrable(coding, responseCodings);
+      responseCodings.add(coding);
+      return this;
+    }
+
+    /**
      * Sets the default drain timeout used by {@link OpenApiServer#close()}. {@code 0} (the default)
      * stops immediately; positive values wait up to that many seconds for in-flight exchanges to
      * finish.
@@ -463,6 +505,7 @@ public class OpenApiServer implements AutoCloseable {
       Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
       ExceptionHandler effectiveExceptionHandler =
           exceptionHandler != null ? exceptionHandler : Handlers.defaultExceptionHandler();
+      ContentCodings codings = ContentCodings.of(requestCodings, responseCodings);
       HandlerConfig handlerConfig =
           new HandlerConfig(
               interceptors,
@@ -471,8 +514,8 @@ public class OpenApiServer implements AutoCloseable {
               extras,
               externalAuth,
               List.copyOf(afterHooks),
-              new RequestBodyReader(maxDecompressedRequestBytes),
-              new ResponseRenderer(resolved, minCompressibleResponseBytes));
+              new RequestBodyReader(maxDecompressedRequestBytes, codings.decoders()),
+              new ResponseRenderer(resolved, minCompressibleResponseBytes, codings.encoders()));
       int resolvedPort = resolvePort();
       SSLContext sslContext =
           httpsCertChain != null ? PemSslContext.load(httpsCertChain, httpsPrivateKey) : null;

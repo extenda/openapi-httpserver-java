@@ -66,7 +66,7 @@ class ResponseCompressionTest {
   void gzipRoundTripsBytes() throws IOException {
     byte[] plain = "round trip me".repeat(20).getBytes(UTF_8);
 
-    byte[] compressed = ResponseCompression.gzip(plain);
+    byte[] compressed = ResponseCompression.encode(new GzipCoding(), plain);
 
     assertThat(compressed).isNotEqualTo(plain);
     assertThat(gunzip(compressed)).isEqualTo(plain);

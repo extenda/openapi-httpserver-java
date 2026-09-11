@@ -49,7 +49,10 @@ class DispatchHandlerTest {
         handlers,
         List.of(),
         List.of(),
-        new ResponseRenderer(Map.of(), DEFAULT_MIN_COMPRESSIBLE_BYTES));
+        new ResponseRenderer(
+            Map.of(),
+            DEFAULT_MIN_COMPRESSIBLE_BYTES,
+            ContentCodings.of(List.of(), List.of()).encoders()));
   }
 
   private static DispatchHandler dispatcher(
@@ -60,7 +63,10 @@ class DispatchHandlerTest {
         handlers,
         interceptors,
         decorators,
-        new ResponseRenderer(Map.of(), DEFAULT_MIN_COMPRESSIBLE_BYTES));
+        new ResponseRenderer(
+            Map.of(),
+            DEFAULT_MIN_COMPRESSIBLE_BYTES,
+            ContentCodings.of(List.of(), List.of()).encoders()));
   }
 
   private static void withRequest(String operationId, ScopedValue.CallableOp<Void, Exception> body)

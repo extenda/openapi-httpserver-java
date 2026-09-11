@@ -118,9 +118,14 @@ class RequestPreparationFilterTest {
         new DefaultValidator(spec::resolveSchema),
         mappers,
         rethrow,
-        new ResponseRenderer(mappers, DEFAULT_MIN_COMPRESSIBLE_BYTES),
+        new ResponseRenderer(
+            mappers,
+            DEFAULT_MIN_COMPRESSIBLE_BYTES,
+            ContentCodings.of(List.of(), List.of()).encoders()),
         List.of(),
-        new RequestBodyReader(RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES));
+        new RequestBodyReader(
+            RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES,
+            ContentCodings.of(List.of(), List.of()).decoders()));
   }
 
   @Test

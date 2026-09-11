@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPOutputStream;
@@ -146,8 +147,13 @@ class ExtrasRouterTest {
     Map<String, TypeMapper> mappers = Map.of("application/json", new GsonTypeMapper());
     return new ExtrasRouter(
         extras,
-        new ResponseRenderer(mappers, DEFAULT_MIN_COMPRESSIBLE_BYTES),
-        new RequestBodyReader(RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES));
+        new ResponseRenderer(
+            mappers,
+            DEFAULT_MIN_COMPRESSIBLE_BYTES,
+            ContentCodings.of(List.of(), List.of()).encoders()),
+        new RequestBodyReader(
+            RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES,
+            ContentCodings.of(List.of(), List.of()).decoders()));
   }
 
   private static void invoke(ExtrasRouter router, String path) throws Exception {

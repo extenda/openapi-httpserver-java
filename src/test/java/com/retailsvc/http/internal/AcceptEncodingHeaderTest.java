@@ -1,116 +1,165 @@
 package com.retailsvc.http.internal;
 
+import static com.retailsvc.http.support.TestCodings.named;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.retailsvc.http.ContentCoding;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class AcceptEncodingHeaderTest {
 
+  private static final ContentCoding GZIP = new GzipCoding();
+  private static final ContentCoding ZSTD = named("zstd");
+  private static final List<ContentCoding> ZSTD_THEN_GZIP = List.of(ZSTD, GZIP);
+
   @Test
   void nullHeaderIsNotAccepted() {
-    assertThat(AcceptEncodingHeader.acceptsGzip(null)).isFalse();
+    assertThat(accepts(null)).isFalse();
   }
 
   @Test
   void blankHeaderIsNotAccepted() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("   ")).isFalse();
+    assertThat(accepts("   ")).isFalse();
   }
 
   @Test
   void plainGzipIsAccepted() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("gzip")).isTrue();
+    assertThat(accepts("gzip")).isTrue();
   }
 
   @Test
   void gzipAmongOtherCodingsIsAccepted() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("br, deflate, gzip")).isTrue();
+    assertThat(accepts("br, deflate, gzip")).isTrue();
   }
 
   @Test
   void caseInsensitiveGzipIsAccepted() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("GZip")).isTrue();
+    assertThat(accepts("GZip")).isTrue();
   }
 
   @Test
   void xGzipIsAccepted() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("x-gzip")).isTrue();
+    assertThat(accepts("x-gzip")).isTrue();
   }
 
   @Test
   void explicitZeroQValueIsRefused() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;q=0")).isFalse();
-    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;q=0.0")).isFalse();
+    assertThat(accepts("gzip;q=0")).isFalse();
+    assertThat(accepts("gzip;q=0.0")).isFalse();
   }
 
   @Test
   void positiveQValueIsAccepted() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;q=0.5")).isTrue();
+    assertThat(accepts("gzip;q=0.5")).isTrue();
   }
 
   @Test
   void wildcardIsAccepted() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("*")).isTrue();
+    assertThat(accepts("*")).isTrue();
   }
 
   @Test
   void wildcardWithZeroQValueIsRefused() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("*;q=0")).isFalse();
+    assertThat(accepts("*;q=0")).isFalse();
   }
 
   @Test
   void explicitGzipBeatsWildcardRefusal() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("gzip, *;q=0")).isTrue();
+    assertThat(accepts("gzip, *;q=0")).isTrue();
   }
 
   @Test
   void explicitGzipRefusalBeatsWildcard() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;q=0, *")).isFalse();
+    assertThat(accepts("gzip;q=0, *")).isFalse();
   }
 
   @Test
   void identityOnlyIsNotAccepted() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("identity")).isFalse();
+    assertThat(accepts("identity")).isFalse();
   }
 
   @Test
   void deflateOnlyIsNotAccepted() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("deflate, br")).isFalse();
+    assertThat(accepts("deflate, br")).isFalse();
   }
 
   @Test
   void surroundingWhitespaceIsTolerated() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("  deflate ,  gzip ; q=0.8 ")).isTrue();
+    assertThat(accepts("  deflate ,  gzip ; q=0.8 ")).isTrue();
   }
 
   @Test
   void malformedQValueIsTreatedAsAccepted() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;q=bogus")).isTrue();
+    assertThat(accepts("gzip;q=bogus")).isTrue();
   }
 
   @Test
   void emptyTokensAreIgnored() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("deflate,,gzip")).isTrue();
+    assertThat(accepts("deflate,,gzip")).isTrue();
   }
 
   @Test
   void repeatedGzipTokensTakeThePositiveWeight() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;q=0, gzip")).isTrue();
-    assertThat(AcceptEncodingHeader.acceptsGzip("gzip, x-gzip;q=0")).isTrue();
+    assertThat(accepts("gzip;q=0, gzip")).isTrue();
+    assertThat(accepts("gzip, x-gzip;q=0")).isTrue();
   }
 
   @Test
   void repeatedWildcardsTakeThePositiveWeight() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("*;q=0, *")).isTrue();
+    assertThat(accepts("*;q=0, *")).isTrue();
   }
 
   @Test
   void parametersOtherThanWeightAreIgnored() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;level=9")).isTrue();
-    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;level=9;q=0")).isFalse();
+    assertThat(accepts("gzip;level=9")).isTrue();
+    assertThat(accepts("gzip;level=9;q=0")).isFalse();
   }
 
   @Test
   void valuelessParameterIsIgnored() {
-    assertThat(AcceptEncodingHeader.acceptsGzip("gzip;q")).isTrue();
+    assertThat(accepts("gzip;q")).isTrue();
+  }
+
+  // -- choosing among several codings --
+
+  @Test
+  void clientWeightOutranksServerPreference() {
+    assertThat(AcceptEncodingHeader.select("gzip;q=1.0, zstd;q=0.5", ZSTD_THEN_GZIP))
+        .contains(GZIP);
+  }
+
+  @Test
+  void equalWeightsGoToTheServersFirstChoice() {
+    assertThat(AcceptEncodingHeader.select("gzip, zstd", ZSTD_THEN_GZIP)).contains(ZSTD);
+  }
+
+  @Test
+  void wildcardGoesToTheServersFirstChoice() {
+    assertThat(AcceptEncodingHeader.select("*", ZSTD_THEN_GZIP)).contains(ZSTD);
+  }
+
+  @Test
+  void refusingTheFirstChoiceFallsBackToTheNext() {
+    assertThat(AcceptEncodingHeader.select("zstd;q=0, gzip", ZSTD_THEN_GZIP)).contains(GZIP);
+  }
+
+  @Test
+  void aliasOfALaterChoiceIsHonoured() {
+    assertThat(AcceptEncodingHeader.select("x-gzip", ZSTD_THEN_GZIP)).contains(GZIP);
+  }
+
+  @Test
+  void noSupportedCodingSelectsNothing() {
+    assertThat(AcceptEncodingHeader.select("br, deflate", ZSTD_THEN_GZIP)).isEmpty();
+  }
+
+  @Test
+  void noCandidatesSelectsNothing() {
+    assertThat(AcceptEncodingHeader.select("gzip", List.of())).isEmpty();
+  }
+
+  private static boolean accepts(String header) {
+    return AcceptEncodingHeader.select(header, List.of(GZIP)).isPresent();
   }
 }

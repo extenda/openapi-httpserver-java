@@ -1,5 +1,7 @@
 package com.retailsvc.http;
 
+import static com.retailsvc.http.support.TestCodings.deflate;
+import static com.retailsvc.http.support.TestCodings.named;
 import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -84,6 +86,42 @@ class OpenApiServerBuilderTest {
     OpenApiServer.Builder b = OpenApiServer.builder();
 
     assertThat(b.maxDecompressedRequestBytes(4096).minCompressibleResponseBytes(0)).isSameAs(b);
+  }
+
+  @Test
+  void contentCodingRejectsTheBuiltInGzip() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+    ContentCoding gzip = named("gzip");
+
+    assertThatThrownBy(() -> b.contentCoding(gzip))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("gzip");
+  }
+
+  @Test
+  void contentCodingRejectsATokenRegisteredTwice() {
+    OpenApiServer.Builder b = OpenApiServer.builder().contentCoding(deflate());
+    ContentCoding again = deflate();
+
+    assertThatThrownBy(() -> b.contentCoding(again))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("deflate");
+  }
+
+  @Test
+  void oneCodingMayBeRegisteredOncePerDirection() {
+    ContentCoding deflate = deflate();
+    OpenApiServer.Builder b = OpenApiServer.builder();
+
+    assertThat(b.requestContentCoding(deflate).responseContentCoding(deflate)).isSameAs(b);
+  }
+
+  @Test
+  void contentCodingConflictsWithAnEarlierOneWayRegistration() {
+    OpenApiServer.Builder b = OpenApiServer.builder().responseContentCoding(deflate());
+    ContentCoding bothWays = deflate();
+
+    assertThatThrownBy(() -> b.contentCoding(bothWays)).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
