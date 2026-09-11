@@ -1,9 +1,16 @@
 package com.retailsvc.http.internal;
 
+import static com.retailsvc.http.internal.ResponseRenderer.DEFAULT_MIN_COMPRESSIBLE_BYTES;
+import static java.net.HttpURLConnection.HTTP_UNSUPPORTED_TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import com.retailsvc.http.BadRequestException;
 import com.retailsvc.http.ExceptionHandler;
 import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
@@ -27,6 +34,8 @@ import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -34,18 +43,36 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 class RequestPreparationFilterTest {
 
   private HttpExchange exchange(String method, String path, byte[] body) {
+    return exchange(method, path, body, new Headers());
+  }
+
+  private HttpExchange exchange(String method, String path, byte[] body, Headers headers) {
     HttpExchange ex = mock(HttpExchange.class);
-    Mockito.when(ex.getRequestMethod()).thenReturn(method);
-    Mockito.when(ex.getRequestURI()).thenReturn(URI.create(path));
-    Mockito.when(ex.getRequestHeaders()).thenReturn(new Headers());
-    Mockito.when(ex.getRequestBody()).thenReturn(new ByteArrayInputStream(body));
+    when(ex.getRequestMethod()).thenReturn(method);
+    when(ex.getRequestURI()).thenReturn(URI.create(path));
+    when(ex.getRequestHeaders()).thenReturn(headers);
+    when(ex.getRequestBody()).thenReturn(new ByteArrayInputStream(body));
     return ex;
+  }
+
+  private static Headers headers(String name, String value) {
+    Headers headers = new Headers();
+    headers.add(name, value);
+    return headers;
+  }
+
+  private static byte[] gzip(byte[] data) throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (GZIPOutputStream gzip = new GZIPOutputStream(out)) {
+      gzip.write(data);
+    }
+    return out.toByteArray();
   }
 
   private Spec specWith(Operation... ops) {
@@ -91,8 +118,14 @@ class RequestPreparationFilterTest {
         new DefaultValidator(spec::resolveSchema),
         mappers,
         rethrow,
-        new ResponseRenderer(mappers),
-        List.of());
+        new ResponseRenderer(
+            mappers,
+            DEFAULT_MIN_COMPRESSIBLE_BYTES,
+            ContentCodings.of(List.of(), List.of()).encoders()),
+        List.of(),
+        new RequestBodyReader(
+            RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES,
+            ContentCodings.of(List.of(), List.of()).decoders()));
   }
 
   @Test
@@ -115,7 +148,7 @@ class RequestPreparationFilterTest {
     AtomicReference<Map<String, String>> seenPathParams = new AtomicReference<>();
 
     Filter.Chain chain = mock(Filter.Chain.class);
-    Mockito.doAnswer(
+    doAnswer(
             inv -> {
               Request req = DispatchHandler.CURRENT.get();
               seenOpId.set(req.operationId());
@@ -123,13 +156,13 @@ class RequestPreparationFilterTest {
               return null;
             })
         .when(chain)
-        .doFilter(Mockito.any());
+        .doFilter(any());
 
     f.doFilter(ex, chain);
 
     assertThat(seenOpId.get()).isEqualTo("get-user");
     assertThat(seenPathParams.get()).containsEntry("id", "42");
-    Mockito.verify(chain).doFilter(ex);
+    verify(chain).doFilter(ex);
   }
 
   @Test
@@ -216,7 +249,7 @@ class RequestPreparationFilterTest {
     HttpExchange ex = exchange("GET", "/x?n=42", new byte[0]);
     Filter.Chain chain = mock(Filter.Chain.class);
     f.doFilter(ex, chain);
-    Mockito.verify(chain).doFilter(ex);
+    verify(chain).doFilter(ex);
   }
 
   @Test
@@ -263,7 +296,7 @@ class RequestPreparationFilterTest {
     HttpExchange ex = exchange("GET", "/x?n=1.5", new byte[0]);
     Filter.Chain chain = mock(Filter.Chain.class);
     f.doFilter(ex, chain);
-    Mockito.verify(chain).doFilter(ex);
+    verify(chain).doFilter(ex);
   }
 
   @Test
@@ -312,8 +345,8 @@ class RequestPreparationFilterTest {
     HttpExchange falseEx = exchange("GET", "/x?b=false", new byte[0]);
     f.doFilter(trueEx, trueChain);
     f.doFilter(falseEx, falseChain);
-    Mockito.verify(trueChain).doFilter(trueEx);
-    Mockito.verify(falseChain).doFilter(falseEx);
+    verify(trueChain).doFilter(trueEx);
+    verify(falseChain).doFilter(falseEx);
   }
 
   @Test
@@ -337,5 +370,61 @@ class RequestPreparationFilterTest {
         .isInstanceOf(ValidationException.class)
         .extracting(t -> ((ValidationException) t).error().keyword())
         .isEqualTo("type");
+  }
+
+  @Test
+  void gzipRequestBodyIsInflatedBeforeValidation() throws Exception {
+    var op =
+        new Operation(
+            "get-x",
+            HttpMethod.GET,
+            PathTemplate.compile("/x"),
+            Optional.empty(),
+            List.of(),
+            Map.of(),
+            Map.of(),
+            Optional.empty());
+    Filter f = newFilter(specWith(op));
+    byte[] plain = "hello gzip".getBytes(StandardCharsets.UTF_8);
+    HttpExchange ex = exchange("GET", "/x", gzip(plain), headers("Content-Encoding", "gzip"));
+
+    AtomicReference<byte[]> seenBody = new AtomicReference<>();
+    AtomicReference<String> seenEncoding = new AtomicReference<>("still here");
+    Filter.Chain chain = mock(Filter.Chain.class);
+    doAnswer(
+            inv -> {
+              Request req = DispatchHandler.CURRENT.get();
+              seenBody.set(req.bytes());
+              seenEncoding.set(req.header("Content-Encoding").orElse(null));
+              return null;
+            })
+        .when(chain)
+        .doFilter(any());
+
+    f.doFilter(ex, chain);
+
+    assertThat(seenBody.get()).isEqualTo(plain);
+    assertThat(seenEncoding.get()).isNull();
+  }
+
+  @Test
+  void unsupportedRequestCodingIsRejectedBeforeRouting() {
+    var op =
+        new Operation(
+            "get-x",
+            HttpMethod.GET,
+            PathTemplate.compile("/x"),
+            Optional.empty(),
+            List.of(),
+            Map.of(),
+            Map.of(),
+            Optional.empty());
+    Filter f = newFilter(specWith(op));
+    HttpExchange ex = exchange("GET", "/missing", new byte[0], headers("Content-Encoding", "br"));
+
+    assertThatThrownBy(() -> f.doFilter(ex, mock(Filter.Chain.class)))
+        .isInstanceOfSatisfying(
+            BadRequestException.class,
+            e -> assertThat(e.status()).isEqualTo(HTTP_UNSUPPORTED_TYPE));
   }
 }

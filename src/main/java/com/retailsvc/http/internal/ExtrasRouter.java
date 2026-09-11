@@ -21,9 +21,12 @@ public final class ExtrasRouter implements HttpHandler {
   private final Map<String, RequestHandler> exact;
   private final List<Entry> wildcards;
   private final ResponseRenderer renderer;
+  private final RequestBodyReader bodyReader;
 
-  public ExtrasRouter(Map<String, RequestHandler> extras, ResponseRenderer renderer) {
+  public ExtrasRouter(
+      Map<String, RequestHandler> extras, ResponseRenderer renderer, RequestBodyReader bodyReader) {
     this.renderer = renderer;
+    this.bodyReader = bodyReader;
     Map<String, RequestHandler> exactBuilder = new LinkedHashMap<>();
     List<Entry> wildcardBuilder = new ArrayList<>();
     for (Map.Entry<String, RequestHandler> e : extras.entrySet()) {
@@ -55,18 +58,17 @@ public final class ExtrasRouter implements HttpHandler {
       throw new NotFoundException(exchange.getRequestMethod() + " " + decoded);
     }
 
-    byte[] body = exchange.getRequestBody().readAllBytes();
+    RequestBodyReader.Body body = bodyReader.read(exchange);
     HttpMethod method = HttpMethod.parse(exchange.getRequestMethod());
-    var headers = exchange.getRequestHeaders();
     Request request =
         new Request(
-            body,
+            body.bytes(),
             null,
             null,
             null,
             Map.of(),
             exchange.getRequestURI().getRawQuery(),
-            headers::getFirst,
+            body.headerLookup(),
             Map.of(),
             method);
     Response response = hit.handle(request);

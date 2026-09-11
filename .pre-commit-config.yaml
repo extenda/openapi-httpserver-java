@@ -17,7 +17,7 @@ repos:
     hooks:
       - id: editorconfig-checker
   - repo: https://github.com/extenda/pre-commit-hooks
-    rev: v0.15.0
+    rev: v0.16.1
     hooks:
       - id: google-java-formatter
       - id: commitlint

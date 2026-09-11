@@ -1,6 +1,7 @@
 package com.retailsvc.http.internal;
 
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
+import static java.net.HttpURLConnection.HTTP_ENTITY_TOO_LARGE;
 
 import com.retailsvc.http.BadRequestException;
 import com.retailsvc.http.validate.ValidationError;
@@ -79,27 +80,18 @@ public record ProblemDetail(
   }
 
   private static final Map<Integer, String> TITLES =
-      Map.of(
-          HTTP_BAD_REQUEST,
-          BAD_REQUEST,
-          401,
-          "Unauthorized",
-          403,
-          "Forbidden",
-          404,
-          "Not Found",
-          405,
-          "Method Not Allowed",
-          409,
-          "Conflict",
-          410,
-          "Gone",
-          412,
-          "Precondition Failed",
-          415,
-          "Unsupported Media Type",
-          422,
-          "Unprocessable Content");
+      Map.ofEntries(
+          Map.entry(HTTP_BAD_REQUEST, BAD_REQUEST),
+          Map.entry(401, "Unauthorized"),
+          Map.entry(403, "Forbidden"),
+          Map.entry(404, "Not Found"),
+          Map.entry(405, "Method Not Allowed"),
+          Map.entry(409, "Conflict"),
+          Map.entry(410, "Gone"),
+          Map.entry(412, "Precondition Failed"),
+          Map.entry(HTTP_ENTITY_TOO_LARGE, "Content Too Large"),
+          Map.entry(415, "Unsupported Media Type"),
+          Map.entry(422, "Unprocessable Content"));
 
   private static String titleFor(int status) {
     return TITLES.getOrDefault(status, BAD_REQUEST);

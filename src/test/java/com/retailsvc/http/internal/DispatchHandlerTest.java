@@ -1,5 +1,6 @@
 package com.retailsvc.http.internal;
 
+import static com.retailsvc.http.internal.ResponseRenderer.DEFAULT_MIN_COMPRESSIBLE_BYTES;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,6 +30,7 @@ class DispatchHandlerTest {
 
   private static HttpExchange stubExchange() {
     HttpExchange exchange = mock(HttpExchange.class);
+    when(exchange.getRequestHeaders()).thenReturn(new Headers());
     when(exchange.getResponseHeaders()).thenReturn(new Headers());
     Map<String, Object> attrs = new HashMap<>();
     doAnswer(
@@ -43,14 +45,28 @@ class DispatchHandlerTest {
   }
 
   private static DispatchHandler dispatcher(Map<String, RequestHandler> handlers) {
-    return new DispatchHandler(handlers, List.of(), List.of(), new ResponseRenderer(Map.of()));
+    return new DispatchHandler(
+        handlers,
+        List.of(),
+        List.of(),
+        new ResponseRenderer(
+            Map.of(),
+            DEFAULT_MIN_COMPRESSIBLE_BYTES,
+            ContentCodings.of(List.of(), List.of()).encoders()));
   }
 
   private static DispatchHandler dispatcher(
       Map<String, RequestHandler> handlers,
       List<RequestInterceptor> interceptors,
       List<ResponseDecorator> decorators) {
-    return new DispatchHandler(handlers, interceptors, decorators, new ResponseRenderer(Map.of()));
+    return new DispatchHandler(
+        handlers,
+        interceptors,
+        decorators,
+        new ResponseRenderer(
+            Map.of(),
+            DEFAULT_MIN_COMPRESSIBLE_BYTES,
+            ContentCodings.of(List.of(), List.of()).encoders()));
   }
 
   private static void withRequest(String operationId, ScopedValue.CallableOp<Void, Exception> body)
