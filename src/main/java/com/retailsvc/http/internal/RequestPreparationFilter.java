@@ -40,6 +40,7 @@ public final class RequestPreparationFilter extends Filter {
   private final ExceptionHandler exceptionHandler;
   private final ResponseRenderer renderer;
   private final List<AfterResponseHook> afterHooks;
+  private final RequestBodyReader bodyReader;
 
   @SuppressWarnings("java:S107")
   public RequestPreparationFilter(
@@ -49,7 +50,8 @@ public final class RequestPreparationFilter extends Filter {
       Map<String, TypeMapper> bodyMappers,
       ExceptionHandler exceptionHandler,
       ResponseRenderer renderer,
-      List<AfterResponseHook> afterHooks) {
+      List<AfterResponseHook> afterHooks,
+      RequestBodyReader bodyReader) {
     this.spec = spec;
     this.router = router;
     this.validator = validator;
@@ -57,6 +59,7 @@ public final class RequestPreparationFilter extends Filter {
     this.exceptionHandler = exceptionHandler;
     this.renderer = renderer;
     this.afterHooks = List.copyOf(afterHooks);
+    this.bodyReader = bodyReader;
   }
 
   @Override
@@ -94,7 +97,8 @@ public final class RequestPreparationFilter extends Filter {
   }
 
   private Request buildRequest(HttpExchange exchange) throws IOException {
-    byte[] body = exchange.getRequestBody().readAllBytes();
+    RequestBodyReader.Body decoded = bodyReader.read(exchange);
+    byte[] body = decoded.bytes();
 
     HttpMethod method = HttpMethod.parse(exchange.getRequestMethod());
     String path = stripBasePath(exchange.getRequestURI().getPath());
@@ -113,7 +117,6 @@ public final class RequestPreparationFilter extends Filter {
     validateParameters(exchange, op, match.pathParameters());
     ParsedBody parsedBody = validateAndParseBody(exchange, op, body);
 
-    var headers = exchange.getRequestHeaders();
     return new Request(
         body,
         parsedBody.value(),
@@ -121,7 +124,7 @@ public final class RequestPreparationFilter extends Filter {
         op.operationId(),
         match.pathParameters(),
         exchange.getRequestURI().getRawQuery(),
-        headers::getFirst,
+        decoded.headerLookup(),
         Map.of(),
         method);
   }

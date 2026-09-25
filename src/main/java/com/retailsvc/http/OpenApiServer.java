@@ -4,11 +4,13 @@ import static java.lang.Thread.ofVirtual;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
+import com.retailsvc.http.internal.ContentCodings;
 import com.retailsvc.http.internal.DispatchHandler;
 import com.retailsvc.http.internal.ExceptionFilter;
 import com.retailsvc.http.internal.ExtrasRouter;
 import com.retailsvc.http.internal.FormTypeMapper;
 import com.retailsvc.http.internal.PemSslContext;
+import com.retailsvc.http.internal.RequestBodyReader;
 import com.retailsvc.http.internal.RequestPreparationFilter;
 import com.retailsvc.http.internal.ResponseRenderer;
 import com.retailsvc.http.internal.SecurityFilter;
@@ -64,7 +66,9 @@ public class OpenApiServer implements AutoCloseable {
       ExceptionHandler exceptionHandler,
       Map<String, RequestHandler> extras,
       boolean externalAuth,
-      List<AfterResponseHook> afterHooks) {}
+      List<AfterResponseHook> afterHooks,
+      RequestBodyReader bodyReader,
+      ResponseRenderer renderer) {}
 
   OpenApiServer(
       List<SpecBinding> bindings,
@@ -83,7 +87,6 @@ public class OpenApiServer implements AutoCloseable {
     requireNonNull(bodyMappers, "bodyMappers must not be null");
 
     long t0 = System.currentTimeMillis();
-    ExceptionHandler exceptionHandler = handlerConfig.exceptionHandler();
 
     InetSocketAddress socketAddress =
         (bindAddress == null)
@@ -92,10 +95,8 @@ public class OpenApiServer implements AutoCloseable {
     this.httpServer = createHttpServer(socketAddress, sslContext);
     httpServer.setExecutor(newThreadPerTaskExecutor(ofVirtual().name("http-", 0).factory()));
 
-    ResponseRenderer renderer = new ResponseRenderer(bodyMappers);
-    boolean anyBindingAtRoot =
-        wireBindings(httpServer, bindings, bodyMappers, handlerConfig, exceptionHandler, renderer);
-    wireExtras(httpServer, anyBindingAtRoot, handlerConfig.extras(), exceptionHandler, renderer);
+    boolean anyBindingAtRoot = wireBindings(httpServer, bindings, bodyMappers, handlerConfig);
+    wireExtras(httpServer, anyBindingAtRoot, handlerConfig);
 
     httpServer.start();
     this.shutdownTimeoutSeconds = shutdownTimeoutSeconds;
@@ -112,33 +113,26 @@ public class OpenApiServer implements AutoCloseable {
     return HttpServer.create(addr, 0);
   }
 
-  @SuppressWarnings("java:S107")
   private static boolean wireBindings(
       HttpServer httpServer,
       List<SpecBinding> bindings,
       Map<String, TypeMapper> bodyMappers,
-      HandlerConfig handlerConfig,
-      ExceptionHandler exceptionHandler,
-      ResponseRenderer renderer) {
+      HandlerConfig handlerConfig) {
     boolean anyBindingAtRoot = false;
     for (SpecBinding binding : bindings) {
       String basePath = Optional.ofNullable(binding.spec().basePath()).orElse("/");
       anyBindingAtRoot |= "/".equals(basePath);
-      wireBinding(
-          httpServer, basePath, binding, bodyMappers, handlerConfig, exceptionHandler, renderer);
+      wireBinding(httpServer, basePath, binding, bodyMappers, handlerConfig);
     }
     return anyBindingAtRoot;
   }
 
-  @SuppressWarnings("java:S107")
   private static void wireBinding(
       HttpServer httpServer,
       String basePath,
       SpecBinding binding,
       Map<String, TypeMapper> bodyMappers,
-      HandlerConfig handlerConfig,
-      ExceptionHandler exceptionHandler,
-      ResponseRenderer renderer) {
+      HandlerConfig handlerConfig) {
     Map<String, Operation> operationsById =
         binding.spec().operations().stream()
             .collect(Collectors.toUnmodifiableMap(Operation::operationId, op -> op));
@@ -150,9 +144,10 @@ public class OpenApiServer implements AutoCloseable {
                 binding.router(),
                 binding.validator(),
                 bodyMappers,
-                exceptionHandler,
-                renderer,
-                handlerConfig.afterHooks()));
+                handlerConfig.exceptionHandler(),
+                handlerConfig.renderer(),
+                handlerConfig.afterHooks(),
+                handlerConfig.bodyReader()));
     ctx.getFilters()
         .add(
             new SecurityFilter(
@@ -166,15 +161,12 @@ public class OpenApiServer implements AutoCloseable {
             binding.handlers(),
             handlerConfig.interceptors(),
             handlerConfig.decorators(),
-            renderer));
+            handlerConfig.renderer()));
   }
 
   private static void wireExtras(
-      HttpServer httpServer,
-      boolean anyBindingAtRoot,
-      Map<String, RequestHandler> extras,
-      ExceptionHandler exceptionHandler,
-      ResponseRenderer renderer) {
+      HttpServer httpServer, boolean anyBindingAtRoot, HandlerConfig handlerConfig) {
+    Map<String, RequestHandler> extras = handlerConfig.extras();
     if (anyBindingAtRoot) {
       if (!extras.isEmpty()) {
         throw new IllegalStateException(
@@ -182,9 +174,12 @@ public class OpenApiServer implements AutoCloseable {
       }
       return;
     }
-    ExtrasRouter extrasRouter = new ExtrasRouter(extras, renderer);
+    ExtrasRouter extrasRouter =
+        new ExtrasRouter(extras, handlerConfig.renderer(), handlerConfig.bodyReader());
     HttpContext extrasCtx = httpServer.createContext("/", extrasRouter);
-    extrasCtx.getFilters().add(new ExceptionFilter(exceptionHandler, renderer));
+    extrasCtx
+        .getFilters()
+        .add(new ExceptionFilter(handlerConfig.exceptionHandler(), handlerConfig.renderer()));
   }
 
   private void logStartup(long t0) {
@@ -251,6 +246,10 @@ public class OpenApiServer implements AutoCloseable {
     private final LinkedHashMap<String, RequestHandler> extras = new LinkedHashMap<>();
     private final Map<String, SchemeValidator> securityValidators = new LinkedHashMap<>();
     private boolean externalAuth = false;
+    private long maxDecompressedRequestBytes = RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES;
+    private long minCompressibleResponseBytes = ResponseRenderer.DEFAULT_MIN_COMPRESSIBLE_BYTES;
+    private final List<ContentCoding> requestCodings = new ArrayList<>();
+    private final List<ContentCoding> responseCodings = new ArrayList<>();
     private final List<SpecBinding> bindings = new ArrayList<>();
 
     private Builder() {}
@@ -396,6 +395,78 @@ public class OpenApiServer implements AutoCloseable {
     }
 
     /**
+     * Ceiling on the inflated size of a gzip request body, 10 MiB by default. A compressed payload
+     * can expand by orders of magnitude, so this bounds what a single request may allocate;
+     * exceeding it fails the request with 413. Bodies that arrive uncompressed are not affected.
+     */
+    public Builder maxDecompressedRequestBytes(long maxDecompressedRequestBytes) {
+      if (maxDecompressedRequestBytes <= 0 || maxDecompressedRequestBytes > Integer.MAX_VALUE) {
+        throw new IllegalArgumentException(
+            "maxDecompressedRequestBytes must be between 1 and "
+                + Integer.MAX_VALUE
+                + ", got "
+                + maxDecompressedRequestBytes);
+      }
+      this.maxDecompressedRequestBytes = maxDecompressedRequestBytes;
+      return this;
+    }
+
+    /**
+     * Smallest response body worth compressing, 1 KiB by default. Below this, the coding costs more
+     * than it saves. Set it to 0 to compress every compressible body, or high enough to exceed any
+     * response this server produces to stop compressing altogether — useful when a proxy in front
+     * already terminates compression.
+     */
+    public Builder minCompressibleResponseBytes(long minCompressibleResponseBytes) {
+      if (minCompressibleResponseBytes < 0) {
+        throw new IllegalArgumentException(
+            "minCompressibleResponseBytes must be non-negative, got "
+                + minCompressibleResponseBytes);
+      }
+      this.minCompressibleResponseBytes = minCompressibleResponseBytes;
+      return this;
+    }
+
+    /**
+     * Registers a content coding the server decodes on requests and applies to responses, alongside
+     * the built-in gzip. When a client weights several codings equally, the ones registered here
+     * win over gzip, in registration order; otherwise the client's weights decide. A decoded body
+     * is still held to {@link #maxDecompressedRequestBytes(long)}.
+     *
+     * @throws IllegalArgumentException if a token or alias is not a lower-case RFC 9110 token, or
+     *     is one of the reserved {@code gzip}, {@code x-gzip}, {@code identity} or {@code *}
+     * @throws IllegalStateException if a token or alias is already registered in either direction
+     */
+    public Builder contentCoding(ContentCoding coding) {
+      ContentCodings.requireRegistrable(coding, requestCodings);
+      ContentCodings.requireRegistrable(coding, responseCodings);
+      requestCodings.add(coding);
+      responseCodings.add(coding);
+      return this;
+    }
+
+    /**
+     * Registers a coding the server only decodes on requests; responses never use it. Validated as
+     * for {@link #contentCoding(ContentCoding)}.
+     */
+    public Builder requestContentCoding(ContentCoding coding) {
+      ContentCodings.requireRegistrable(coding, requestCodings);
+      requestCodings.add(coding);
+      return this;
+    }
+
+    /**
+     * Registers a coding the server only applies to responses. A request coded with it is answered
+     * 415, which keeps a decoder you have no use for off the request path. Validated as for {@link
+     * #contentCoding(ContentCoding)}.
+     */
+    public Builder responseContentCoding(ContentCoding coding) {
+      ContentCodings.requireRegistrable(coding, responseCodings);
+      responseCodings.add(coding);
+      return this;
+    }
+
+    /**
      * Sets the default drain timeout used by {@link OpenApiServer#close()}. {@code 0} (the default)
      * stops immediately; positive values wait up to that many seconds for in-flight exchanges to
      * finish.
@@ -434,6 +505,7 @@ public class OpenApiServer implements AutoCloseable {
       Map<String, TypeMapper> resolved = resolveBodyMappers(bodyMappers);
       ExceptionHandler effectiveExceptionHandler =
           exceptionHandler != null ? exceptionHandler : Handlers.defaultExceptionHandler();
+      ContentCodings codings = ContentCodings.of(requestCodings, responseCodings);
       HandlerConfig handlerConfig =
           new HandlerConfig(
               interceptors,
@@ -441,7 +513,9 @@ public class OpenApiServer implements AutoCloseable {
               effectiveExceptionHandler,
               extras,
               externalAuth,
-              List.copyOf(afterHooks));
+              List.copyOf(afterHooks),
+              new RequestBodyReader(maxDecompressedRequestBytes, codings.decoders()),
+              new ResponseRenderer(resolved, minCompressibleResponseBytes, codings.encoders()));
       int resolvedPort = resolvePort();
       SSLContext sslContext =
           httpsCertChain != null ? PemSslContext.load(httpsCertChain, httpsPrivateKey) : null;

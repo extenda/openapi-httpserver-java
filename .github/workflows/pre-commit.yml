@@ -12,6 +12,12 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7
 
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+
       - name: Run pre-commit
         uses: pre-commit/actions@v3.0.1
         with:

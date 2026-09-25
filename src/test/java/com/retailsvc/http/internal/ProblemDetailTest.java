@@ -1,5 +1,7 @@
 package com.retailsvc.http.internal;
 
+import static java.net.HttpURLConnection.HTTP_ENTITY_TOO_LARGE;
+import static java.net.HttpURLConnection.HTTP_UNSUPPORTED_TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.retailsvc.http.BadRequestException;
@@ -105,5 +107,18 @@ class ProblemDetailTest {
   void badRequestWithPointerBecomesSingleEntry() {
     var pd = ProblemDetail.forBadRequest(new BadRequestException(409, "taken", "/email", "unique"));
     assertThat(pd.errors()).containsExactly(new Entry("#/email", "unique", "taken"));
+  }
+
+  @Test
+  void contentTooLargeHasItsOwnTitle() {
+    var pd = ProblemDetail.forBadRequest(new BadRequestException(HTTP_ENTITY_TOO_LARGE, "too big"));
+    assertThat(pd.title()).isEqualTo("Content Too Large");
+    assertThat(pd.status()).isEqualTo(HTTP_ENTITY_TOO_LARGE);
+  }
+
+  @Test
+  void unsupportedMediaTypeKeepsItsTitle() {
+    var pd = ProblemDetail.forBadRequest(new BadRequestException(HTTP_UNSUPPORTED_TYPE, "nope"));
+    assertThat(pd.title()).isEqualTo("Unsupported Media Type");
   }
 }
