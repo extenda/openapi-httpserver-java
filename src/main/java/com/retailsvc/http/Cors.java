@@ -1,9 +1,6 @@
 package com.retailsvc.http;
 
 import static com.retailsvc.http.spec.HttpMethod.OPTIONS;
-import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
-import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
-import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
 
 import com.retailsvc.http.spec.HttpMethod;
 import java.time.Duration;
@@ -20,8 +17,6 @@ import java.util.stream.Collectors;
  * helpers (e.g. a response decorator for {@code Access-Control-Expose-Headers}) will live here too.
  */
 public final class Cors {
-
-  private static final String ALLOW = "Allow";
 
   private Cors() {}
 
@@ -94,13 +89,13 @@ public final class Cors {
 
     return req -> {
       if (req.method() != OPTIONS) {
-        return Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, "OPTIONS");
+        return Response.methodNotAllowed(OPTIONS);
       }
       String origin = requireHeader(req, "Origin");
       String requestMethod = requireHeader(req, "Access-Control-Request-Method");
       if (!isPreflightAllowed(
           req, origin, requestMethod, originAllowed, allowedMethods, headerAllowlistLower)) {
-        return Response.status(HTTP_FORBIDDEN);
+        return Response.forbidden();
       }
       return buildPreflightSuccess(
           origin,
@@ -166,7 +161,7 @@ public final class Cors {
       boolean allowCredentials,
       String maxAgeHeader) {
     Response resp =
-        Response.status(HTTP_NO_CONTENT)
+        Response.noContent()
             .withHeader("Access-Control-Allow-Origin", origin)
             .withHeader("Access-Control-Allow-Methods", allowMethodsHeader)
             .withHeader("Vary", "Origin");
