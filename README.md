@@ -108,18 +108,27 @@ public class PostDataHandler implements RequestHandler {
 `Response` is an immutable record built via static factories. Pick the one that fits:
 
 ``` java
-Response.empty();                                 // 204 No Content, no body
-Response.status(200);                             // 200 OK, no body
+Response.ok();                                    // 200 OK, no body
 Response.ok(Map.of("id", "42"));                  // 200 OK, JSON body via TypeMapper
 Response.created(newResource);                    // 201 Created, JSON body
 Response.created(newResource)
     .withHeader("Location", "/things/42");        // 201 Created + Location header
 Response.accepted();                              // 202 Accepted, no body
 Response.accepted(Map.of("jobId", "job-42"));     // 202 Accepted, JSON body
+Response.noContent();                             // 204 No Content (alias: empty())
+Response.notModified();                           // 304 Not Modified
+Response.badRequest(problemDetail);               // 400 Bad Request, JSON body
+Response.unauthorized();                          // 401 Unauthorized
+Response.forbidden();                             // 403 Forbidden
 Response.notFound();                              // 404 Not Found, no body
 Response.notFound(problemDetail);                 // 404 Not Found, JSON body
+Response.methodNotAllowed(GET, HEAD);             // 405 + Allow: GET, HEAD
+Response.conflict(conflictDetail);                // 409 Conflict, JSON body
+Response.unprocessableContent(problemDetail);     // 422 Unprocessable Content, JSON body
+Response.internalServerError();                   // 500 Internal Server Error
 Response.notImplemented();                        // 501 Not Implemented, no body
-Response.of(409, conflictDetail);                 // any status, JSON body
+Response.status(418);                             // any status, no body
+Response.of(418, teapot);                         // any status, JSON body
 Response.text(200, "hello");                      // text/plain; UTF-8
 Response.bytes(200, pdf, "application/pdf");      // pre-serialised bytes
 Response.stream(200, "application/octet-stream",  // chunked streaming

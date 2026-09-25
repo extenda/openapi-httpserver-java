@@ -1,18 +1,29 @@
 package com.retailsvc.http;
 
 import static java.net.HttpURLConnection.HTTP_ACCEPTED;
+import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
+import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
 import static java.net.HttpURLConnection.HTTP_CREATED;
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_NOT_IMPLEMENTED;
+import static java.net.HttpURLConnection.HTTP_NOT_MODIFIED;
 import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
 import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 
 import com.retailsvc.http.internal.BodyWriter;
+import com.retailsvc.http.spec.HttpMethod;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * The value returned by every {@link RequestHandler}. Carries status, optional body, optional
@@ -32,20 +43,81 @@ import java.util.Map;
  */
 public record Response(int status, Object body, String contentType, Map<String, String> headers) {
 
+  /** Not defined by {@link java.net.HttpURLConnection}. */
+  private static final int HTTP_UNPROCESSABLE_CONTENT = 422;
+
   public Response {
     headers = headers == null ? Map.of() : Map.copyOf(headers);
   }
 
   // -- one-shot, no-body --
 
-  /** {@code 204 No Content} with no body. */
+  /** {@code 204 No Content} with no body. Same as {@link #noContent()}. */
   public static Response empty() {
-    return new Response(HTTP_NO_CONTENT, null, null, Map.of());
+    return noContent();
   }
 
-  /** Given status, no body. Use for {@code 200 OK} no body, {@code 404}, {@code 405}, etc. */
+  /** Given status, no body. Prefer a named factory such as {@link #ok()} when one exists. */
   public static Response status(int status) {
     return new Response(status, null, null, Map.of());
+  }
+
+  /** {@code 200 OK} with no body. */
+  public static Response ok() {
+    return status(HTTP_OK);
+  }
+
+  /** {@code 204 No Content} with no body. */
+  public static Response noContent() {
+    return status(HTTP_NO_CONTENT);
+  }
+
+  /** {@code 304 Not Modified} with no body. */
+  public static Response notModified() {
+    return status(HTTP_NOT_MODIFIED);
+  }
+
+  /** {@code 400 Bad Request} with no body. */
+  public static Response badRequest() {
+    return status(HTTP_BAD_REQUEST);
+  }
+
+  /** {@code 401 Unauthorized} with no body. Add a {@code WWW-Authenticate} header as needed. */
+  public static Response unauthorized() {
+    return status(HTTP_UNAUTHORIZED);
+  }
+
+  /** {@code 403 Forbidden} with no body. */
+  public static Response forbidden() {
+    return status(HTTP_FORBIDDEN);
+  }
+
+  /**
+   * {@code 405 Method Not Allowed} with no body and an {@code Allow} header listing {@code
+   * allowed}.
+   */
+  public static Response methodNotAllowed(HttpMethod... allowed) {
+    return methodNotAllowed(List.of(allowed));
+  }
+
+  /**
+   * {@code 405 Method Not Allowed} with no body and an {@code Allow} header listing {@code allowed}
+   * in {@link HttpMethod} declaration order.
+   */
+  public static Response methodNotAllowed(Collection<HttpMethod> allowed) {
+    String allow =
+        allowed.stream().sorted().distinct().map(Enum::name).collect(Collectors.joining(", "));
+    return status(HTTP_BAD_METHOD).withHeader("Allow", allow);
+  }
+
+  /** {@code 409 Conflict} with no body. */
+  public static Response conflict() {
+    return status(HTTP_CONFLICT);
+  }
+
+  /** {@code 500 Internal Server Error} with no body. */
+  public static Response internalServerError() {
+    return status(HTTP_INTERNAL_ERROR);
   }
 
   // -- one-shot, JSON body --
@@ -73,6 +145,16 @@ public record Response(int status, Object body, String contentType, Map<String, 
     return new Response(HTTP_ACCEPTED, body, null, Map.of());
   }
 
+  /** {@code 400 Bad Request} with {@code body} serialised as JSON (e.g. a ProblemDetail). */
+  public static Response badRequest(Object body) {
+    return new Response(HTTP_BAD_REQUEST, body, null, Map.of());
+  }
+
+  /** {@code 403 Forbidden} with {@code body} serialised as JSON (e.g. a ProblemDetail). */
+  public static Response forbidden(Object body) {
+    return new Response(HTTP_FORBIDDEN, body, null, Map.of());
+  }
+
   /** {@code 404 Not Found} with no body. */
   public static Response notFound() {
     return new Response(HTTP_NOT_FOUND, null, null, Map.of());
@@ -81,6 +163,19 @@ public record Response(int status, Object body, String contentType, Map<String, 
   /** {@code 404 Not Found} with {@code body} serialised as JSON (e.g. a ProblemDetail). */
   public static Response notFound(Object body) {
     return new Response(HTTP_NOT_FOUND, body, null, Map.of());
+  }
+
+  /** {@code 409 Conflict} with {@code body} serialised as JSON (e.g. a ProblemDetail). */
+  public static Response conflict(Object body) {
+    return new Response(HTTP_CONFLICT, body, null, Map.of());
+  }
+
+  /**
+   * {@code 422 Unprocessable Content} with {@code body} serialised as JSON (e.g. a ProblemDetail).
+   * Use when the request is well-formed but breaks a business rule.
+   */
+  public static Response unprocessableContent(Object body) {
+    return new Response(HTTP_UNPROCESSABLE_CONTENT, body, null, Map.of());
   }
 
   /** {@code 501 Not Implemented} with no body. */

@@ -2,9 +2,7 @@ package com.retailsvc.http;
 
 import static com.retailsvc.http.spec.HttpMethod.GET;
 import static com.retailsvc.http.spec.HttpMethod.HEAD;
-import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
-import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -18,15 +16,12 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class Handlers {
 
   private static final Logger LOG = LoggerFactory.getLogger(Handlers.class);
-  private static final String ALLOW = "Allow";
-  private static final String GET_HEAD = "GET, HEAD";
 
   private Handlers() {}
 
@@ -79,14 +74,10 @@ public final class Handlers {
             }
             yield Response.notFound();
           }
-          case MethodNotAllowedException mna ->
-              Response.status(HTTP_BAD_METHOD)
-                  .withHeader(
-                      ALLOW,
-                      mna.allowed().stream().map(Enum::name).collect(Collectors.joining(", ")));
+          case MethodNotAllowedException mna -> Response.methodNotAllowed(mna.allowed());
           default -> {
             LOG.error("Unhandled exception in handler", t);
-            yield Response.status(HTTP_INTERNAL_ERROR);
+            yield Response.internalServerError();
           }
         };
   }
@@ -96,7 +87,7 @@ public final class Handlers {
     return req ->
         switch (req.method()) {
           case GET, HEAD -> Response.empty();
-          default -> Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, GET_HEAD);
+          default -> Response.methodNotAllowed(GET, HEAD);
         };
   }
 
@@ -121,7 +112,7 @@ public final class Handlers {
     Objects.requireNonNull(probe, "probe");
     return req -> {
       if (req.method() != GET && req.method() != HEAD) {
-        return Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, GET_HEAD);
+        return Response.methodNotAllowed(GET, HEAD);
       }
       boolean up;
       List<Dependency> dependencies;
@@ -177,10 +168,10 @@ public final class Handlers {
                     }
                   });
           case HEAD ->
-              Response.status(HTTP_OK)
+              Response.ok()
                   .withContentType(contentType)
                   .withHeader("Content-Length", String.valueOf(length));
-          default -> Response.status(HTTP_BAD_METHOD).withHeader(ALLOW, GET_HEAD);
+          default -> Response.methodNotAllowed(GET, HEAD);
         };
   }
 }
