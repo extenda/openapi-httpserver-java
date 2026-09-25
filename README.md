@@ -4,7 +4,7 @@
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=extenda_openapi-httpserver-java&metric=coverage&token=c87f52089c6158081787f26e272d0a0e412c205b)](https://sonarcloud.io/dashboard?id=extenda_openapi-httpserver-java)
 [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=extenda_openapi-httpserver-java&metric=code_smells&token=c87f52089c6158081787f26e272d0a0e412c205b)](https://sonarcloud.io/dashboard?id=extenda_openapi-httpserver-java)
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=extenda_openapi-httpserver-java&metric=duplicated_lines_density&token=c87f52089c6158081787f26e272d0a0e412c205b)](https://sonarcloud.io/dashboard?id=extenda_openapi-httpserver-java)
-[![WorkFlow](https://github.com/extenda/openapi-httpserver-java/actions/workflows/commit.yaml/badge.svg)](https://github.com/extenda/openapi-httpserver-java/actions)
+[![Release](https://github.com/extenda/openapi-httpserver-java/actions/workflows/release.yaml/badge.svg?branch=master)](https://github.com/extenda/openapi-httpserver-java/actions/workflows/release.yaml)
 [![OWASP ASVS](https://img.shields.io/badge/OWASP_ASVS_5.0-Level_2_V12-blueviolet)](docs/security/owasp-asvs.md)
 
 A lightweight Java library that wraps the JDK's `com.sun.net.httpserver.HttpServer` and serves
