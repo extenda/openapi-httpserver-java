@@ -678,13 +678,12 @@ public class OpenApiServer implements AutoCloseable {
     }
 
     private static void validateStreamingWiring(SpecBinding binding) {
-      Set<String> withoutBody = new TreeSet<>();
-      for (Operation op : binding.spec().operations()) {
-        if (binding.streamingHandlers().containsKey(op.operationId())
-            && op.requestBody().isEmpty()) {
-          withoutBody.add(op.operationId());
-        }
-      }
+      Set<String> withoutBody =
+          binding.spec().operations().stream()
+              .filter(op -> op.requestBody().isEmpty())
+              .map(Operation::operationId)
+              .filter(binding.streamingHandlers()::containsKey)
+              .collect(Collectors.toCollection(TreeSet::new));
       if (!withoutBody.isEmpty()) {
         throw new IllegalStateException(
             "StreamingRequestHandler registered for operationId(s) that declare no requestBody: "
