@@ -20,21 +20,55 @@ public final class DispatchHandler implements HttpHandler {
   private final List<RequestInterceptor> interceptors;
   private final List<ResponseDecorator> decorators;
   private final ResponseRenderer renderer;
+  private final StreamingLimit streamingLimit;
 
   public DispatchHandler(
       Map<String, RequestHandler> handlers,
       List<RequestInterceptor> interceptors,
       List<ResponseDecorator> decorators,
       ResponseRenderer renderer) {
+    this(handlers, interceptors, decorators, renderer, StreamingLimit.UNLIMITED);
+  }
+
+  /**
+   * As the 4-argument constructor, with {@code streamingLimit} capping how many streaming requests
+   * reach their handler at once. The slot is taken here, after validation and security, so a client
+   * that is slow to send its body, or isn't authenticated, never holds one.
+   */
+  public DispatchHandler(
+      Map<String, RequestHandler> handlers,
+      List<RequestInterceptor> interceptors,
+      List<ResponseDecorator> decorators,
+      ResponseRenderer renderer,
+      StreamingLimit streamingLimit) {
     this.handlers = Map.copyOf(handlers);
     this.interceptors = List.copyOf(interceptors);
     this.decorators = List.copyOf(decorators);
     this.renderer = renderer;
+    this.streamingLimit = streamingLimit;
   }
 
   @Override
   public void handle(HttpExchange exchange) throws IOException {
     Request request = CURRENT.get();
+    if (!request.isStreaming()) {
+      dispatch(exchange, request);
+      return;
+    }
+    if (!streamingLimit.tryAcquire()) {
+      Response rejection = streamingLimit.rejection();
+      exchange.setAttribute(RESPONSE_ATTR, rejection);
+      renderer.render(exchange, rejection);
+      return;
+    }
+    try {
+      dispatch(exchange, request);
+    } finally {
+      streamingLimit.release();
+    }
+  }
+
+  private void dispatch(HttpExchange exchange, Request request) throws IOException {
     RequestHandler handler = handlers.get(request.operationId());
     Response response = invoke(0, request, handler);
     exchange.setAttribute(RESPONSE_ATTR, response);

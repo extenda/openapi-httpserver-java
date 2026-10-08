@@ -28,6 +28,7 @@ endpoints declared in an OpenAPI 3.1.x specification. Handlers are pure function
 - [After-response hooks](#after-response-hooks)
 - [Security](#security)
 - [Request body content types](#request-body-content-types)
+- [Streaming request bodies](#streaming-request-bodies)
 - [Error responses (RFC 9457)](#error-responses-rfc-9457)
 - [Extra (non-OpenAPI) handlers](#extra-non-openapi-handlers)
   - [Health endpoint](#health-endpoint)
@@ -49,6 +50,8 @@ endpoints declared in an OpenAPI 3.1.x specification. Handlers are pure function
 - OpenAPI `securitySchemes` and `security` enforcement (`apiKey`, `http bearer`, `http basic`),
   with an opt-out for sidecar / gateway authentication
 - RFC 9457 `application/problem+json` validation errors with an `errors[]` array of JSON-Pointers to the failing locations
+- Streaming request bodies for uploads of any size, opted into per handler, with an optional cap on
+  concurrent uploads
 - Transparent gzip: request bodies are inflated under a zip-bomb ceiling, responses are compressed
   when the client accepts it and the payload is worth it
 - Built on the JDK's native `HttpServer` with thread-per-request behaviour using virtual threads
@@ -494,7 +497,9 @@ OpenApiServer.builder()
 ```
 
 Note this bounds the *inflated* size of a coded body, whatever the coding. It is not a request size
-limit — a body that arrives uncompressed is read in full, as it always has been.
+limit — a body that arrives uncompressed is read in full, as it always has been. For a
+[streaming handler](#streaming-request-bodies), the cap is enforced as the handler reads, and
+[can be set separately](#a-separate-cap-for-streamed-bodies), past 2 GiB.
 
 **Responses.** A body is gzipped when the client sends `Accept-Encoding: gzip`, the media type is
 text-shaped (`text/*`, `application/json`, `application/xml`, `application/yaml`, and the `+json` /
@@ -537,7 +542,8 @@ OpenApiServer.builder()
 
 The client's weights pick the coding; on a tie, registered codings win over gzip, in registration
 order. `decode` and `encode` wrap streams rather than whole bodies, so a decoder that reads lazily
-is held to `maxDecompressedRequestBytes` without doing anything itself. `requestContentCoding` and
+is held to `maxDecompressedRequestBytes` (or, for a streaming handler,
+`maxDecompressedStreamingRequestBytes`) without doing anything itself. `requestContentCoding` and
 `responseContentCoding` register one direction only; a request coded with a response-only coding
 gets 415. Tokens must be lower-case, and `gzip`, `x-gzip`, `identity` and `*` are reserved.
 
@@ -964,6 +970,156 @@ Coercion failures surface as RFC-9457 `400` responses with a JSON-pointer to the
 Both built-in parsers honour the `charset=` parameter on the `Content-Type` header (default
 UTF-8). Unknown charsets fall back to UTF-8.
 
+### Matching the declared media types
+
+The request's media type is matched against the keys under `requestBody.content`, ignoring case.
+The most specific declaration wins: the exact type, then a `type/*` range, then `*/*`. The matched
+key decides the schema; the parser is still picked by the request's own media type (falling back
+to one registered for the range itself), so `text/*` with a `text/plain` request uses the built-in
+text parser.
+
+A request without a `Content-Type` is read as `application/json` when the operation declares
+`application/json`. Otherwise it is read as `application/octet-stream`, which RFC 9110 lets a
+recipient assume, so it is accepted by an operation that declares `application/octet-stream`,
+`application/*` or `*/*`.
+
+A body whose media type matches no declaration is answered 400.
+
+## Streaming request bodies
+
+The server reads a request body in full before the handler runs, so the handler gets it as
+`bytes()` and `parsed()`. For uploads that should not be held in memory — large files, archives,
+anything passed straight on to storage — register a `StreamingRequestHandler` instead. The handler
+then reads the body as it arrives:
+
+```java
+StreamingRequestHandler upload =
+    request -> {
+      try (InputStream in = request.bodyStream()) {
+        storage.write(request.pathParam("id"), in);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+      return Response.accepted();
+    };
+
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(Map.of("uploadFile", upload, "getFile", getFile))
+    .build();
+```
+
+The handler's type is the opt-in, so one operation can stream while the rest of the spec is
+buffered. It works for [extra routes](#extra-non-openapi-handlers) too. Memory per request no
+longer depends on the size of the body.
+
+What still runs before the handler:
+
+- Routing, and path / query / header parameter validation.
+- A one-byte peek at the body, so that an empty body is told from a present one. As when buffered,
+  an empty body fails a `required: true` request body with 400, and a present body must have a
+  `Content-Type` declared under the operation's `requestBody.content`. No `TypeMapper` is needed
+  for it.
+- [Security](#security). A request that fails any of these checks is answered with one byte of
+  its body read — for a coded body, one *decoded* byte, so the coding's header and first buffer.
+- The [concurrency cap](#limiting-concurrent-streaming-requests), if one is set.
+- Interceptors, response decorators and after-response hooks, as for any handler.
+
+What changes:
+
+- **The body is not validated against its schema**, because it is never parsed. Declare it as
+  `type: string, format: binary` (or whatever documents it best) and check the content yourself.
+- **`bytes()`, `parsed()` and `asPojo()` throw** `IllegalStateException`. `request.isStreaming()`
+  tells interceptors and hooks that log or inspect bodies to keep away from them.
+- **The stream can be read once, and only inside `handle()`**, on the request thread. Once the
+  handler returns, the response is sent and the exchange closed. A body the handler leaves unread
+  is drained up to 64 KiB (the JDK's `sun.net.httpserver.drainAmount`); past that, the connection
+  is closed rather than reused.
+- **A `Content-Encoding` is decoded as the handler reads**, capped by
+  [`maxDecompressedRequestBytes`](#content-encoding) unless a
+  [streaming cap](#a-separate-cap-for-streamed-bodies) is set. Going over the cap, or a body that
+  fails to decode, surfaces from `read` as a `BadRequestException` (413 or 400). The client
+  dropping the connection surfaces as the plain `IOException` it would be for an uncoded body.
+  Let it propagate and the `ExceptionHandler` renders it as usual. By then the handler may
+  already have passed earlier bytes on, so write to storage in a way you can abandon, such as a
+  resumable upload you finalise only after the last read. The handler sees no `Content-Encoding`
+  and no `Content-Length` for a decoded body.
+- **An uncoded body has no size limit.** Bound it yourself if you need to, for example by counting
+  as you read, and bound how many run at once with
+  [`maxConcurrentStreamingRequests`](#limiting-concurrent-streaming-requests).
+
+`request.headers()` lists every header with all of its values, for example to store them
+alongside the body. It works for any handler, streaming or not.
+
+Tests can build a streaming request directly with `Request.streaming(InputStream, ...)`. For
+buffered requests, `bodyStream()` returns a fresh stream over `bytes()`, so a helper that reads a
+stream works for both.
+
+### A separate cap for streamed bodies
+
+`maxDecompressedRequestBytes` bounds buffered bodies too, which are held in a `byte[]`, so it
+can't go above 2 GiB. A streamed body is never held in memory, so it can have a cap of its own,
+any positive `long` — higher than the buffered one, or lower:
+
+```java
+OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
+    .maxDecompressedRequestBytes(32 * 1024 * 1024)                  // buffered: 32 MiB
+    .maxDecompressedStreamingRequestBytes(50L * 1024 * 1024 * 1024) // streamed: 50 GiB
+    .build();
+```
+
+Left unset, streamed bodies share `maxDecompressedRequestBytes`. It covers decoded bodies only;
+uncoded and [raw](#raw-bodies) bodies have no cap either way.
+
+### Raw bodies
+
+To store or forward a body exactly as the client sent it, wrap the handler in
+`StreamingRequestHandler.raw(...)`, or override `decodeContent()` to return `false`:
+
+```java
+.handlers(Map.of("uploadFile", StreamingRequestHandler.raw(upload)))
+```
+
+The handler then reads the coded bytes. `Content-Encoding` and `Content-Length` are visible as
+sent. Neither decompression cap applies, and a coding the server doesn't know is passed on
+instead of being answered 415.
+
+### Limiting concurrent streaming requests
+
+Memory no longer bounds how many uploads a server takes on, so cap them instead:
+
+```java
+OpenApiServer.builder()
+    .maxConcurrentStreamingRequests(150)                          // Retry-After: 1
+    .maxConcurrentStreamingRequests(150, Duration.ofSeconds(5))   // or choose the Retry-After
+```
+
+The cap counts requests to streaming handlers across every spec and extra route. A request takes a
+slot once it has passed validation and security, just before interceptors and the handler run, and
+gives it back once its response is sent — whether the handler returned or threw. So a client that
+is slow to send its body, or isn't authenticated, never holds a slot.
+
+A request over the cap is answered `503 Service Unavailable` with `Retry-After` and an
+`application/problem+json` body. Its body is left unread, and interceptors and the handler don't
+run. After-response hooks do see the 503, so one can count shed requests:
+
+```java
+.afterResponseHook((request, response) -> {
+  if (response.status() == 503 && response.headers().containsKey("Retry-After")) {
+    shed.increment();
+  }
+})
+```
+
+A client that sends `Expect: 100-continue` has already been told to send its body by the JDK server
+before any of this runs, so a rejected upload may still arrive until the server stops draining it
+(see the unread-body note above).
+
+Buffered requests aren't counted, so health probes and ordinary API calls keep being answered while
+uploads are shed. The cap is unlimited by default.
+
 ## Error responses (RFC 9457)
 
 Validation failures — missing required fields, type mismatches, unsupported content types,
@@ -1316,4 +1472,5 @@ A few things worth keeping in mind when reading this:
 - **Per-request state uses `ScopedValue`** (Java 25, JEP 506). This matters if a handler
   offloads work to an executor that's not a `StructuredTaskScope`-managed child thread: the
   `ScopedValue` is not visible there, so the handler must capture the values it needs (e.g.
-  `byte[] body = request.bytes();`) before submitting.
+  `byte[] body = request.bytes();`) before submitting. A streamed body can't be handed off this
+  way at all: read it before `handle()` returns.

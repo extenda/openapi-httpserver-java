@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.retailsvc.http.spec.Spec;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,34 @@ class OpenApiServerBuilderTest {
     assertThatThrownBy(() -> b.maxDecompressedRequestBytes(-1))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("-1");
+  }
+
+  @Test
+  void streamingDecompressionCapAcceptsAnyPositiveLong() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+
+    assertThat(b.maxDecompressedStreamingRequestBytes(Integer.MAX_VALUE + 1L)).isSameAs(b);
+    assertThat(b.maxDecompressedStreamingRequestBytes(Long.MAX_VALUE)).isSameAs(b);
+    assertThatThrownBy(() -> b.maxDecompressedStreamingRequestBytes(0))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("0");
+    assertThatThrownBy(() -> b.maxDecompressedStreamingRequestBytes(-1))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("-1");
+  }
+
+  @Test
+  void rejectsInvalidMaxConcurrentStreamingRequests() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+
+    assertThatThrownBy(() -> b.maxConcurrentStreamingRequests(0))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("0");
+    Duration negative = Duration.ofSeconds(-1);
+    assertThatThrownBy(() -> b.maxConcurrentStreamingRequests(1, negative))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> b.maxConcurrentStreamingRequests(1, null))
+        .isInstanceOf(NullPointerException.class);
   }
 
   @Test

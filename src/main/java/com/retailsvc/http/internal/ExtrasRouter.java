@@ -4,6 +4,7 @@ import com.retailsvc.http.NotFoundException;
 import com.retailsvc.http.Request;
 import com.retailsvc.http.RequestHandler;
 import com.retailsvc.http.Response;
+import com.retailsvc.http.StreamingRequestHandler;
 import com.retailsvc.http.spec.HttpMethod;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -22,11 +23,22 @@ public final class ExtrasRouter implements HttpHandler {
   private final List<Entry> wildcards;
   private final ResponseRenderer renderer;
   private final RequestBodyReader bodyReader;
+  private final StreamingLimit streamingLimit;
 
   public ExtrasRouter(
       Map<String, RequestHandler> extras, ResponseRenderer renderer, RequestBodyReader bodyReader) {
+    this(extras, renderer, bodyReader, StreamingLimit.UNLIMITED);
+  }
+
+  /** As the 3-argument constructor, with {@code streamingLimit} capping streaming extras. */
+  public ExtrasRouter(
+      Map<String, RequestHandler> extras,
+      ResponseRenderer renderer,
+      RequestBodyReader bodyReader,
+      StreamingLimit streamingLimit) {
     this.renderer = renderer;
     this.bodyReader = bodyReader;
+    this.streamingLimit = streamingLimit;
     Map<String, RequestHandler> exactBuilder = new LinkedHashMap<>();
     List<Entry> wildcardBuilder = new ArrayList<>();
     for (Map.Entry<String, RequestHandler> e : extras.entrySet()) {
@@ -58,10 +70,31 @@ public final class ExtrasRouter implements HttpHandler {
       throw new NotFoundException(exchange.getRequestMethod() + " " + decoded);
     }
 
+    if (hit instanceof StreamingRequestHandler streaming) {
+      handleStreaming(exchange, streaming);
+      return;
+    }
+    Response response = hit.handle(bufferedRequest(exchange));
+    renderer.render(exchange, response);
+  }
+
+  private void handleStreaming(HttpExchange exchange, StreamingRequestHandler handler)
+      throws IOException {
+    if (!streamingLimit.tryAcquire()) {
+      renderer.render(exchange, streamingLimit.rejection());
+      return;
+    }
+    try {
+      Response response = handler.handle(streamingRequest(exchange, handler.decodeContent()));
+      renderer.render(exchange, response);
+    } finally {
+      streamingLimit.release();
+    }
+  }
+
+  private Request bufferedRequest(HttpExchange exchange) throws IOException {
     RequestBodyReader.Body body = bodyReader.read(exchange);
-    HttpMethod method = HttpMethod.parse(exchange.getRequestMethod());
-    Request request =
-        new Request(
+    return new Request(
             body.bytes(),
             null,
             null,
@@ -70,8 +103,20 @@ public final class ExtrasRouter implements HttpHandler {
             exchange.getRequestURI().getRawQuery(),
             body.headerLookup(),
             Map.of(),
-            method);
-    Response response = hit.handle(request);
-    renderer.render(exchange, response);
+            HttpMethod.parse(exchange.getRequestMethod()))
+        .withHeaders(body.headers());
+  }
+
+  private Request streamingRequest(HttpExchange exchange, boolean decode) {
+    RequestBodyReader.Streamed body = bodyReader.stream(exchange, decode);
+    return Request.streaming(
+            body.stream(),
+            null,
+            Map.of(),
+            exchange.getRequestURI().getRawQuery(),
+            body.headerLookup(),
+            Map.of(),
+            HttpMethod.parse(exchange.getRequestMethod()))
+        .withHeaders(body.headers());
   }
 }

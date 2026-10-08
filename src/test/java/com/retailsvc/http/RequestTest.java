@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.retailsvc.http.internal.DispatchHandler;
 import com.retailsvc.http.spec.HttpMethod;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -306,5 +308,112 @@ class RequestTest {
     assertThat(req.header("X-Trace")).contains("abc");
     assertThat(req.header("X-Empty")).isEmpty();
     assertThat(req.header("Missing")).isEmpty();
+  }
+
+  @Test
+  void streamingRequestExposesOnlyItsStream() {
+    InputStream body = new ByteArrayInputStream(new byte[] {1, 2});
+    Request req =
+        Request.streaming(body, "op", Map.of(), null, NO_HEADERS, Map.of(), HttpMethod.POST);
+
+    assertThat(req.isStreaming()).isTrue();
+    assertThat(req.bodyStream()).isSameAs(body);
+    assertThatThrownBy(req::bytes)
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("bodyStream()");
+    assertThatThrownBy(req::parsed).isInstanceOf(IllegalStateException.class);
+    assertThatThrownBy(() -> req.asPojo(String.class)).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void streamingRequestKeepsItsStreamWhenPrincipalsAreAdded() {
+    InputStream body = new ByteArrayInputStream(new byte[0]);
+    Request req =
+        Request.streaming(body, "op", Map.of(), null, NO_HEADERS, Map.of(), HttpMethod.POST);
+
+    Request enriched = req.withPrincipals(Map.of("scheme", "p"));
+
+    assertThat(enriched.isStreaming()).isTrue();
+    assertThat(enriched.bodyStream()).isSameAs(body);
+    assertThat(enriched.principal("scheme")).contains("p");
+  }
+
+  @Test
+  void streamingRequestRejectsANullStream() {
+    assertThatThrownBy(
+            () ->
+                Request.streaming(
+                    null, "op", Map.of(), null, NO_HEADERS, Map.of(), HttpMethod.POST))
+        .isInstanceOf(NullPointerException.class);
+  }
+
+  @Test
+  void bufferedRequestStreamsItsBytesAfresh() throws Exception {
+    Request req = new Request(new byte[] {7, 8}, null, null, "op", Map.of(), null, NO_HEADERS);
+
+    assertThat(req.isStreaming()).isFalse();
+    assertThat(req.bodyStream().readAllBytes()).containsExactly(7, 8);
+    assertThat(req.bodyStream().readAllBytes()).containsExactly(7, 8);
+  }
+
+  @Test
+  void bufferedRequestWithoutABodyStreamsNothing() throws Exception {
+    Request req = new Request(null, null, null, "op", Map.of(), null, NO_HEADERS);
+
+    assertThat(req.bodyStream().readAllBytes()).isEmpty();
+  }
+
+  @Test
+  void headersAreEmptyForALookupOnlyRequest() {
+    Request req = new Request(new byte[0], null, null, "op", Map.of(), null, headers("A", "1"));
+
+    assertThat(req.headers()).isEmpty();
+    assertThat(req.header("A")).contains("1");
+  }
+
+  @Test
+  void withHeadersListsAndLooksUpCaseInsensitively() {
+    Request req =
+        new Request(new byte[0], null, null, "op", Map.of(), null, NO_HEADERS)
+            .withHeaders(Map.of("X-Tag", List.of("one", "two"), "Upload-Id", List.of("u")));
+
+    assertThat(req.headers().get("x-tag")).containsExactly("one", "two");
+    assertThat(req.header("UPLOAD-ID")).contains("u");
+    assertThat(req.header("X-Tag")).contains("one");
+    Map<String, List<String>> listed = req.headers();
+    List<String> value = List.of("v");
+    assertThatThrownBy(() -> listed.put("New", value))
+        .isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  void withHeadersCopiesItsInput() {
+    Map<String, List<String>> source = new HashMap<>();
+    source.put("A", new ArrayList<>(List.of("1")));
+    Request req =
+        new Request(new byte[0], null, null, "op", Map.of(), null, NO_HEADERS).withHeaders(source);
+
+    source.get("A").add("2");
+    source.put("B", List.of("3"));
+
+    assertThat(req.headers()).containsOnlyKeys("A");
+    assertThat(req.headers().get("A")).containsExactly("1");
+  }
+
+  @Test
+  void headersSurviveCopiesAndCopiesShareAfterHooks() {
+    InputStream body = new ByteArrayInputStream(new byte[0]);
+    Request req =
+        Request.streaming(body, "op", Map.of(), null, NO_HEADERS, Map.of(), HttpMethod.POST)
+            .withHeaders(Map.of("A", List.of("1")));
+    Request enriched = req.withPrincipals(Map.of("s", "p"));
+    List<String> log = new ArrayList<>();
+
+    req.afterResponse(() -> log.add("original"));
+    enriched.afterResponse(() -> log.add("enriched"));
+
+    assertThat(enriched.headers()).containsKey("a");
+    assertThat(enriched.bodyStream()).isSameAs(body);
+    assertThat(req.afterHooks()).hasSize(2);
   }
 }

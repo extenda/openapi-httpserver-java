@@ -15,6 +15,7 @@ import com.retailsvc.http.internal.RequestPreparationFilter;
 import com.retailsvc.http.internal.ResponseRenderer;
 import com.retailsvc.http.internal.SecurityFilter;
 import com.retailsvc.http.internal.SpecBinding;
+import com.retailsvc.http.internal.StreamingLimit;
 import com.retailsvc.http.internal.TextTypeMapper;
 import com.retailsvc.http.internal.TlsHttpsConfigurator;
 import com.retailsvc.http.internal.gson.GsonJsonMapper;
@@ -29,6 +30,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -68,7 +70,8 @@ public class OpenApiServer implements AutoCloseable {
       boolean externalAuth,
       List<AfterResponseHook> afterHooks,
       RequestBodyReader bodyReader,
-      ResponseRenderer renderer) {}
+      ResponseRenderer renderer,
+      StreamingLimit streamingLimit) {}
 
   OpenApiServer(
       List<SpecBinding> bindings,
@@ -147,7 +150,8 @@ public class OpenApiServer implements AutoCloseable {
                 handlerConfig.exceptionHandler(),
                 handlerConfig.renderer(),
                 handlerConfig.afterHooks(),
-                handlerConfig.bodyReader()));
+                handlerConfig.bodyReader(),
+                binding.streamingHandlers()));
     ctx.getFilters()
         .add(
             new SecurityFilter(
@@ -161,7 +165,8 @@ public class OpenApiServer implements AutoCloseable {
             binding.handlers(),
             handlerConfig.interceptors(),
             handlerConfig.decorators(),
-            handlerConfig.renderer()));
+            handlerConfig.renderer(),
+            handlerConfig.streamingLimit()));
   }
 
   private static void wireExtras(
@@ -175,7 +180,11 @@ public class OpenApiServer implements AutoCloseable {
       return;
     }
     ExtrasRouter extrasRouter =
-        new ExtrasRouter(extras, handlerConfig.renderer(), handlerConfig.bodyReader());
+        new ExtrasRouter(
+            extras,
+            handlerConfig.renderer(),
+            handlerConfig.bodyReader(),
+            handlerConfig.streamingLimit());
     HttpContext extrasCtx = httpServer.createContext("/", extrasRouter);
     extrasCtx
         .getFilters()
@@ -247,10 +256,12 @@ public class OpenApiServer implements AutoCloseable {
     private final Map<String, SchemeValidator> securityValidators = new LinkedHashMap<>();
     private boolean externalAuth = false;
     private long maxDecompressedRequestBytes = RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES;
+    private Long maxDecompressedStreamingRequestBytes;
     private long minCompressibleResponseBytes = ResponseRenderer.DEFAULT_MIN_COMPRESSIBLE_BYTES;
     private final List<ContentCoding> requestCodings = new ArrayList<>();
     private final List<ContentCoding> responseCodings = new ArrayList<>();
     private final List<SpecBinding> bindings = new ArrayList<>();
+    private StreamingLimit streamingLimit = StreamingLimit.UNLIMITED;
 
     private Builder() {}
 
@@ -398,6 +409,9 @@ public class OpenApiServer implements AutoCloseable {
      * Ceiling on the inflated size of a gzip request body, 10 MiB by default. A compressed payload
      * can expand by orders of magnitude, so this bounds what a single request may allocate;
      * exceeding it fails the request with 413. Bodies that arrive uncompressed are not affected.
+     * The cap holds for a {@link StreamingRequestHandler} too, enforced as the handler reads,
+     * unless {@link #maxDecompressedStreamingRequestBytes(long)} sets one of its own. The body is
+     * held in a {@code byte[]}, so this can't exceed {@link Integer#MAX_VALUE}.
      */
     public Builder maxDecompressedRequestBytes(long maxDecompressedRequestBytes) {
       if (maxDecompressedRequestBytes <= 0 || maxDecompressedRequestBytes > Integer.MAX_VALUE) {
@@ -408,6 +422,23 @@ public class OpenApiServer implements AutoCloseable {
                 + maxDecompressedRequestBytes);
       }
       this.maxDecompressedRequestBytes = maxDecompressedRequestBytes;
+      return this;
+    }
+
+    /**
+     * Ceiling on the decoded size of a coded request body read by a {@link
+     * StreamingRequestHandler}, enforced as the handler reads; exceeding it fails the read with
+     * 413. Defaults to {@link #maxDecompressedRequestBytes(long)}. The body is never held in
+     * memory, so any positive {@code long} is accepted, past the 2 GiB that bounds a buffered body.
+     * Bodies that arrive uncompressed, and raw bodies, are not affected.
+     */
+    public Builder maxDecompressedStreamingRequestBytes(long maxDecompressedStreamingRequestBytes) {
+      if (maxDecompressedStreamingRequestBytes <= 0) {
+        throw new IllegalArgumentException(
+            "maxDecompressedStreamingRequestBytes must be positive, got "
+                + maxDecompressedStreamingRequestBytes);
+      }
+      this.maxDecompressedStreamingRequestBytes = maxDecompressedStreamingRequestBytes;
       return this;
     }
 
@@ -431,7 +462,8 @@ public class OpenApiServer implements AutoCloseable {
      * Registers a content coding the server decodes on requests and applies to responses, alongside
      * the built-in gzip. When a client weights several codings equally, the ones registered here
      * win over gzip, in registration order; otherwise the client's weights decide. A decoded body
-     * is still held to {@link #maxDecompressedRequestBytes(long)}.
+     * is still held to {@link #maxDecompressedRequestBytes(long)}, or to {@link
+     * #maxDecompressedStreamingRequestBytes(long)} for a streaming handler.
      *
      * @throws IllegalArgumentException if a token or alias is not a lower-case RFC 9110 token, or
      *     is one of the reserved {@code gzip}, {@code x-gzip}, {@code identity} or {@code *}
@@ -467,6 +499,33 @@ public class OpenApiServer implements AutoCloseable {
     }
 
     /**
+     * Caps how many requests to {@link StreamingRequestHandler}s the server serves at once, across
+     * every spec and extra route. A slot is taken once a request has passed validation and
+     * security, just before interceptors and the handler run, and given back once the response is
+     * sent. A request over the cap is answered {@code 503 Service Unavailable} with {@code
+     * Retry-After: 1} instead; its body is left unread, interceptors and the handler don't run, and
+     * after-response hooks see the 503. Unlimited by default.
+     *
+     * @throws IllegalArgumentException if {@code maxConcurrent} is not positive
+     */
+    public Builder maxConcurrentStreamingRequests(int maxConcurrent) {
+      return maxConcurrentStreamingRequests(maxConcurrent, Duration.ofSeconds(1));
+    }
+
+    /**
+     * As {@link #maxConcurrentStreamingRequests(int)}, with {@code retryAfter}, rounded up to whole
+     * seconds, as the {@code Retry-After} of a rejected request.
+     *
+     * @throws IllegalArgumentException if {@code maxConcurrent} is not positive or {@code
+     *     retryAfter} is negative
+     */
+    public Builder maxConcurrentStreamingRequests(int maxConcurrent, Duration retryAfter) {
+      requireNonNull(retryAfter, "retryAfter must not be null");
+      this.streamingLimit = StreamingLimit.of(maxConcurrent, retryAfter);
+      return this;
+    }
+
+    /**
      * Sets the default drain timeout used by {@link OpenApiServer#close()}. {@code 0} (the default)
      * stops immediately; positive values wait up to that many seconds for in-flight exchanges to
      * finish.
@@ -484,7 +543,7 @@ public class OpenApiServer implements AutoCloseable {
      * Registers an extra HTTP route at {@code path} that bypasses OpenAPI validation and routing.
      * Use for side concerns like {@code /alive}, {@code /health}, or serving the spec itself —
      * anything that isn't an OpenAPI {@code operationId}. For OpenAPI-described operations use
-     * {@link #handlers(Map)}.
+     * {@link #handlers(Map)}. A {@link StreamingRequestHandler} gets the body as a stream.
      */
     public Builder extraRoute(String path, RequestHandler handler) {
       requireNonNull(path, "path must not be null");
@@ -514,8 +573,14 @@ public class OpenApiServer implements AutoCloseable {
               extras,
               externalAuth,
               List.copyOf(afterHooks),
-              new RequestBodyReader(maxDecompressedRequestBytes, codings.decoders()),
-              new ResponseRenderer(resolved, minCompressibleResponseBytes, codings.encoders()));
+              new RequestBodyReader(
+                  maxDecompressedRequestBytes,
+                  maxDecompressedStreamingRequestBytes != null
+                      ? maxDecompressedStreamingRequestBytes
+                      : maxDecompressedRequestBytes,
+                  codings.decoders()),
+              new ResponseRenderer(resolved, minCompressibleResponseBytes, codings.encoders()),
+              streamingLimit);
       int resolvedPort = resolvePort();
       SSLContext sslContext =
           httpsCertChain != null ? PemSslContext.load(httpsCertChain, httpsPrivateKey) : null;
@@ -550,6 +615,7 @@ public class OpenApiServer implements AutoCloseable {
           validateSecurityWiring(b.spec(), b.securityValidators());
         }
         validateHandlerWiring(b.spec(), b.handlers());
+        validateStreamingWiring(b);
       }
     }
 
@@ -608,6 +674,20 @@ public class OpenApiServer implements AutoCloseable {
       if (!unknown.isEmpty()) {
         throw new IllegalStateException(
             "handler registered for unknown operationId(s) not in spec: " + unknown);
+      }
+    }
+
+    private static void validateStreamingWiring(SpecBinding binding) {
+      Set<String> withoutBody =
+          binding.spec().operations().stream()
+              .filter(op -> op.requestBody().isEmpty())
+              .map(Operation::operationId)
+              .filter(binding.streamingHandlers()::containsKey)
+              .collect(Collectors.toCollection(TreeSet::new));
+      if (!withoutBody.isEmpty()) {
+        throw new IllegalStateException(
+            "StreamingRequestHandler registered for operationId(s) that declare no requestBody: "
+                + withoutBody);
       }
     }
 
