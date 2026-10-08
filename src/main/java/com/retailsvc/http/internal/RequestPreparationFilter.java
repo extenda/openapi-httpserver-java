@@ -6,6 +6,7 @@ import com.retailsvc.http.MethodNotAllowedException;
 import com.retailsvc.http.NotFoundException;
 import com.retailsvc.http.Request;
 import com.retailsvc.http.Response;
+import com.retailsvc.http.StreamingRequestHandler;
 import com.retailsvc.http.TypeMapper;
 import com.retailsvc.http.ValidationException;
 import com.retailsvc.http.spec.HttpMethod;
@@ -20,6 +21,7 @@ import com.sun.net.httpserver.Filter;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
+import java.io.PushbackInputStream;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -32,6 +34,7 @@ public final class RequestPreparationFilter extends Filter {
 
   private static final Logger LOG = LoggerFactory.getLogger(RequestPreparationFilter.class);
   private static final String BODY_POINTER = "/body";
+  private static final String CONTENT_TYPE = "Content-Type";
 
   private final Spec spec;
   private final Router router;
@@ -41,6 +44,7 @@ public final class RequestPreparationFilter extends Filter {
   private final ResponseRenderer renderer;
   private final List<AfterResponseHook> afterHooks;
   private final RequestBodyReader bodyReader;
+  private final Map<String, StreamingRequestHandler> streamingHandlers;
 
   @SuppressWarnings("java:S107")
   public RequestPreparationFilter(
@@ -52,6 +56,34 @@ public final class RequestPreparationFilter extends Filter {
       ResponseRenderer renderer,
       List<AfterResponseHook> afterHooks,
       RequestBodyReader bodyReader) {
+    this(
+        spec,
+        router,
+        validator,
+        bodyMappers,
+        exceptionHandler,
+        renderer,
+        afterHooks,
+        bodyReader,
+        Map.of());
+  }
+
+  /**
+   * As the 8-argument constructor, but the operations in {@code streamingHandlers} get their body
+   * as a stream: it is not read here beyond a one-byte peek, and not parsed or validated against
+   * its schema.
+   */
+  @SuppressWarnings("java:S107")
+  public RequestPreparationFilter(
+      Spec spec,
+      Router router,
+      Validator validator,
+      Map<String, TypeMapper> bodyMappers,
+      ExceptionHandler exceptionHandler,
+      ResponseRenderer renderer,
+      List<AfterResponseHook> afterHooks,
+      RequestBodyReader bodyReader,
+      Map<String, StreamingRequestHandler> streamingHandlers) {
     this.spec = spec;
     this.router = router;
     this.validator = validator;
@@ -60,6 +92,7 @@ public final class RequestPreparationFilter extends Filter {
     this.renderer = renderer;
     this.afterHooks = List.copyOf(afterHooks);
     this.bodyReader = bodyReader;
+    this.streamingHandlers = Map.copyOf(streamingHandlers);
   }
 
   @Override
@@ -97,13 +130,19 @@ public final class RequestPreparationFilter extends Filter {
   }
 
   private Request buildRequest(HttpExchange exchange) throws IOException {
-    RequestBodyReader.Body decoded = bodyReader.read(exchange);
-    byte[] body = decoded.bytes();
-
     HttpMethod method = HttpMethod.parse(exchange.getRequestMethod());
     String path = stripBasePath(exchange.getRequestURI().getPath());
 
     var matchOpt = router.match(method, path);
+    StreamingRequestHandler streaming =
+        matchOpt.map(m -> streamingHandlers.get(m.operation().operationId())).orElse(null);
+    if (streaming != null) {
+      return buildStreamingRequest(exchange, method, matchOpt.get(), streaming.decodeContent());
+    }
+
+    RequestBodyReader.Body decoded = bodyReader.read(exchange);
+    byte[] body = decoded.bytes();
+
     if (matchOpt.isEmpty()) {
       var allowed = router.allowedMethods(path);
       if (allowed.isEmpty()) {
@@ -118,15 +157,71 @@ public final class RequestPreparationFilter extends Filter {
     ParsedBody parsedBody = validateAndParseBody(exchange, op, body);
 
     return new Request(
-        body,
-        parsedBody.value(),
-        parsedBody.mapper(),
-        op.operationId(),
-        match.pathParameters(),
-        exchange.getRequestURI().getRawQuery(),
-        decoded.headerLookup(),
-        Map.of(),
-        method);
+            body,
+            parsedBody.value(),
+            parsedBody.mapper(),
+            op.operationId(),
+            match.pathParameters(),
+            exchange.getRequestURI().getRawQuery(),
+            decoded.headerLookup(),
+            Map.of(),
+            method)
+        .withHeaders(decoded.headers());
+  }
+
+  /**
+   * Builds the request for a streaming operation. Validation mirrors the buffered path in the same
+   * order, short of parsing the body: a one-byte peek tells an empty body from a present one, which
+   * decides between the {@code required} and {@code Content-Type} checks just as the body's length
+   * does when buffered.
+   */
+  private Request buildStreamingRequest(
+      HttpExchange exchange, HttpMethod method, Router.Match match, boolean decode)
+      throws IOException {
+    RequestBodyReader.Streamed streamed = bodyReader.stream(exchange, decode);
+    Operation op = match.operation();
+    validateParameters(exchange, op, match.pathParameters());
+    RequestBody rb =
+        op.requestBody()
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "streaming operation declares no requestBody: " + op.operationId()));
+
+    PushbackInputStream body = new PushbackInputStream(streamed.stream(), 1);
+    int first = body.read();
+    if (first == -1) {
+      if (rb.required()) {
+        throw requiredBodyMissing();
+      }
+    } else {
+      body.unread(first);
+      String header = exchange.getRequestHeaders().getFirst(CONTENT_TYPE);
+      if (RequestContentType.match(header, rb.content()).isEmpty()) {
+        throw unsupportedContentType(RequestContentType.mediaType(header, rb.content()));
+      }
+    }
+
+    return Request.streaming(
+            body,
+            op.operationId(),
+            match.pathParameters(),
+            exchange.getRequestURI().getRawQuery(),
+            streamed.headerLookup(),
+            Map.of(),
+            method)
+        .withHeaders(streamed.headers());
+  }
+
+  private static ValidationException requiredBodyMissing() {
+    return new ValidationException(
+        new ValidationError(BODY_POINTER, "required", "request body is required", null));
+  }
+
+  private static ValidationException unsupportedContentType(String mediaType) {
+    return new ValidationException(
+        new ValidationError(
+            BODY_POINTER, "content-type", "unsupported content type: " + mediaType, null));
   }
 
   private void runInnerChain(HttpExchange exchange, Chain chain) throws IOException {
@@ -164,7 +259,7 @@ public final class RequestPreparationFilter extends Filter {
       return r;
     }
     Headers headers = exchange.getResponseHeaders();
-    String contentType = headers != null ? headers.getFirst("Content-Type") : null;
+    String contentType = headers != null ? headers.getFirst(CONTENT_TYPE) : null;
     Map<String, String> flat = new LinkedHashMap<>();
     if (headers != null) {
       for (Map.Entry<String, List<String>> e : headers.entrySet()) {
@@ -227,24 +322,24 @@ public final class RequestPreparationFilter extends Filter {
     }
     if (body.length == 0) {
       if (rb.get().required()) {
-        throw new ValidationException(
-            new ValidationError(BODY_POINTER, "required", "request body is required", null));
+        throw requiredBodyMissing();
       }
       return ParsedBody.EMPTY;
     }
-    String header = exchange.getRequestHeaders().getFirst("Content-Type");
-    String mediaType = ContentTypeHeader.mediaType(header);
-    MediaType mt = rb.get().content().get(mediaType);
-    if (mt == null) {
-      throw new ValidationException(
-          new ValidationError(
-              BODY_POINTER, "content-type", "unsupported content type: " + mediaType, null));
-    }
+    String header = exchange.getRequestHeaders().getFirst(CONTENT_TYPE);
+    Map<String, MediaType> content = rb.get().content();
+    RequestContentType.Match match =
+        RequestContentType.match(header, content)
+            .orElseThrow(
+                () -> unsupportedContentType(RequestContentType.mediaType(header, content)));
+    String mediaType = match.mediaType();
+    MediaType mt = match.content();
     TypeMapper mapper = bodyMappers.get(mediaType);
     if (mapper == null) {
-      throw new ValidationException(
-          new ValidationError(
-              BODY_POINTER, "content-type", "unsupported content type: " + mediaType, null));
+      mapper = bodyMappers.get(match.declared().toLowerCase(Locale.ROOT));
+    }
+    if (mapper == null) {
+      throw unsupportedContentType(mediaType);
     }
     Object parsed;
     try {

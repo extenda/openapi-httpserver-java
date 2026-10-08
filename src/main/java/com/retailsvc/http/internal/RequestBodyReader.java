@@ -14,12 +14,16 @@ import com.sun.net.httpserver.HttpExchange;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.function.UnaryOperator;
 
 /**
  * Reads the raw request body, transparently decoding a registered {@code Content-Encoding} under a
- * hard cap on the decoded size. Immutable and shared across requests.
+ * hard cap on the decoded size, either buffered in full or as a stream for a streaming handler.
+ * Immutable and shared across requests.
  */
 public final class RequestBodyReader {
 
@@ -54,8 +58,45 @@ public final class RequestBodyReader {
     String header = headers.getFirst(CONTENT_ENCODING);
     byte[] raw = exchange.getRequestBody().readAllBytes();
     return switch (ContentEncodingHeader.parse(header, decoders)) {
-      case Identity _ -> new Body(raw, headers::getFirst);
+      case Identity _ -> new Body(raw, copy(headers));
       case Coded(ContentCoding coding) -> decoded(decode(coding, raw), headers);
+      case Unsupported _ ->
+          throw new BadRequestException(
+              HTTP_UNSUPPORTED_TYPE, "unsupported Content-Encoding: " + header);
+    };
+  }
+
+  /**
+   * Opens the request body as a stream, decoded as it is read. Nothing is read here, so a coded
+   * body's failures — malformed (400) or over the cap (413) — surface from the stream's {@code
+   * read} as a {@link BadRequestException}.
+   *
+   * @throws BadRequestException 415 when the coding is not one this server decodes
+   */
+  public Streamed stream(HttpExchange exchange) {
+    return stream(exchange, true);
+  }
+
+  /**
+   * Opens the request body as a stream. With {@code decode} set, as {@link #stream(HttpExchange)};
+   * without it, the body is passed on exactly as sent — still coded, uncapped, whatever its {@code
+   * Content-Encoding} — with the headers unchanged.
+   *
+   * @throws BadRequestException 415 when decoding and the coding is not one this server decodes
+   */
+  public Streamed stream(HttpExchange exchange, boolean decode) {
+    Headers headers = exchange.getRequestHeaders();
+    InputStream raw = exchange.getRequestBody();
+    if (!decode) {
+      return new Streamed(raw, copy(headers));
+    }
+    String header = headers.getFirst(CONTENT_ENCODING);
+    return switch (ContentEncodingHeader.parse(header, decoders)) {
+      case Identity _ -> new Streamed(raw, copy(headers));
+      case Coded(ContentCoding coding) ->
+          new Streamed(
+              new DecodingInputStream(coding, raw, maxDecompressedBytes),
+              decodedHeaders(headers, null));
       case Unsupported _ ->
           throw new BadRequestException(
               HTTP_UNSUPPORTED_TYPE, "unsupported Content-Encoding: " + header);
@@ -91,21 +132,54 @@ public final class RequestBodyReader {
    * payload rather than what the handler can read.
    */
   private static Body decoded(byte[] bytes, Headers headers) {
-    String decodedLength = Integer.toString(bytes.length);
-    return new Body(
-        bytes,
-        name -> {
-          if (CONTENT_ENCODING.equalsIgnoreCase(name)) {
-            return null;
-          }
-          if (CONTENT_LENGTH.equalsIgnoreCase(name)) {
-            return decodedLength;
-          }
-          return headers.getFirst(name);
-        });
+    return new Body(bytes, decodedHeaders(headers, Integer.toString(bytes.length)));
   }
 
-  /** A decoded request body and the header view a handler should see alongside it. */
+  /** The header view of a decoded body; a {@code null} length means it is not known up front. */
+  private static Map<String, List<String>> decodedHeaders(Headers headers, String decodedLength) {
+    TreeMap<String, List<String>> view = mutableCopy(headers);
+    view.remove(CONTENT_ENCODING);
+    view.remove(CONTENT_LENGTH);
+    if (decodedLength != null) {
+      view.put(CONTENT_LENGTH, List.of(decodedLength));
+    }
+    return Collections.unmodifiableMap(view);
+  }
+
+  private static Map<String, List<String>> copy(Headers headers) {
+    return Collections.unmodifiableMap(mutableCopy(headers));
+  }
+
+  /** A case-insensitive copy, so the view keeps the lookup semantics of {@link Headers}. */
+  private static TreeMap<String, List<String>> mutableCopy(Headers headers) {
+    TreeMap<String, List<String>> copy = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    headers.forEach((name, values) -> copy.put(name, List.copyOf(values)));
+    return copy;
+  }
+
+  private static UnaryOperator<String> firstValue(Map<String, List<String>> headers) {
+    return name -> {
+      List<String> values = headers.get(name);
+      return values == null || values.isEmpty() ? null : values.getFirst();
+    };
+  }
+
+  /** A decoded request body and the headers a handler should see alongside it. */
   @SuppressWarnings("java:S6218")
-  public record Body(byte[] bytes, UnaryOperator<String> headerLookup) {}
+  public record Body(byte[] bytes, Map<String, List<String>> headers) {
+
+    /** First-value, case-insensitive lookup over {@link #headers()}. */
+    public UnaryOperator<String> headerLookup() {
+      return firstValue(headers);
+    }
+  }
+
+  /** A request body still to be read, and the headers a handler should see alongside it. */
+  public record Streamed(InputStream stream, Map<String, List<String>> headers) {
+
+    /** First-value, case-insensitive lookup over {@link #headers()}. */
+    public UnaryOperator<String> headerLookup() {
+      return firstValue(headers);
+    }
+  }
 }

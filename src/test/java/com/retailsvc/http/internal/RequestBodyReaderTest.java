@@ -225,6 +225,89 @@ class RequestBodyReaderTest {
         .hasMessage("bug in the coding");
   }
 
+  @Test
+  void plainBodyIsStreamedAsTheExchangeStream() {
+    HttpExchange exchange = exchange("hello".getBytes(UTF_8), null);
+
+    RequestBodyReader.Streamed body = reader.stream(exchange);
+
+    assertThat(body.stream()).isSameAs(exchange.getRequestBody());
+    assertThat(body.headerLookup().apply("Content-Length")).isEqualTo("5");
+  }
+
+  @Test
+  void codedBodyIsStreamedDecodedWithoutALength() throws IOException {
+    byte[] coded = gzip("hello".getBytes(UTF_8));
+
+    RequestBodyReader.Streamed body = reader.stream(exchange(coded, "gzip"));
+
+    try (InputStream in = body.stream()) {
+      assertThat(new String(in.readAllBytes(), UTF_8)).isEqualTo("hello");
+    }
+    assertThat(body.headerLookup().apply("Content-Encoding")).isNull();
+    assertThat(body.headerLookup().apply("Content-Length")).isNull();
+    assertThat(body.headerLookup().apply("X-Custom")).isEqualTo("value");
+  }
+
+  @Test
+  void streamedCodedBodyIsHeldToTheCapAsItIsRead() throws IOException {
+    RequestBodyReader.Streamed body =
+        reader.stream(exchange(gzip(new byte[(int) CAP + 1]), "gzip"));
+
+    try (InputStream in = body.stream()) {
+      assertThatThrownBy(in::readAllBytes)
+          .isInstanceOfSatisfying(
+              BadRequestException.class,
+              e -> assertThat(e.status()).isEqualTo(HTTP_ENTITY_TOO_LARGE));
+    }
+  }
+
+  @Test
+  void unsupportedCodingIsRejectedBeforeStreaming() {
+    HttpExchange exchange = exchange("x".getBytes(UTF_8), "br");
+
+    assertThatThrownBy(() -> reader.stream(exchange))
+        .isInstanceOfSatisfying(
+            BadRequestException.class,
+            e -> assertThat(e.status()).isEqualTo(HTTP_UNSUPPORTED_TYPE));
+  }
+
+  @Test
+  void headersAreListedCaseInsensitively() throws IOException {
+    RequestBodyReader.Body body = reader.read(exchange("hello".getBytes(UTF_8), null));
+
+    assertThat(body.headers().get("x-custom")).containsExactly("value");
+    assertThat(body.headers().get("CONTENT-LENGTH")).containsExactly("5");
+  }
+
+  @Test
+  void decodedBodyListsItsDecodedLengthAndNoCoding() throws IOException {
+    RequestBodyReader.Body body = reader.read(exchange(gzip("hello".getBytes(UTF_8)), "gzip"));
+
+    assertThat(body.headers()).doesNotContainKey("Content-Encoding");
+    assertThat(body.headers().get("Content-Length")).containsExactly("5");
+  }
+
+  @Test
+  void rawStreamKeepsTheCodedBodyAndItsHeaders() throws IOException {
+    byte[] coded = gzip(new byte[(int) CAP * 4]);
+    HttpExchange exchange = exchange(coded, "gzip");
+
+    RequestBodyReader.Streamed body = reader.stream(exchange, false);
+
+    assertThat(body.stream()).isSameAs(exchange.getRequestBody());
+    assertThat(body.stream().readAllBytes()).isEqualTo(coded);
+    assertThat(body.headerLookup().apply("Content-Encoding")).isEqualTo("gzip");
+    assertThat(body.headerLookup().apply("Content-Length")).isEqualTo(String.valueOf(coded.length));
+  }
+
+  @Test
+  void rawStreamPassesAnUnknownCodingOn() {
+    RequestBodyReader.Streamed body = reader.stream(exchange("x".getBytes(UTF_8), "br"), false);
+
+    assertThat(body.headerLookup().apply("Content-Encoding")).isEqualTo("br");
+  }
+
   private static HttpExchange exchange(byte[] body, String contentEncoding) {
     Headers headers = new Headers();
     if (contentEncoding != null) {

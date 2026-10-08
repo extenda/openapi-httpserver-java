@@ -2,29 +2,34 @@ package com.retailsvc.http;
 
 import com.retailsvc.http.internal.QueryParams;
 import com.retailsvc.http.spec.HttpMethod;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.function.UnaryOperator;
 
 /**
  * Read-only per-request handle passed to {@link RequestHandler}. Carries the HTTP method, parsed
  * body, path parameters, query parameters, headers, and operation ID.
  *
- * <p>{@code Request} is transport-neutral: it holds the body bytes, the raw query string, the path
- * parameter map, and a header lookup function. The transport adapter (today the built-in JDK {@code
- * HttpServer}, tomorrow potentially Netty or another backend) is responsible for extracting those
- * primitives from its own request representation. Handlers consume a {@code Request} and return a
- * {@link Response}.
+ * <p>{@code Request} is transport-neutral: it holds the body (bytes, or an {@link InputStream} for
+ * a {@link StreamingRequestHandler}), the raw query string, the path parameter map, and a header
+ * lookup function. The transport adapter (today the built-in JDK {@code HttpServer}, tomorrow
+ * potentially Netty or another backend) is responsible for extracting those primitives from its own
+ * request representation. Handlers consume a {@code Request} and return a {@link Response}.
  */
 public final class Request {
 
   private static final String CONTENT_TYPE = "Content-Type";
+  private static final byte[] NO_BYTES = new byte[0];
 
   private final byte[] body;
+  private final InputStream stream;
   private final Object parsed;
   private final TypeMapper bodyMapper;
   private final String operationId;
@@ -32,6 +37,7 @@ public final class Request {
   private final String rawQuery;
   private final HttpMethod method;
   private final UnaryOperator<String> headerLookup;
+  private final Map<String, List<String>> headers;
   private final Map<String, Object> principals;
   private Map<String, String> queryParamCache;
   private final List<Runnable> afterHooks;
@@ -139,6 +145,7 @@ public final class Request {
       Map<String, Object> principals,
       HttpMethod method) {
     this.body = body;
+    this.stream = null;
     this.parsed = parsed;
     this.bodyMapper = bodyMapper;
     this.operationId = operationId;
@@ -146,16 +153,18 @@ public final class Request {
     this.rawQuery = rawQuery;
     this.method = method;
     this.headerLookup = headerLookup;
+    this.headers = Map.of();
     this.principals = Map.copyOf(principals);
     this.afterHooks = new ArrayList<>();
   }
 
-  // Package-private: lets withPrincipals(...) thread the after-hook queue through so that
-  // runnables registered on either the original Request or the principals-enriched copy
-  // land in the same backing list.
+  // Private: lets streaming(...), withPrincipals(...) and withHeaders(...) set the body stream and
+  // the header map, and lets the copies thread the after-hook queue through so that runnables
+  // registered on either the original Request or a copy land in the same backing list.
   @SuppressWarnings("java:S107")
-  Request(
+  private Request(
       byte[] body,
+      InputStream stream,
       Object parsed,
       TypeMapper bodyMapper,
       String operationId,
@@ -164,8 +173,10 @@ public final class Request {
       UnaryOperator<String> headerLookup,
       Map<String, Object> principals,
       HttpMethod method,
-      List<Runnable> afterHooks) {
+      List<Runnable> afterHooks,
+      Map<String, List<String>> headers) {
     this.body = body;
+    this.stream = stream;
     this.parsed = parsed;
     this.bodyMapper = bodyMapper;
     this.operationId = operationId;
@@ -173,19 +184,94 @@ public final class Request {
     this.rawQuery = rawQuery;
     this.method = method;
     this.headerLookup = headerLookup;
+    this.headers = headers;
     this.principals = Map.copyOf(principals);
     this.afterHooks = afterHooks;
   }
 
+  /**
+   * Builds a {@code Request} whose body is read from {@code body} as it arrives, as handed to a
+   * {@link StreamingRequestHandler}. {@link #bytes()}, {@link #parsed()} and {@link #asPojo(Class)}
+   * throw on the result; read it through {@link #bodyStream()}.
+   *
+   * @param body the request body — decoded of any {@code Content-Encoding} unless the handler opted
+   *     out with {@link StreamingRequestHandler#decodeContent()}; never {@code null}
+   * @param operationId the OpenAPI {@code operationId} the request was routed to, or {@code null}
+   *     for an extra route
+   * @param pathParameters path variables extracted by the router
+   * @param rawQuery raw (percent-encoded) query string, or {@code null} if absent
+   * @param headerLookup first-value, case-insensitive header lookup; returns {@code null} if absent
+   * @param principals principals stashed by the security filter, keyed by scheme name
+   * @param method the HTTP method of the request
+   */
+  public static Request streaming(
+      InputStream body,
+      String operationId,
+      Map<String, String> pathParameters,
+      String rawQuery,
+      UnaryOperator<String> headerLookup,
+      Map<String, Object> principals,
+      HttpMethod method) {
+    return new Request(
+        null,
+        Objects.requireNonNull(body, "body must not be null"),
+        null,
+        null,
+        operationId,
+        pathParameters,
+        rawQuery,
+        headerLookup,
+        principals,
+        method,
+        new ArrayList<>(),
+        Map.of());
+  }
+
+  /**
+   * Raw request body bytes.
+   *
+   * @throws IllegalStateException if the body is streamed; use {@link #bodyStream()}
+   */
   public byte[] bytes() {
+    requireBuffered();
     return body;
   }
 
   /**
    * Loose structural view of the body (typically a {@code Map} / {@code List} / boxed primitive).
+   *
+   * @throws IllegalStateException if the body is streamed; use {@link #bodyStream()}
    */
   public Object parsed() {
+    requireBuffered();
     return parsed;
+  }
+
+  /**
+   * The request body as a stream. For a {@link StreamingRequestHandler} this is the body as it
+   * arrives from the client: it can be read once, and must be read before the handler returns. For
+   * any other handler it is a fresh stream over {@link #bytes()} on every call.
+   */
+  public InputStream bodyStream() {
+    if (stream != null) {
+      return stream;
+    }
+    return new ByteArrayInputStream(body != null ? body : NO_BYTES);
+  }
+
+  /**
+   * Whether the body is streamed, as for a {@link StreamingRequestHandler}. When {@code true},
+   * {@link #bytes()}, {@link #parsed()} and {@link #asPojo(Class)} throw; interceptors and hooks
+   * that inspect the body should check this first.
+   */
+  public boolean isStreaming() {
+    return stream != null;
+  }
+
+  private void requireBuffered() {
+    if (stream != null) {
+      throw new IllegalStateException("request body is streamed; read it through bodyStream()");
+    }
   }
 
   /**
@@ -197,11 +283,12 @@ public final class Request {
    * directly without re-deserialising.
    *
    * @throws NullPointerException if {@code type} is null
-   * @throws IllegalStateException if there is no body, or if the body mapper does not implement
-   *     {@link TypedTypeMapper}
+   * @throws IllegalStateException if there is no body, if the body is streamed, or if the body
+   *     mapper does not implement {@link TypedTypeMapper}
    */
   public <T> T asPojo(Class<T> type) {
     Objects.requireNonNull(type, "type must not be null");
+    requireBuffered();
     if (body == null || body.length == 0) {
       throw new IllegalStateException("request has no body");
     }
@@ -237,6 +324,19 @@ public final class Request {
   /** Value of the path parameter {@code name}, or {@code null} if absent. */
   public String pathParam(String name) {
     return pathParameters.get(name);
+  }
+
+  /**
+   * Every request header, by name, with all of its values in arrival order. Lookups are
+   * case-insensitive. For a body the server decoded, {@code Content-Encoding} is absent and {@code
+   * Content-Length} gives the decoded length, or is absent when that is not known up front, as for
+   * a {@link StreamingRequestHandler}.
+   *
+   * <p>Empty for a {@code Request} built from a header lookup function alone, which has no names to
+   * list; see {@link #withHeaders(Map)}.
+   */
+  public Map<String, List<String>> headers() {
+    return headers;
   }
 
   /**
@@ -309,6 +409,7 @@ public final class Request {
   public Request withPrincipals(Map<String, Object> principals) {
     return new Request(
         body,
+        stream,
         parsed,
         bodyMapper,
         operationId,
@@ -317,7 +418,38 @@ public final class Request {
         headerLookup,
         principals,
         method,
-        afterHooks);
+        afterHooks,
+        headers);
+  }
+
+  /**
+   * Returns a new {@code Request} identical to this one except that its headers come from {@code
+   * headers}: both {@link #headers()} and {@link #header(String)} read from it, case-insensitively.
+   * The server builds every request it hands to a handler this way; use it in tests to build a
+   * {@code Request} whose headers can be listed.
+   *
+   * @param headers header values by name, in arrival order; never {@code null}
+   */
+  public Request withHeaders(Map<String, List<String>> headers) {
+    TreeMap<String, List<String>> copy = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    headers.forEach((name, values) -> copy.put(name, List.copyOf(values)));
+    Map<String, List<String>> view = Collections.unmodifiableMap(copy);
+    return new Request(
+        body,
+        stream,
+        parsed,
+        bodyMapper,
+        operationId,
+        pathParameters,
+        rawQuery,
+        name -> {
+          List<String> values = view.get(name);
+          return values == null || values.isEmpty() ? null : values.getFirst();
+        },
+        principals,
+        method,
+        afterHooks,
+        view);
   }
 
   /**

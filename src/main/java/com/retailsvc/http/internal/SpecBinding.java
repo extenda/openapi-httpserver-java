@@ -2,9 +2,11 @@ package com.retailsvc.http.internal;
 
 import com.retailsvc.http.RequestHandler;
 import com.retailsvc.http.SchemeValidator;
+import com.retailsvc.http.StreamingRequestHandler;
 import com.retailsvc.http.spec.Spec;
 import com.retailsvc.http.validate.DefaultValidator;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Bundles everything the server needs to serve one OpenAPI spec: the spec itself, the handler map
@@ -34,5 +36,14 @@ public record SpecBinding(
         securityValidators,
         new DefaultValidator(spec::resolveSchema),
         new Router(spec.operations()));
+  }
+
+  /** The handlers that read the request body as a stream, by {@code operationId}. */
+  public Map<String, StreamingRequestHandler> streamingHandlers() {
+    return handlers.entrySet().stream()
+        .filter(e -> e.getValue() instanceof StreamingRequestHandler)
+        .collect(
+            Collectors.toUnmodifiableMap(
+                Map.Entry::getKey, e -> (StreamingRequestHandler) e.getValue()));
   }
 }
