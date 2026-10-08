@@ -256,6 +256,7 @@ public class OpenApiServer implements AutoCloseable {
     private final Map<String, SchemeValidator> securityValidators = new LinkedHashMap<>();
     private boolean externalAuth = false;
     private long maxDecompressedRequestBytes = RequestBodyReader.DEFAULT_MAX_DECOMPRESSED_BYTES;
+    private Long maxDecompressedStreamingRequestBytes;
     private long minCompressibleResponseBytes = ResponseRenderer.DEFAULT_MIN_COMPRESSIBLE_BYTES;
     private final List<ContentCoding> requestCodings = new ArrayList<>();
     private final List<ContentCoding> responseCodings = new ArrayList<>();
@@ -408,7 +409,9 @@ public class OpenApiServer implements AutoCloseable {
      * Ceiling on the inflated size of a gzip request body, 10 MiB by default. A compressed payload
      * can expand by orders of magnitude, so this bounds what a single request may allocate;
      * exceeding it fails the request with 413. Bodies that arrive uncompressed are not affected.
-     * The cap holds for a {@link StreamingRequestHandler} too, enforced as the handler reads.
+     * The cap holds for a {@link StreamingRequestHandler} too, enforced as the handler reads,
+     * unless {@link #maxDecompressedStreamingRequestBytes(long)} sets one of its own. The body is
+     * held in a {@code byte[]}, so this can't exceed {@link Integer#MAX_VALUE}.
      */
     public Builder maxDecompressedRequestBytes(long maxDecompressedRequestBytes) {
       if (maxDecompressedRequestBytes <= 0 || maxDecompressedRequestBytes > Integer.MAX_VALUE) {
@@ -419,6 +422,23 @@ public class OpenApiServer implements AutoCloseable {
                 + maxDecompressedRequestBytes);
       }
       this.maxDecompressedRequestBytes = maxDecompressedRequestBytes;
+      return this;
+    }
+
+    /**
+     * Ceiling on the decoded size of a coded request body read by a {@link
+     * StreamingRequestHandler}, enforced as the handler reads; exceeding it fails the read with
+     * 413. Defaults to {@link #maxDecompressedRequestBytes(long)}. The body is never held in
+     * memory, so any positive {@code long} is accepted, past the 2 GiB that bounds a buffered body.
+     * Bodies that arrive uncompressed, and raw bodies, are not affected.
+     */
+    public Builder maxDecompressedStreamingRequestBytes(long maxDecompressedStreamingRequestBytes) {
+      if (maxDecompressedStreamingRequestBytes <= 0) {
+        throw new IllegalArgumentException(
+            "maxDecompressedStreamingRequestBytes must be positive, got "
+                + maxDecompressedStreamingRequestBytes);
+      }
+      this.maxDecompressedStreamingRequestBytes = maxDecompressedStreamingRequestBytes;
       return this;
     }
 
@@ -552,7 +572,12 @@ public class OpenApiServer implements AutoCloseable {
               extras,
               externalAuth,
               List.copyOf(afterHooks),
-              new RequestBodyReader(maxDecompressedRequestBytes, codings.decoders()),
+              new RequestBodyReader(
+                  maxDecompressedRequestBytes,
+                  maxDecompressedStreamingRequestBytes != null
+                      ? maxDecompressedStreamingRequestBytes
+                      : maxDecompressedRequestBytes,
+                  codings.decoders()),
               new ResponseRenderer(resolved, minCompressibleResponseBytes, codings.encoders()),
               streamingLimit);
       int resolvedPort = resolvePort();

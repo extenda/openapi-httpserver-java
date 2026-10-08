@@ -263,6 +263,41 @@ class RequestBodyReaderTest {
   }
 
   @Test
+  void streamedCodedBodyIsHeldToItsOwnCap() throws IOException {
+    RequestBodyReader separate = new RequestBodyReader(CAP, CAP * 4, GZIP_ONLY);
+
+    try (InputStream in =
+        separate.stream(exchange(gzip(new byte[(int) CAP * 4]), "gzip")).stream()) {
+      assertThat(in.readAllBytes()).hasSize((int) CAP * 4);
+    }
+    try (InputStream in =
+        separate.stream(exchange(gzip(new byte[(int) CAP * 4 + 1]), "gzip")).stream()) {
+      assertThatThrownBy(in::readAllBytes)
+          .isInstanceOfSatisfying(
+              BadRequestException.class,
+              e -> assertThat(e.status()).isEqualTo(HTTP_ENTITY_TOO_LARGE));
+    }
+  }
+
+  @Test
+  void bufferedBodyKeepsItsCapWhenTheStreamedCapIsHigher() throws IOException {
+    RequestBodyReader separate = new RequestBodyReader(CAP, Long.MAX_VALUE, GZIP_ONLY);
+    HttpExchange bomb = exchange(gzip(new byte[(int) CAP + 1]), "gzip");
+
+    assertThatThrownBy(() -> separate.read(bomb))
+        .isInstanceOfSatisfying(
+            BadRequestException.class,
+            e -> assertThat(e.status()).isEqualTo(HTTP_ENTITY_TOO_LARGE));
+  }
+
+  @Test
+  void constructorRejectsNonPositiveStreamedCap() {
+    assertThatThrownBy(() -> new RequestBodyReader(CAP, 0, GZIP_ONLY))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("maxStreamedDecompressedBytes");
+  }
+
+  @Test
   void unsupportedCodingIsRejectedBeforeStreaming() {
     HttpExchange exchange = exchange("x".getBytes(UTF_8), "br");
 

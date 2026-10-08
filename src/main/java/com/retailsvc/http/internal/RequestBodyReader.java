@@ -34,15 +34,34 @@ public final class RequestBodyReader {
   private static final String CONTENT_LENGTH = "Content-Length";
 
   private final long maxDecompressedBytes;
+  private final long maxStreamedDecompressedBytes;
   private final int readLimit;
   private final Map<String, ContentCoding> decoders;
 
+  /** A reader holding buffered and streamed bodies to the same cap. */
   public RequestBodyReader(long maxDecompressedBytes, Map<String, ContentCoding> decoders) {
+    this(maxDecompressedBytes, maxDecompressedBytes, decoders);
+  }
+
+  /**
+   * A reader with separate caps: {@code maxDecompressedBytes} for a body read in full, {@code
+   * maxStreamedDecompressedBytes} for one decoded as a streaming handler reads it. Only the first
+   * is bounded by what fits in a {@code byte[]}.
+   */
+  public RequestBodyReader(
+      long maxDecompressedBytes,
+      long maxStreamedDecompressedBytes,
+      Map<String, ContentCoding> decoders) {
     if (maxDecompressedBytes <= 0) {
       throw new IllegalArgumentException(
           "maxDecompressedBytes must be positive, got " + maxDecompressedBytes);
     }
+    if (maxStreamedDecompressedBytes <= 0) {
+      throw new IllegalArgumentException(
+          "maxStreamedDecompressedBytes must be positive, got " + maxStreamedDecompressedBytes);
+    }
     this.maxDecompressedBytes = maxDecompressedBytes;
+    this.maxStreamedDecompressedBytes = maxStreamedDecompressedBytes;
     this.readLimit = (int) Math.min(maxDecompressedBytes, Integer.MAX_VALUE - 1L) + 1;
     this.decoders = Map.copyOf(decoders);
   }
@@ -95,7 +114,7 @@ public final class RequestBodyReader {
       case Identity _ -> new Streamed(raw, copy(headers));
       case Coded(ContentCoding coding) ->
           new Streamed(
-              new DecodingInputStream(coding, raw, maxDecompressedBytes),
+              new DecodingInputStream(coding, raw, maxStreamedDecompressedBytes),
               decodedHeaders(headers, null));
       case Unsupported _ ->
           throw new BadRequestException(

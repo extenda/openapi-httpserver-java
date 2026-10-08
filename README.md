@@ -498,7 +498,8 @@ OpenApiServer.builder()
 
 Note this bounds the *inflated* size of a coded body, whatever the coding. It is not a request size
 limit — a body that arrives uncompressed is read in full, as it always has been. For a
-[streaming handler](#streaming-request-bodies), the cap is enforced as the handler reads.
+[streaming handler](#streaming-request-bodies), the cap is enforced as the handler reads, and
+[can be set separately](#raising-the-cap-for-streamed-bodies), past 2 GiB.
 
 **Responses.** A body is gzipped when the client sends `Accept-Encoding: gzip`, the media type is
 text-shaped (`text/*`, `application/json`, `application/xml`, `application/yaml`, and the `+json` /
@@ -1033,15 +1034,15 @@ What changes:
   handler returns, the response is sent and the exchange closed. A body the handler leaves unread
   is drained up to 64 KiB (the JDK's `sun.net.httpserver.drainAmount`); past that, the connection
   is closed rather than reused.
-- **A `Content-Encoding` is decoded as the handler reads**, still capped by
-  [`maxDecompressedRequestBytes`](#content-encoding), which can't go above 2 GiB — use a
-  [raw body](#raw-bodies) to take larger coded uploads. Going over the cap, or a body that fails to
-  decode, surfaces from `read` as a `BadRequestException` (413 or 400). The client dropping the
-  connection surfaces as the plain `IOException` it would be for an uncoded body. Let it propagate and the
-  `ExceptionHandler` renders it as usual. By then the handler may already have passed earlier bytes
-  on, so write to storage in a way you can abandon, such as a resumable upload you finalise only
-  after the last read. The handler sees no `Content-Encoding` and no `Content-Length` for a
-  decoded body.
+- **A `Content-Encoding` is decoded as the handler reads**, capped by
+  [`maxDecompressedRequestBytes`](#content-encoding) unless a
+  [streaming cap](#raising-the-cap-for-streamed-bodies) is set. Going over the cap, or a body that
+  fails to decode, surfaces from `read` as a `BadRequestException` (413 or 400). The client
+  dropping the connection surfaces as the plain `IOException` it would be for an uncoded body.
+  Let it propagate and the `ExceptionHandler` renders it as usual. By then the handler may
+  already have passed earlier bytes on, so write to storage in a way you can abandon, such as a
+  resumable upload you finalise only after the last read. The handler sees no `Content-Encoding`
+  and no `Content-Length` for a decoded body.
 - **An uncoded body has no size limit.** Bound it yourself if you need to, for example by counting
   as you read, and bound how many run at once with
   [`maxConcurrentStreamingRequests`](#limiting-concurrent-streaming-requests).
@@ -1053,6 +1054,21 @@ Tests can build a streaming request directly with `Request.streaming(InputStream
 buffered requests, `bodyStream()` returns a fresh stream over `bytes()`, so a helper that reads a
 stream works for both.
 
+### Raising the cap for streamed bodies
+
+`maxDecompressedRequestBytes` bounds buffered bodies too, which are held in a `byte[]`, so it
+can't go above 2 GiB. A streamed body is never held in memory, so it can have a cap of its own,
+any positive `long`:
+
+```java
+OpenApiServer.builder()
+    .maxDecompressedRequestBytes(32 * 1024 * 1024)                  // buffered: 32 MiB
+    .maxDecompressedStreamingRequestBytes(50L * 1024 * 1024 * 1024) // streamed: 50 GiB
+```
+
+Left unset, streamed bodies share `maxDecompressedRequestBytes`. It covers decoded bodies only;
+uncoded and [raw](#raw-bodies) bodies have no cap either way.
+
 ### Raw bodies
 
 To store or forward a body exactly as the client sent it, wrap the handler in
@@ -1063,8 +1079,8 @@ To store or forward a body exactly as the client sent it, wrap the handler in
 ```
 
 The handler then reads the coded bytes. `Content-Encoding` and `Content-Length` are visible as
-sent. `maxDecompressedRequestBytes` doesn't apply, and a coding the server doesn't know is passed
-on instead of being answered 415.
+sent. Neither decompression cap applies, and a coding the server doesn't know is passed on
+instead of being answered 415.
 
 ### Limiting concurrent streaming requests
 

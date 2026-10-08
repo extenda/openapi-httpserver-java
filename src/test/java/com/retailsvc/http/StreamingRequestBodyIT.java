@@ -130,6 +130,31 @@ class StreamingRequestBodyIT {
   }
 
   @Test
+  void streamingCapLetsADecodedBodyPassTheBufferedCap() throws Exception {
+    start(
+        Map.of("upload", counting()),
+        b ->
+            b.maxDecompressedRequestBytes(1024)
+                .maxDecompressedStreamingRequestBytes(Long.MAX_VALUE));
+
+    var response = send(upload(gzip(new byte[64 * 1024])).header("Content-Encoding", "gzip"));
+
+    assertThat(response.statusCode()).isEqualTo(HTTP_OK);
+    assertThat(response.headers().firstValue(RECEIVED)).hasValue(String.valueOf(64 * 1024));
+  }
+
+  @Test
+  void gzipBodyOverTheStreamingCapFailsTheReadWith413() throws Exception {
+    start(
+        Map.of("upload", counting()),
+        b -> b.maxDecompressedRequestBytes(1024 * 1024).maxDecompressedStreamingRequestBytes(1024));
+
+    var response = send(upload(gzip(new byte[64 * 1024])).header("Content-Encoding", "gzip"));
+
+    assertThat(response.statusCode()).isEqualTo(HTTP_ENTITY_TOO_LARGE);
+  }
+
+  @Test
   void malformedGzipBodyIs400() throws Exception {
     start(Map.of("upload", counting()), b -> b);
 

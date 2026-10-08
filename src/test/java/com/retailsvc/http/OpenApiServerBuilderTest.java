@@ -66,6 +66,20 @@ class OpenApiServerBuilderTest {
   }
 
   @Test
+  void streamingDecompressionCapAcceptsAnyPositiveLong() {
+    OpenApiServer.Builder b = OpenApiServer.builder();
+
+    assertThat(b.maxDecompressedStreamingRequestBytes(Integer.MAX_VALUE + 1L)).isSameAs(b);
+    assertThat(b.maxDecompressedStreamingRequestBytes(Long.MAX_VALUE)).isSameAs(b);
+    assertThatThrownBy(() -> b.maxDecompressedStreamingRequestBytes(0))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("0");
+    assertThatThrownBy(() -> b.maxDecompressedStreamingRequestBytes(-1))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("-1");
+  }
+
+  @Test
   void rejectsInvalidMaxConcurrentStreamingRequests() {
     OpenApiServer.Builder b = OpenApiServer.builder();
 

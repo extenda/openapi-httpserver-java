@@ -4,7 +4,7 @@
 
 **Goal:** Let a handler opt into reading the request body as it arrives, via a `StreamingRequestHandler` marker type, so memory per request no longer grows with the body — while routing, parameter validation, security, interceptors and error rendering keep working.
 
-**Architecture:** `RequestPreparationFilter` routes before reading the body. For an operation whose handler is a `StreamingRequestHandler`, it opens the body through a new `RequestBodyReader.stream(...)` instead of `read(...)`, validates parameters, peeks one byte to apply the `required` / `Content-Type` checks, and binds a `Request` built with `Request.streaming(...)`. Coded bodies are decoded lazily by an internal `DecodingInputStream` that enforces `maxDecompressedRequestBytes` as the handler reads. `ExtrasRouter` takes the same split for extra routes. Buffered operations keep their exact behaviour and order.
+**Architecture:** `RequestPreparationFilter` routes before reading the body. For an operation whose handler is a `StreamingRequestHandler`, it opens the body through a new `RequestBodyReader.stream(...)` instead of `read(...)`, validates parameters, peeks one byte to apply the `required` / `Content-Type` checks, and binds a `Request` built with `Request.streaming(...)`. Coded bodies are decoded lazily by an internal `DecodingInputStream` that enforces the decompression cap as the handler reads (`maxDecompressedStreamingRequestBytes`, defaulting to `maxDecompressedRequestBytes`; Task 15). `ExtrasRouter` takes the same split for extra routes. Buffered operations keep their exact behaviour and order.
 
 **Additions (Tasks 9–12), review fixes (Task 13):** Content-Type matching with media-type ranges and a missing-header default, `Request.headers()`, raw (undecoded) streaming bodies, and a server-wide cap on concurrent streaming requests. See the spec's "Additions" section.
 
@@ -186,3 +186,13 @@ Two independent reviews (Opus, Fable) returned SHIP WITH FIXES.
 - [x] **Step 3:** SonarLint sweep (`sonar_analyze_file`) over the changed main and test files; fix new findings. The `java:S9391` hit in `OpenApiServer.validateHandlerWiring` predates this change.
 - [x] **Step 4:** Note `StreamingRequestHandler` in `CLAUDE.md`'s architecture section.
 - [x] **Step 5:** Commit on `feat/streaming-request-bodies`: `feat: Support streaming request bodies` (signed).
+
+## Task 15: Streaming decompression cap
+
+Spec: "Streaming decompression cap". Lifts the 2 GiB ceiling on decoded streams without touching the buffered path.
+
+- [x] **Step 1:** `RequestBodyReader`: three-argument constructor `(maxDecompressedBytes, maxStreamedDecompressedBytes, decoders)`, both validated positive; the two-argument constructor delegates with the same cap. `stream` passes the streamed cap to `DecodingInputStream`; `read` is unchanged.
+- [x] **Step 2:** `Builder.maxDecompressedStreamingRequestBytes(long)` — any positive `long`; unset falls back to `maxDecompressedRequestBytes` at `build()`. Javadoc on both setters.
+- [x] **Step 3:** Tests. Unit: streamed body held to its own cap, buffered body keeps its cap when the streamed one is higher, constructor rejects a non-positive streamed cap; builder accepts `Integer.MAX_VALUE + 1` and `Long.MAX_VALUE`, rejects 0 and -1. IT: a gzip body past the buffered cap streams when the streaming cap is higher; one past the streaming cap is 413.
+- [x] **Step 4:** README "Raising the cap for streamed bodies", cross-links from "Content encoding", the streaming bullets and "Raw bodies"; spec section and constraint; this task.
+- [x] **Step 5:** `pre-commit run`, `mvn verify`, SonarLint on changed files; commit `feat: Separate decompression cap for streamed bodies` (signed) and push to PR #131.

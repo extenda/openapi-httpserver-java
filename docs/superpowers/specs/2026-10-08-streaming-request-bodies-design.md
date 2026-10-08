@@ -64,7 +64,8 @@ Buffered operations keep their exact order (body read, then 404/405, then valida
 
 A coded body is decoded lazily by `DecodingInputStream`, which opens the decoder once the first
 byte arrives (so an empty coded body reads as empty, as when buffered) and counts decoded bytes
-against `maxDecompressedRequestBytes`. Exceeding the cap throws `BadRequestException(413)` from
+against the streaming cap (`maxDecompressedStreamingRequestBytes`, defaulting to
+`maxDecompressedRequestBytes`; see "Streaming decompression cap"). Exceeding the cap throws `BadRequestException(413)` from
 `read`; a decoder failure throws `BadRequestException(400)`. Both propagate out of the handler to
 the `ExceptionHandler`. The header view hides `Content-Encoding` and `Content-Length` for a decoded
 body, since the decoded length is unknown up front. Identity bodies are passed through uncapped,
@@ -135,6 +136,23 @@ binding and the extras router.
   `maxConnections` would also shed health probes and cheap API calls under an upload burst, which
   is the opposite of what shedding is for.
 
+### Streaming decompression cap
+
+`maxDecompressedRequestBytes` bounds both paths, but the buffered one decodes into a `byte[]`, so
+the builder rejects values above `Integer.MAX_VALUE`. That needlessly held decoded streams to
+2 GiB, since `DecodingInputStream` counts in a `long` and holds nothing.
+
+- `Builder.maxDecompressedStreamingRequestBytes(long)` sets the cap for bodies decoded as a
+  streaming handler reads them; any positive `long`, else `IllegalArgumentException`.
+- Unset, it defaults to `maxDecompressedRequestBytes`, so existing servers behave as before.
+- `RequestBodyReader` gains a three-argument constructor `(maxDecompressedBytes,
+  maxStreamedDecompressedBytes, decoders)`; the two-argument one passes the same cap twice.
+  `read` keeps the first, `stream` uses the second.
+- Uncoded and raw bodies stay uncapped. Additive only: no existing signature or default changes.
+
+A single setting that the buffered path silently clamps was rejected: one value would mean
+different things on the two paths.
+
 ## Constraints
 
 - The stream must be read inside `handle()`, on the request thread. After the handler returns,
@@ -148,8 +166,9 @@ binding and the extras router.
   `Retry-After`.
 - `Expect: 100-continue` is answered by the JDK server before any filter runs, so a shed client
   may still send its body; the server drains up to 64 KiB of it, then closes the connection.
-- The decoded-size cap can't exceed 2 GiB (`maxDecompressedRequestBytes` is bounded by the
-  buffered path's `byte[]`); raw bodies have no cap.
+- `maxDecompressedRequestBytes` can't exceed 2 GiB (bounded by the buffered path's `byte[]`).
+  Streamed bodies take their own `long` cap, so this no longer limits them; raw bodies have no
+  cap.
 - `DecodingInputStream` turns only the coding's failures into a 400. A connection failure is
   tagged as it leaves the raw stream and rethrown unchanged, so a client disconnect is an
   `IOException`, as for an uncoded body.
