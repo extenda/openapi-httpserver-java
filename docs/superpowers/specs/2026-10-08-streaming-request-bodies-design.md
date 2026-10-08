@@ -65,11 +65,11 @@ Buffered operations keep their exact order (body read, then 404/405, then valida
 A coded body is decoded lazily by `DecodingInputStream`, which opens the decoder once the first
 byte arrives (so an empty coded body reads as empty, as when buffered) and counts decoded bytes
 against the streaming cap (`maxDecompressedStreamingRequestBytes`, defaulting to
-`maxDecompressedRequestBytes`; see "Streaming decompression cap"). Exceeding the cap throws `BadRequestException(413)` from
-`read`; a decoder failure throws `BadRequestException(400)`. Both propagate out of the handler to
-the `ExceptionHandler`. The header view hides `Content-Encoding` and `Content-Length` for a decoded
-body, since the decoded length is unknown up front. Identity bodies are passed through uncapped,
-matching the buffered path.
+`maxDecompressedRequestBytes`; see "Streaming decompression cap"). Exceeding the cap throws
+`BadRequestException(413)` from `read`; a decoder failure throws `BadRequestException(400)`. Both
+propagate out of the handler to the `ExceptionHandler`. The header view hides `Content-Encoding`
+and `Content-Length` for a decoded body, since the decoded length is unknown up front. Identity
+bodies are passed through uncapped, matching the buffered path.
 
 ### Boot validation
 

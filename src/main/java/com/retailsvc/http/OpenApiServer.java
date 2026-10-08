@@ -462,7 +462,8 @@ public class OpenApiServer implements AutoCloseable {
      * Registers a content coding the server decodes on requests and applies to responses, alongside
      * the built-in gzip. When a client weights several codings equally, the ones registered here
      * win over gzip, in registration order; otherwise the client's weights decide. A decoded body
-     * is still held to {@link #maxDecompressedRequestBytes(long)}.
+     * is still held to {@link #maxDecompressedRequestBytes(long)}, or to {@link
+     * #maxDecompressedStreamingRequestBytes(long)} for a streaming handler.
      *
      * @throws IllegalArgumentException if a token or alias is not a lower-case RFC 9110 token, or
      *     is one of the reserved {@code gzip}, {@code x-gzip}, {@code identity} or {@code *}

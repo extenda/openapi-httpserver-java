@@ -25,9 +25,10 @@ import java.util.Objects;
  * through {@link Request#bodyStream()}, once, before {@link #handle(Request)} returns.
  *
  * <p>A registered {@code Content-Encoding} is decoded as the handler reads, and the decoded size is
- * held to {@link OpenApiServer.Builder#maxDecompressedRequestBytes(long)}. A body that exceeds it,
- * or fails to decode, surfaces from the stream's {@code read} as a {@link BadRequestException} (413
- * or 400) — possibly after the handler has already passed earlier bytes on. An uncoded body has no
+ * held to {@link OpenApiServer.Builder#maxDecompressedStreamingRequestBytes(long)}, which defaults
+ * to {@link OpenApiServer.Builder#maxDecompressedRequestBytes(long)}. A body that exceeds it, or
+ * fails to decode, surfaces from the stream's {@code read} as a {@link BadRequestException} (413 or
+ * 400) — possibly after the handler has already passed earlier bytes on. An uncoded body has no
  * size limit. To receive a coded body exactly as sent instead, see {@link #raw}.
  *
  * <p>Concurrent streaming requests can be capped server-wide with {@link

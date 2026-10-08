@@ -499,7 +499,7 @@ OpenApiServer.builder()
 Note this bounds the *inflated* size of a coded body, whatever the coding. It is not a request size
 limit — a body that arrives uncompressed is read in full, as it always has been. For a
 [streaming handler](#streaming-request-bodies), the cap is enforced as the handler reads, and
-[can be set separately](#raising-the-cap-for-streamed-bodies), past 2 GiB.
+[can be set separately](#a-separate-cap-for-streamed-bodies), past 2 GiB.
 
 **Responses.** A body is gzipped when the client sends `Accept-Encoding: gzip`, the media type is
 text-shaped (`text/*`, `application/json`, `application/xml`, `application/yaml`, and the `+json` /
@@ -542,7 +542,8 @@ OpenApiServer.builder()
 
 The client's weights pick the coding; on a tie, registered codings win over gzip, in registration
 order. `decode` and `encode` wrap streams rather than whole bodies, so a decoder that reads lazily
-is held to `maxDecompressedRequestBytes` without doing anything itself. `requestContentCoding` and
+is held to `maxDecompressedRequestBytes` (or, for a streaming handler,
+`maxDecompressedStreamingRequestBytes`) without doing anything itself. `requestContentCoding` and
 `responseContentCoding` register one direction only; a request coded with a response-only coding
 gets 415. Tokens must be lower-case, and `gzip`, `x-gzip`, `identity` and `*` are reserved.
 
@@ -1036,7 +1037,7 @@ What changes:
   is closed rather than reused.
 - **A `Content-Encoding` is decoded as the handler reads**, capped by
   [`maxDecompressedRequestBytes`](#content-encoding) unless a
-  [streaming cap](#raising-the-cap-for-streamed-bodies) is set. Going over the cap, or a body that
+  [streaming cap](#a-separate-cap-for-streamed-bodies) is set. Going over the cap, or a body that
   fails to decode, surfaces from `read` as a `BadRequestException` (413 or 400). The client
   dropping the connection surfaces as the plain `IOException` it would be for an uncoded body.
   Let it propagate and the `ExceptionHandler` renders it as usual. By then the handler may
@@ -1054,16 +1055,19 @@ Tests can build a streaming request directly with `Request.streaming(InputStream
 buffered requests, `bodyStream()` returns a fresh stream over `bytes()`, so a helper that reads a
 stream works for both.
 
-### Raising the cap for streamed bodies
+### A separate cap for streamed bodies
 
 `maxDecompressedRequestBytes` bounds buffered bodies too, which are held in a `byte[]`, so it
 can't go above 2 GiB. A streamed body is never held in memory, so it can have a cap of its own,
-any positive `long`:
+any positive `long` — higher than the buffered one, or lower:
 
 ```java
 OpenApiServer.builder()
+    .spec(spec)
+    .handlers(handlers)
     .maxDecompressedRequestBytes(32 * 1024 * 1024)                  // buffered: 32 MiB
     .maxDecompressedStreamingRequestBytes(50L * 1024 * 1024 * 1024) // streamed: 50 GiB
+    .build();
 ```
 
 Left unset, streamed bodies share `maxDecompressedRequestBytes`. It covers decoded bodies only;

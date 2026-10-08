@@ -17,9 +17,10 @@ import java.util.Set;
  *
  * <p>Both methods wrap a stream rather than convert a whole body: return a stream that codes as it
  * is read or written. For {@link #decode} this is what bounds the work — the server reads at most
- * {@code maxDecompressedRequestBytes} from the stream you return, so a lazy decoder is protected
- * from decompression bombs without doing anything, while one that expands the whole body up front
- * has already spent what that limit exists to protect.
+ * {@code maxDecompressedRequestBytes} (or {@code maxDecompressedStreamingRequestBytes} for a
+ * streaming handler) from the stream you return, so a lazy decoder is protected from decompression
+ * bombs without doing anything, while one that expands the whole body up front has already spent
+ * what that limit exists to protect.
  */
 public interface ContentCoding {
 

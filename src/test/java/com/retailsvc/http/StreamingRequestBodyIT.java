@@ -299,6 +299,26 @@ class StreamingRequestBodyIT {
   }
 
   @Test
+  void streamingExtraRouteIsHeldToTheStreamingCapWhicheverSetterComesFirst() throws Exception {
+    start(
+        Map.of(),
+        b ->
+            b.extraRoute("/ingest", counting())
+                .maxDecompressedStreamingRequestBytes(1024)
+                .maxDecompressedRequestBytes(1024 * 1024));
+    URI ingest = URI.create("http://localhost:%d/ingest".formatted(server.listenPort()));
+
+    var response =
+        send(
+            HttpRequest.newBuilder()
+                .uri(ingest)
+                .header("Content-Encoding", "gzip")
+                .POST(BodyPublishers.ofByteArray(gzip(new byte[64 * 1024]))));
+
+    assertThat(response.statusCode()).isEqualTo(HTTP_ENTITY_TOO_LARGE);
+  }
+
+  @Test
   void streamingHandlerOnAnOperationWithoutARequestBodyFailsAtBoot() {
     OpenApiServer.Builder builder =
         OpenApiServer.builder()
