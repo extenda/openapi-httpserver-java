@@ -62,27 +62,27 @@ public final class InFlightCounter {
     return inFlight() == 0;
   }
 
-  private void enter() {
-    lock.lock();
-    try {
-      inFlight++;
-    } finally {
-      lock.unlock();
-    }
-  }
-
-  private void exit() {
-    lock.lock();
-    try {
-      if (--inFlight == 0) {
-        idle.signalAll();
-      }
-    } finally {
-      lock.unlock();
-    }
-  }
-
   private final class CountingFilter extends Filter {
+
+    private void enter() {
+      lock.lock();
+      try {
+        inFlight++;
+      } finally {
+        lock.unlock();
+      }
+    }
+
+    private void exit() {
+      lock.lock();
+      try {
+        if (--inFlight == 0) {
+          idle.signalAll();
+        }
+      } finally {
+        lock.unlock();
+      }
+    }
 
     @Override
     public void doFilter(HttpExchange exchange, Chain chain) throws IOException {

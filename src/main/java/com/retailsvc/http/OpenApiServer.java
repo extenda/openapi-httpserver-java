@@ -232,10 +232,10 @@ public class OpenApiServer implements AutoCloseable {
   }
 
   /**
-   * The number of requests being handled now, from the first filter to the end of the
-   * after-response hooks. A request the JDK rejects before it dispatches it, such as a malformed
-   * one, is not counted. Reads {@code 0} once the server is idle, so a caller can wait for that
-   * before {@link #stop(int)}.
+   * A snapshot of the number of requests being handled now, from the first filter to the end of the
+   * after-response hooks, for logs and metrics. A request the JDK rejects before it dispatches it,
+   * such as a malformed one, is not counted. To drain before shutdown, call {@link #stop(int)},
+   * which waits for this count itself.
    */
   public int inFlightRequests() {
     return counter.inFlight();
@@ -269,9 +269,14 @@ public class OpenApiServer implements AutoCloseable {
       try {
         drainAndStop(delaySeconds);
         stopped.complete(null);
-      } catch (RuntimeException | Error e) {
+      } catch (RuntimeException e) {
         stopped.completeExceptionally(e);
         throw e;
+      } finally {
+        // An Error leaves the future open; complete it so no later call waits forever.
+        if (!stopped.isDone()) {
+          stopped.completeExceptionally(new IllegalStateException("The stop was aborted"));
+        }
       }
     } else {
       awaitStopped();
@@ -279,13 +284,8 @@ public class OpenApiServer implements AutoCloseable {
   }
 
   /**
-   * {@code HttpServer.stop(delay)} closes the listening socket at once and then waits on a latch
-   * that, in the JDK this was written against, can stay unreleased with nothing in flight. It runs
-   * on its own thread for the first, and {@code stop(0)} ends it: {@code ServerImpl.stop} is safe
-   * to call again while another call waits. Each call only sets {@code terminating}, posts another
-   * {@code StopRequested} event, closes the already closed socket and waits on the latch; its
-   * {@code finally} counts the latch down for every waiter and clears connections and timers, which
-   * tolerates repeats.
+   * The first call runs {@code HttpServer.stop(delay)} on a virtual thread, which closes the
+   * listener; {@code stop(0)} releases its latch.
    */
   private void drainAndStop(int delaySeconds) {
     Thread background = ofVirtual().name("http-stop").start(() -> httpServer.stop(delaySeconds));
@@ -294,14 +294,13 @@ public class OpenApiServer implements AutoCloseable {
     boolean interrupted = Thread.interrupted();
     httpServer.stop(0);
     try {
-      background.join(Duration.ofSeconds(STOP_JOIN_SECONDS));
+      if (!background.join(Duration.ofSeconds(STOP_JOIN_SECONDS))) {
+        LOG.warn(
+            "The JDK stop thread is still running {} s after the server was stopped",
+            STOP_JOIN_SECONDS);
+      }
     } catch (InterruptedException _) {
-      interrupted = true;
-    }
-    if (background.isAlive()) {
-      LOG.warn(
-          "The JDK stop thread is still running {} s after the server was stopped",
-          STOP_JOIN_SECONDS);
+      Thread.currentThread().interrupt();
     }
     if (interrupted) {
       Thread.currentThread().interrupt();
@@ -314,7 +313,7 @@ public class OpenApiServer implements AutoCloseable {
     } catch (InterruptedException _) {
       Thread.currentThread().interrupt();
     } catch (ExecutionException e) {
-      throw new IllegalStateException("The first stop failed", e.getCause());
+      throw new IllegalStateException("The first stop failed", e);
     }
   }
 

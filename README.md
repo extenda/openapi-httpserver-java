@@ -574,21 +574,23 @@ try (var server = OpenApiServer.builder()
 `stop(int)` and `shutdownTimeoutSeconds(int)` reject negative values with
 `IllegalArgumentException`.
 
-Stopping closes the listening socket at once, so no new connection is accepted. Requests on
-keep-alive connections that are already open are served until the JDK sees no exchange in flight,
-which can come before the after-response runnables of the last request have finished; the JDK then
-closes every connection, keep-alive ones included. The wait ends as soon as `inFlightRequests()` reads `0`, or when the delay elapses; every connection
-is then closed, which cuts off what is still running. A request counts as in flight from the first
-filter until its after-response runnables (`Request.afterResponse`, hooks) have run, so `stop` waits
-for those too. A request the JDK rejects before it dispatches it, such as a malformed one, is not
-counted.
+Stopping closes the listening socket at once, so no new connection is accepted.
+Requests on keep-alive connections that are already open are still served
+until the JDK sees no exchange in flight.
+The wait ends as soon as `inFlightRequests()` reads `0`, or when the delay elapses.
+Every connection is then closed, which cuts off what is still running.
+A request counts as in flight from the first filter
+until its after-response runnables (`Request.afterResponse`, hooks) have run,
+so `stop` waits for those too.
+A request the JDK rejects before it dispatches it, such as a malformed one, is not counted.
 
 Only the first `stop` call stops the server. A later or concurrent call waits until that stop is
 complete, then returns (or throws `IllegalStateException` if that stop failed); its own delay is
 ignored. A thread interrupted while it waits stops waiting and keeps its interrupt flag.
 
-`inFlightRequests()` is the server's own count, readable at any time, for example to log it or to
-wait for `0` before stopping.
+`inFlightRequests()` is a snapshot of the server's own count, readable at any time,
+for example for logs and metrics.
+To drain before shutdown, call `stop(int)`, which waits for the count itself.
 
 ## Interceptors and response decorators
 

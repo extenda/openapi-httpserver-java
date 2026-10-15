@@ -51,6 +51,7 @@ class GracefulStopIT {
   private static final int ROUNDS = 100;
   private static final long MAX_PARK_NANOS = 400_000;
   private static final long LONG_ENOUGH_MILLIS = 300;
+  private static final long POLL_MILLIS = 10;
 
   private final CountDownLatch release = new CountDownLatch(1);
   private final CountDownLatch entered = new CountDownLatch(1);
@@ -240,7 +241,7 @@ class GracefulStopIT {
   }
 
   @Test
-  void ignoresASecondStop() {
+  void returnsAtOnceWhenAlreadyStopped() {
     server = start(Map.of());
 
     server.stop(0);
@@ -343,13 +344,13 @@ class GracefulStopIT {
   }
 
   /** Polls {@code condition} for up to five seconds. */
-  private static boolean eventually(BooleanSupplier condition) throws InterruptedException {
+  private static boolean eventually(BooleanSupplier condition) {
     long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
     while (System.nanoTime() < deadline) {
       if (condition.getAsBoolean()) {
         return true;
       }
-      Thread.sleep(10);
+      LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(POLL_MILLIS));
     }
     return condition.getAsBoolean();
   }
