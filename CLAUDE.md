@@ -27,7 +27,7 @@ Request flow when `OpenApiServer` boots (`src/main/java/com/retailsvc/http/OpenA
 
 1. `HttpServer` is created on a port with a virtual-thread-per-task executor.
 2. One `HttpContext` is registered per spec binding at `spec.basePath()` (the first `servers[].url` path from the OpenAPI doc). Unless a binding owns `/`, a catch-all `/` context serves extra routes via `ExtrasRouter` and 404s everything else; `ExceptionFilter` wraps that context only.
-3. On a binding context, two filters run in order, then the handler:
+3. Every context the server creates, the binding contexts and the extras one, starts with an `InFlightCounter` filter that counts the exchange for `OpenApiServer.inFlightRequests()` and `stop(int)`. On a binding context, two more filters run in order, then the handler:
     - `RequestPreparationFilter` — reads the request body through `RequestBodyReader` (which decodes a registered `Content-Encoding` — gzip is built in — under a size cap), resolves the route, runs OpenAPI parameter + body validation via `DefaultValidator`, and binds the resulting `Request` into the `DispatchHandler.CURRENT` scoped value. It renders its own failures through the `ExceptionHandler` rather than relying on `ExceptionFilter`.
     - `SecurityFilter` — enforces the spec's `securitySchemes` / `security`, re-binding the `Request` with resolved principals. It writes its 401/403 responses straight to the exchange.
     - `DispatchHandler` — looks up the `RequestHandler` registered for the resolved `operationId` in the user-supplied map and invokes it, applying interceptors and response decorators. Handler coverage is verified at boot, so the lookup never returns `null`.

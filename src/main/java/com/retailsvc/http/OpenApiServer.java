@@ -9,6 +9,7 @@ import com.retailsvc.http.internal.DispatchHandler;
 import com.retailsvc.http.internal.ExceptionFilter;
 import com.retailsvc.http.internal.ExtrasRouter;
 import com.retailsvc.http.internal.FormTypeMapper;
+import com.retailsvc.http.internal.InFlightCounter;
 import com.retailsvc.http.internal.PemSslContext;
 import com.retailsvc.http.internal.RequestBodyReader;
 import com.retailsvc.http.internal.RequestPreparationFilter;
@@ -40,6 +41,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.net.ssl.SSLContext;
 import org.slf4j.Logger;
@@ -57,9 +62,13 @@ public class OpenApiServer implements AutoCloseable {
   private static final int DEFAULT_HTTPS_PORT = 8443;
   private static final String JSON = "application/json";
   private static final String GSON_CLASS = "com.google.gson.Gson";
+  private static final long STOP_JOIN_SECONDS = 5;
 
   private final HttpServer httpServer;
   private final int shutdownTimeoutSeconds;
+  private final InFlightCounter counter;
+  private final AtomicBoolean stopping = new AtomicBoolean();
+  private final CompletableFuture<Void> stopped = new CompletableFuture<>();
 
   /** Internal grouping of handler-related configuration to keep the constructor signature small. */
   record HandlerConfig(
@@ -98,8 +107,10 @@ public class OpenApiServer implements AutoCloseable {
     this.httpServer = createHttpServer(socketAddress, sslContext);
     httpServer.setExecutor(newThreadPerTaskExecutor(ofVirtual().name("http-", 0).factory()));
 
-    boolean anyBindingAtRoot = wireBindings(httpServer, bindings, bodyMappers, handlerConfig);
-    wireExtras(httpServer, anyBindingAtRoot, handlerConfig);
+    this.counter = new InFlightCounter();
+    boolean anyBindingAtRoot =
+        wireBindings(httpServer, bindings, bodyMappers, handlerConfig, counter);
+    wireExtras(httpServer, anyBindingAtRoot, handlerConfig, counter);
 
     httpServer.start();
     this.shutdownTimeoutSeconds = shutdownTimeoutSeconds;
@@ -120,12 +131,13 @@ public class OpenApiServer implements AutoCloseable {
       HttpServer httpServer,
       List<SpecBinding> bindings,
       Map<String, TypeMapper> bodyMappers,
-      HandlerConfig handlerConfig) {
+      HandlerConfig handlerConfig,
+      InFlightCounter counter) {
     boolean anyBindingAtRoot = false;
     for (SpecBinding binding : bindings) {
       String basePath = Optional.ofNullable(binding.spec().basePath()).orElse("/");
       anyBindingAtRoot |= "/".equals(basePath);
-      wireBinding(httpServer, basePath, binding, bodyMappers, handlerConfig);
+      wireBinding(httpServer, basePath, binding, bodyMappers, handlerConfig, counter);
     }
     return anyBindingAtRoot;
   }
@@ -135,11 +147,13 @@ public class OpenApiServer implements AutoCloseable {
       String basePath,
       SpecBinding binding,
       Map<String, TypeMapper> bodyMappers,
-      HandlerConfig handlerConfig) {
+      HandlerConfig handlerConfig,
+      InFlightCounter counter) {
     Map<String, Operation> operationsById =
         binding.spec().operations().stream()
             .collect(Collectors.toUnmodifiableMap(Operation::operationId, op -> op));
     HttpContext ctx = httpServer.createContext(basePath);
+    ctx.getFilters().add(counter.filter());
     ctx.getFilters()
         .add(
             new RequestPreparationFilter(
@@ -170,7 +184,10 @@ public class OpenApiServer implements AutoCloseable {
   }
 
   private static void wireExtras(
-      HttpServer httpServer, boolean anyBindingAtRoot, HandlerConfig handlerConfig) {
+      HttpServer httpServer,
+      boolean anyBindingAtRoot,
+      HandlerConfig handlerConfig,
+      InFlightCounter counter) {
     Map<String, RequestHandler> extras = handlerConfig.extras();
     if (anyBindingAtRoot) {
       if (!extras.isEmpty()) {
@@ -186,6 +203,7 @@ public class OpenApiServer implements AutoCloseable {
             handlerConfig.bodyReader(),
             handlerConfig.streamingLimit());
     HttpContext extrasCtx = httpServer.createContext("/", extrasRouter);
+    extrasCtx.getFilters().add(counter.filter());
     extrasCtx
         .getFilters()
         .add(new ExceptionFilter(handlerConfig.exceptionHandler(), handlerConfig.renderer()));
@@ -214,8 +232,32 @@ public class OpenApiServer implements AutoCloseable {
   }
 
   /**
+   * The number of requests being handled now, from the first filter to the end of the
+   * after-response hooks. A request the JDK rejects before it dispatches it, such as a malformed
+   * one, is not counted. Reads {@code 0} once the server is idle, so a caller can wait for that
+   * before {@link #stop(int)}.
+   */
+  public int inFlightRequests() {
+    return counter.inFlight();
+  }
+
+  /**
    * Stops the server, waiting up to {@code delaySeconds} for active exchanges to finish before
    * closing them. {@code 0} stops immediately.
+   *
+   * <p>The listening socket closes at once, so no new connection is accepted. Requests on
+   * keep-alive connections that are already open are served until the JDK sees no exchange in
+   * flight, which can come before the after-response runnables of the last request have finished;
+   * the JDK then closes every connection, keep-alive ones included. The wait ends when {@link
+   * #inFlightRequests()} reads {@code 0} or the delay elapses, whichever comes first; the server
+   * then closes every connection, which cuts off whatever is still running. The wait is on this
+   * server's own count, not on the JDK's, which can wait out the whole delay with nothing in
+   * flight.
+   *
+   * <p>Only the first call stops the server. A later call, also a concurrent one, waits until that
+   * stop is complete and then returns, or throws {@link IllegalStateException} if that stop failed;
+   * its own {@code delaySeconds} is ignored. A thread that is interrupted while it waits stops
+   * waiting and keeps its interrupt flag.
    *
    * @param delaySeconds maximum seconds to wait for in-flight exchanges; must be non-negative
    */
@@ -223,8 +265,56 @@ public class OpenApiServer implements AutoCloseable {
     if (delaySeconds < 0) {
       throw new IllegalArgumentException("delaySeconds must be non-negative, got " + delaySeconds);
     }
-    if (httpServer != null) {
-      httpServer.stop(delaySeconds);
+    if (stopping.compareAndSet(false, true)) {
+      try {
+        drainAndStop(delaySeconds);
+        stopped.complete(null);
+      } catch (RuntimeException | Error e) {
+        stopped.completeExceptionally(e);
+        throw e;
+      }
+    } else {
+      awaitStopped();
+    }
+  }
+
+  /**
+   * {@code HttpServer.stop(delay)} closes the listening socket at once and then waits on a latch
+   * that, in the JDK this was written against, can stay unreleased with nothing in flight. It runs
+   * on its own thread for the first, and {@code stop(0)} ends it: {@code ServerImpl.stop} is safe
+   * to call again while another call waits. Each call only sets {@code terminating}, posts another
+   * {@code StopRequested} event, closes the already closed socket and waits on the latch; its
+   * {@code finally} counts the latch down for every waiter and clears connections and timers, which
+   * tolerates repeats.
+   */
+  private void drainAndStop(int delaySeconds) {
+    Thread background = ofVirtual().name("http-stop").start(() -> httpServer.stop(delaySeconds));
+    counter.awaitIdle(delaySeconds, TimeUnit.SECONDS);
+    // The JDK swallows an interrupt in stop(0), so take the flag now and set it again at the end.
+    boolean interrupted = Thread.interrupted();
+    httpServer.stop(0);
+    try {
+      background.join(Duration.ofSeconds(STOP_JOIN_SECONDS));
+    } catch (InterruptedException _) {
+      interrupted = true;
+    }
+    if (background.isAlive()) {
+      LOG.warn(
+          "The JDK stop thread is still running {} s after the server was stopped",
+          STOP_JOIN_SECONDS);
+    }
+    if (interrupted) {
+      Thread.currentThread().interrupt();
+    }
+  }
+
+  private void awaitStopped() {
+    try {
+      stopped.get();
+    } catch (InterruptedException _) {
+      Thread.currentThread().interrupt();
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("The first stop failed", e.getCause());
     }
   }
 
