@@ -49,6 +49,11 @@ public interface ContentCoding {
   /**
    * Wraps a response stream so that everything written to the returned stream reaches {@code sink}
    * coded. Closing the returned stream must finish the coded payload and close {@code sink}.
+   *
+   * <p>Flushing the returned stream must write everything written so far to {@code sink} in a form
+   * the client can already decode, then flush {@code sink}. A coder that holds it back stalls
+   * streaming responses. For deflate-based codings this means a sync flush, which compressors
+   * usually leave off by default.
    */
   OutputStream encode(OutputStream sink) throws IOException;
 }

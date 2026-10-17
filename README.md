@@ -523,7 +523,8 @@ shared caches keep the two forms apart. It is merged into any `Vary` your handle
 A handler that sets its own `Content-Encoding` is left alone, and so is a payload the coding
 fails to shrink. Statuses that carry no content never get a coding.
 
-Streamed responses (`Response.stream(...)`) are coded as they are written. A length declared by
+Streamed responses (`Response.stream(...)`) are coded as they are written, and a handler's
+`flush()` sends the client everything written so far, coded. A length declared by
 the sized overload describes the uncoded body, so a coded stream goes out chunked; a stream of
 unknown length is coded regardless of the threshold, since measuring it would defeat streaming it.
 For the same reason a `HEAD` whose `GET` would be compressed omits `Content-Length` rather than
