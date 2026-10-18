@@ -29,8 +29,12 @@ final class GzipCoding implements ContentCoding {
     return new GZIPInputStream(coded, BUFFER_SIZE);
   }
 
+  /**
+   * Sync-flushes, so a flushed streamed response reaches the client then rather than when the
+   * deflater's buffer fills. Whole bodies are coded without a flush, so they pay nothing for it.
+   */
   @Override
   public OutputStream encode(OutputStream sink) throws IOException {
-    return new GZIPOutputStream(sink);
+    return new GZIPOutputStream(sink, true);
   }
 }

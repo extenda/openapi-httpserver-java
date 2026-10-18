@@ -6,6 +6,7 @@ import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNSUPPORTED_TYPE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import com.retailsvc.http.start.TextEchoHandler;
 import java.io.ByteArrayInputStream;
@@ -17,7 +18,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.UnaryOperator;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -237,6 +241,52 @@ class GzipIT extends ServerBaseTest {
 
       assertThat(response.headers().firstValue(CONTENT_LENGTH))
           .contains(String.valueOf(classpathBytes().length));
+    }
+  }
+
+  @Test
+  void flushedEventOfGzippedStreamReachesClientBeforeStreamEnds() throws Exception {
+    byte[] first = "{\"event\":1}\n".getBytes(UTF_8);
+    byte[] second = "{\"event\":2}\n".getBytes(UTF_8);
+    CountDownLatch clientSawFirst = new CountDownLatch(1);
+    RequestHandler events =
+        req ->
+            Response.stream(
+                HTTP_OK,
+                "application/x-ndjson",
+                out -> {
+                  out.write(first);
+                  out.flush();
+                  try {
+                    clientSawFirst.await(10, TimeUnit.SECONDS);
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException(e);
+                  }
+                  out.write(second);
+                });
+    try (var s = serverWith(Map.of(), builder -> builder.extraRoute("/events", events));
+        var client = httpClient()) {
+      var request =
+          HttpRequest.newBuilder()
+              .uri(URI.create("http://localhost:%d/events".formatted(s.listenPort())))
+              .header(ACCEPT_ENCODING, "gzip")
+              .GET()
+              .build();
+
+      HttpResponse<InputStream> response = client.send(request, BodyHandlers.ofInputStream());
+
+      assertThat(response.headers().firstValue(CONTENT_ENCODING)).contains("gzip");
+      try (var in = new GZIPInputStream(response.body())) {
+        try {
+          byte[] got =
+              assertTimeoutPreemptively(Duration.ofSeconds(5), () -> in.readNBytes(first.length));
+          assertThat(got).isEqualTo(first);
+        } finally {
+          clientSawFirst.countDown();
+        }
+        assertThat(in.readAllBytes()).isEqualTo(second);
+      }
     }
   }
 
